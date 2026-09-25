@@ -1,0 +1,27 @@
+# GPU passthrough — layered on when the host has an NVIDIA GPU.
+#
+#   ./closed-loop.sh dev            auto: on when `nvidia-smi` lists a GPU here
+#   ./closed-loop.sh dev --gpu      insist, and fail loudly if Docker cannot
+#   ./closed-loop.sh dev --no-gpu   never
+#
+# `gpus: all` is a requirement, not a preference — Docker refuses to create the
+# container at all without an NVIDIA device driver. So it lives in its own
+# overlay rather than the base file: added on the machines it is true of,
+# absent everywhere else.
+#
+# The `app` service only needs this so /api/hardware reports the real card
+# instead of "no GPU" on a machine that has one — a container that can't see
+# the GPU can't describe one honestly, and `model_config.resolve()`'s fit
+# heuristic would size against 0 bytes of VRAM instead of what's actually
+# there. `ollama` needs it to run inference on it at all, and only exists under
+# `--profile with-ollama`.
+#
+# Under WSL2 there is nothing extra to install: Docker Desktop injects the
+# driver libraries and `nvidia-smi` from the Windows host. On native Linux this
+# needs the NVIDIA Container Toolkit.
+services:
+  app:
+    gpus: all
+
+  ollama:
+    gpus: all

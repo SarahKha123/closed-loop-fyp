@@ -45,6 +45,10 @@ export interface KpiTile {
 export interface ChatMessage {
   role: "assistant" | "user"
   text: string
+  /** True while an assistant reply is still streaming in from the model. */
+  streaming?: boolean
+  /** True when `text` is an error message rather than a real reply. */
+  error?: boolean
 }
 
 /** Which sensor-code prefixes (from SensorRow.sensor) are relevant to each component. */

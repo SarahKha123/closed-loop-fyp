@@ -26,7 +26,7 @@ function SensorsView() {
       <PageHeader title="Sensor Feed" subtitle={`Cycle ${cycle.id.toLocaleString()} sensor summary · 17 channels`} />
 
       {component && (
-        <div className="flex w-fit items-center gap-2 rounded-full bg-accent-bg px-3.5 py-1.5 text-[12.5px] font-medium text-accent-text">
+        <div className="flex w-fit items-center gap-2 rounded-full bg-accent-bg px-3.5 py-1.5 text-[17.5px] font-medium text-accent-text">
           Filtered to {component}
           <Link to="/sensors" className="font-semibold underline">
             Clear
@@ -37,8 +37,8 @@ function SensorsView() {
       <table className="w-full overflow-hidden rounded-xl border border-ink/10 bg-surface [border-collapse:separate] [border-spacing:0]">
         <thead>
           <tr className="bg-[#F3F2EE]">
-            <th className="px-3.5 py-2.5 text-left text-[12px] font-semibold text-ink-muted">Sensor</th>
-            <th className="px-3.5 py-2.5 text-left text-[12px] font-semibold text-ink-muted">
+            <th className="px-3.5 py-2.5 text-left text-[17px] font-semibold text-ink-muted">Sensor</th>
+            <th className="px-3.5 py-2.5 text-left text-[17px] font-semibold text-ink-muted">
               Cycle mean
             </th>
           </tr>
@@ -53,8 +53,8 @@ function SensorsView() {
                   relevant && component ? "bg-accent-bg/40" : ""
                 }`}
               >
-                <td className="px-3.5 py-2.5 font-mono text-[13px]">{s.sensor}</td>
-                <td className="px-3.5 py-2.5 font-mono text-[13px]">{s.mean}</td>
+                <td className="px-3.5 py-2.5 font-mono text-[18px]">{s.sensor}</td>
+                <td className="px-3.5 py-2.5 font-mono text-[18px]">{s.mean}</td>
               </tr>
             )
           })}

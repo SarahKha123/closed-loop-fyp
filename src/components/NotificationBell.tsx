@@ -9,13 +9,13 @@ export function NotificationBell() {
   return (
     <Link
       to="/work-orders"
-      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-medium ${
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[17.5px] font-medium ${
         allClear ? "border-good-text/20 bg-good-bg text-good-text" : "border-critical-text/20 bg-critical-bg text-critical-text"
       }`}
     >
       <svg
-        width="14"
-        height="14"
+        width="18"
+        height="18"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

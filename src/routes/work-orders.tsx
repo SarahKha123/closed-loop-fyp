@@ -18,7 +18,7 @@ function WorkOrdersView() {
       />
 
       {workOrders.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-surface p-8 text-center text-[13px] text-ink-faint">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-surface p-8 text-center text-[18px] text-ink-faint">
           No work orders on record yet.
         </div>
       ) : (
@@ -30,12 +30,12 @@ function WorkOrdersView() {
             >
               <StatusPill kind={w.kind} label={w.status} />
               <div className="grow">
-                <div className="text-[14px] font-semibold">
+                <div className="text-[19px] font-semibold">
                   {w.id} · {w.component}
                 </div>
-                <div className="mt-0.5 text-[12.5px] text-ink-faint">{w.note}</div>
+                <div className="mt-0.5 text-[17.5px] text-ink-faint">{w.note}</div>
               </div>
-              <div className="text-right text-[12px] text-ink-faint">
+              <div className="text-right text-[17px] text-ink-faint">
                 <div>{w.when}</div>
                 <div>{w.assignee}</div>
               </div>

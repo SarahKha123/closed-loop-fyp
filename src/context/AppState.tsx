@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useReducer } from "rea
 import type { ReactNode } from "react"
 import type { ChatMessage } from "../data"
 import { cycles, defaultCycleId, explanationFor, getCycle, getKpiTiles, getWorkOrders } from "../cycles"
+import { streamEvents } from "../lib/http"
 
 interface Toast {
   id: number
@@ -15,14 +16,18 @@ interface State {
   announced: Set<string>
   askedWorkOrders: Set<string>
   toasts: Toast[]
-  showComparison: boolean
 }
+
+type ChatEvent = { phase: "token"; text: string } | { phase: "done"; model: string } | { phase: "error"; error: string }
 
 type Action =
   | { type: "SET_CYCLE"; id: number }
   | { type: "ASK"; woId: string; question: string; answer: string }
   | { type: "DISMISS_TOAST"; id: number }
-  | { type: "TOGGLE_COMPARISON" }
+  | { type: "SEND_MESSAGE"; text: string }
+  | { type: "APPEND_TOKEN"; text: string }
+  | { type: "STREAM_DONE" }
+  | { type: "STREAM_ERROR"; error: string }
 
 const initialMessages: ChatMessage[] = [
   { role: "assistant", text: "Latest batch processed — cycle 1,465 of 2,205. 1 component flagged for review." },
@@ -35,7 +40,6 @@ const initialState: State = {
   announced: new Set(["open:WO-0442"]),
   askedWorkOrders: new Set(),
   toasts: [],
-  showComparison: false,
 }
 
 let toastSeq = 0
@@ -80,8 +84,32 @@ function reducer(state: State, action: Action): State {
     }
     case "DISMISS_TOAST":
       return { ...state, toasts: state.toasts.filter((t) => t.id !== action.id) }
-    case "TOGGLE_COMPARISON":
-      return { ...state, showComparison: !state.showComparison }
+    case "SEND_MESSAGE":
+      return {
+        ...state,
+        messages: [...state.messages, { role: "user", text: action.text }, { role: "assistant", text: "", streaming: true }],
+      }
+    case "APPEND_TOKEN": {
+      const messages = [...state.messages]
+      const last = messages[messages.length - 1]
+      if (!last || last.role !== "assistant") return state
+      messages[messages.length - 1] = { ...last, text: last.text + action.text }
+      return { ...state, messages }
+    }
+    case "STREAM_DONE": {
+      const messages = [...state.messages]
+      const last = messages[messages.length - 1]
+      if (!last || last.role !== "assistant") return state
+      messages[messages.length - 1] = { ...last, streaming: false }
+      return { ...state, messages }
+    }
+    case "STREAM_ERROR": {
+      const messages = [...state.messages]
+      const last = messages[messages.length - 1]
+      if (!last || last.role !== "assistant") return state
+      messages[messages.length - 1] = { ...last, text: action.error, streaming: false, error: true }
+      return { ...state, messages }
+    }
   }
 }
 
@@ -93,12 +121,11 @@ interface AppStateValue {
   kpiTiles: ReturnType<typeof getKpiTiles>
   messages: ChatMessage[]
   toasts: Toast[]
-  showComparison: boolean
   setCycle: (id: number) => void
   askAbout: (componentName: string) => void
   hasAskedCurrent: boolean
   dismissToast: (id: number) => void
-  toggleComparison: () => void
+  sendChat: (text: string, model?: string | null) => void
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null)
@@ -112,7 +139,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const setCycle = useCallback((id: number) => dispatch({ type: "SET_CYCLE", id }), [])
   const dismissToast = useCallback((id: number) => dispatch({ type: "DISMISS_TOAST", id }), [])
-  const toggleComparison = useCallback(() => dispatch({ type: "TOGGLE_COMPARISON" }), [])
 
   const currentWorkOrder = cycle.flaggedComponent
     ? workOrders.find((w) => w.component === cycle.flaggedComponent && w.status === "Open")
@@ -136,6 +162,44 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const hasAskedCurrent = currentWorkOrder ? state.askedWorkOrders.has(currentWorkOrder.id) : true
 
+  const sendChat = useCallback(
+    (text: string, model?: string | null) => {
+      const trimmed = text.trim()
+      if (!trimmed) return
+
+      const history = state.messages
+        .filter((m) => !m.error && m.text)
+        .map((m) => ({ role: m.role, content: m.text }))
+
+      const flagged = cycle.flaggedComponent
+      const context = [
+        "You are the Advisor panel embedded in Closed Loop, a predictive-maintenance dashboard for a hydraulic test rig (UCI hydraulic condition monitoring dataset).",
+        `Current batch cycle: ${cycle.id.toLocaleString()}.`,
+        `Component readings: ${cycle.components.map((c) => `${c.name} — ${c.value} (${c.statusLabel})`).join("; ")}.`,
+        flagged ? `Flagged component: ${flagged}.` : "No component is currently flagged.",
+        "Answer briefly and concretely, in the voice of a maintenance engineer's assistant.",
+      ].join(" ")
+
+      dispatch({ type: "SEND_MESSAGE", text: trimmed })
+
+      streamEvents<ChatEvent>(
+        "/api/chat",
+        {
+          messages: [{ role: "system", content: context }, ...history, { role: "user", content: trimmed }],
+          model: model ?? undefined,
+        },
+        (event) => {
+          if (event.phase === "token") dispatch({ type: "APPEND_TOKEN", text: event.text })
+          else if (event.phase === "done") dispatch({ type: "STREAM_DONE" })
+          else if (event.phase === "error") dispatch({ type: "STREAM_ERROR", error: event.error })
+        },
+      ).done.catch((err: unknown) => {
+        dispatch({ type: "STREAM_ERROR", error: err instanceof Error ? err.message : "could not reach the backend" })
+      })
+    },
+    [state.messages, cycle],
+  )
+
   const value: AppStateValue = {
     selectedCycleId: state.selectedCycleId,
     cycle,
@@ -144,12 +208,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     kpiTiles,
     messages: state.messages,
     toasts: state.toasts,
-    showComparison: state.showComparison,
     setCycle,
     askAbout,
     hasAskedCurrent,
     dismissToast,
-    toggleComparison,
+    sendChat,
   }
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>

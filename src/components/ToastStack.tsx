@@ -16,7 +16,7 @@ function ToastItem({ id, text, tone, onDismiss }: ToastItemProps) {
 
   return (
     <div
-      className={`animate-toast-in flex items-center gap-2 rounded-xl border px-4 py-3 text-[13px] font-medium shadow-lg ${
+      className={`animate-toast-in flex items-center gap-2 rounded-xl border px-4 py-3 text-[18px] font-medium shadow-lg ${
         tone === "critical" ? "border-critical-text/20 bg-critical-bg text-critical-text" : "border-good-text/20 bg-good-bg text-good-text"
       }`}
     >

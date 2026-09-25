@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { dataLayer } from "../data"
-import { ComparisonToggle } from "./ComparisonToggle"
 import { CycleSelector } from "./CycleSelector"
+import { ModelPicker } from "./ModelPicker"
 import { NotificationBell } from "./NotificationBell"
 
 const navItems = [
@@ -12,11 +12,11 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <div className="flex w-[260px] shrink-0 flex-col gap-[22px] border-r border-ink/10 bg-surface px-5 py-7">
-      <div className="flex items-center gap-2.5">
+    <div className="flex w-[310px] shrink-0 flex-col gap-[26px] border-r border-ink/10 bg-surface px-6 py-8">
+      <div className="flex items-center gap-3">
         <svg
-          width="26"
-          height="26"
+          width="32"
+          height="32"
           viewBox="0 0 24 24"
           fill="none"
           stroke="#2A78D6"
@@ -28,26 +28,26 @@ export function Sidebar() {
           <polyline points="21 3 21 9 15 9" />
         </svg>
         <div>
-          <div className="text-[17px] leading-tight font-bold">Closed Loop</div>
-          <div className="mt-0.5 text-[10.5px] tracking-wide text-ink-faint uppercase">
+          <div className="text-[22px] leading-tight font-bold">Closed Loop</div>
+          <div className="mt-0.5 text-[15.5px] tracking-wide text-ink-faint uppercase">
             Predictive Maintenance
           </div>
         </div>
       </div>
 
-      <div className="text-[13px] text-ink-muted">Reading vitals, Operator.</div>
+      <div className="text-[18px] text-ink-muted">Reading vitals, Operator.</div>
 
       <NotificationBell />
 
       <CycleSelector />
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         {navItems.map((item) => (
           <Link
             key={item.to}
             to={item.to}
             activeOptions={{ exact: item.to === "/" }}
-            className="w-full rounded-lg px-3 py-2.5 text-left text-[14px] font-medium text-[#3F3E3A] transition-colors"
+            className="w-full rounded-lg px-3.5 py-3 text-left text-[19px] font-medium text-[#3F3E3A] transition-colors"
             activeProps={{
               className: "!bg-accent-bg !text-accent-text !font-semibold",
             }}
@@ -60,14 +60,14 @@ export function Sidebar() {
       <div className="h-px bg-ink/10" />
 
       <div>
-        <div className="mb-2 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+        <div className="mb-2 text-[16px] font-semibold tracking-wide text-ink-faint uppercase">
           Data Layer
         </div>
         <div className="flex flex-col">
           {dataLayer.map((d) => (
-            <div key={d.label} className="flex justify-between py-1.5 text-[12.5px] text-[#3F3E3A]">
+            <div key={d.label} className="flex justify-between py-1.5 text-[17.5px] text-[#3F3E3A]">
               <span>{d.label}</span>
-              <span className="font-mono text-[11.5px] text-ink-faint">{d.value}</span>
+              <span className="font-mono text-[16.5px] text-ink-faint">{d.value}</span>
             </div>
           ))}
         </div>
@@ -75,9 +75,9 @@ export function Sidebar() {
 
       <div className="grow" />
 
-      <ComparisonToggle />
+      <ModelPicker />
 
-      <div className="border-t border-ink/10 pt-3.5 text-[11px] text-ink-faint">
+      <div className="border-t border-ink/10 pt-3.5 text-[16px] text-ink-faint">
         FYP I · Universiti Teknologi PETRONAS
       </div>
     </div>

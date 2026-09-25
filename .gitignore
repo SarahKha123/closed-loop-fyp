@@ -26,3 +26,13 @@ src/routeTree.gen.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Backend
+backend/.venv
+backend/__pycache__
+**/__pycache__
+*.pyc
+
+# Local environment overrides — .env.example is the tracked template
+.env
+
