@@ -1,5 +1,8 @@
 import { Link } from "@tanstack/react-router"
 import { dataLayer } from "../data"
+import { ComparisonToggle } from "./ComparisonToggle"
+import { CycleSelector } from "./CycleSelector"
+import { NotificationBell } from "./NotificationBell"
 
 const navItems = [
   { to: "/", label: "The Loop" },
@@ -34,6 +37,10 @@ export function Sidebar() {
 
       <div className="text-[13px] text-ink-muted">Reading vitals, Operator.</div>
 
+      <NotificationBell />
+
+      <CycleSelector />
+
       <div className="flex flex-col gap-1">
         {navItems.map((item) => (
           <Link
@@ -67,6 +74,8 @@ export function Sidebar() {
       </div>
 
       <div className="grow" />
+
+      <ComparisonToggle />
 
       <div className="border-t border-ink/10 pt-3.5 text-[11px] text-ink-faint">
         FYP I · Universiti Teknologi PETRONAS

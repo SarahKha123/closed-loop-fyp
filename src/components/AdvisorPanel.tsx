@@ -1,15 +1,8 @@
-import { useState } from "react"
-import { accumulatorAnswer, accumulatorQuestion, initialMessages, type ChatMessage } from "../data"
+import { useAppState } from "../context/AppState"
 
 export function AdvisorPanel() {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
-  const [asked, setAsked] = useState(false)
-
-  function askAccumulator() {
-    if (asked) return
-    setAsked(true)
-    setMessages((prev) => [...prev, accumulatorQuestion, accumulatorAnswer])
-  }
+  const { cycle, messages, askAbout, hasAskedCurrent } = useAppState()
+  const flagged = cycle.flaggedComponent
 
   return (
     <div className="sticky top-8 flex w-[360px] max-h-[calc(100vh-64px)] shrink-0 flex-col gap-3.5 rounded-2xl border border-ink/10 bg-surface p-5">
@@ -36,13 +29,13 @@ export function AdvisorPanel() {
         ))}
       </div>
 
-      {!asked && (
+      {flagged && !hasAskedCurrent && (
         <button
           type="button"
-          onClick={askAccumulator}
+          onClick={() => askAbout(flagged)}
           className="self-start rounded-full border border-accent-border bg-accent-bg px-3.5 py-2 text-[12.5px] font-semibold text-accent-text"
         >
-          Why is the accumulator flagged?
+          Why is the {flagged.toLowerCase()} flagged?
         </button>
       )}
 

@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"
 import { StatusPill } from "../components/StatusPill"
-import { components, kpiTiles } from "../data"
+import { useAppState } from "../context/AppState"
 import { statusClasses } from "../lib/status"
 
 export const Route = createFileRoute("/")({
@@ -9,11 +9,13 @@ export const Route = createFileRoute("/")({
 })
 
 function LoopView() {
+  const { cycle, kpiTiles } = useAppState()
+
   return (
     <div className="flex flex-col gap-[22px]">
       <PageHeader
         title="System Overview"
-        subtitle="Latest batch · Cycle 1,465 of 2,205 · UCI Hydraulic Condition Monitoring dataset"
+        subtitle={`Latest batch · Cycle ${cycle.id.toLocaleString()} of 2,205 · UCI Hydraulic Condition Monitoring dataset`}
       />
 
       <div className="flex gap-4">
@@ -30,10 +32,12 @@ function LoopView() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {components.map((c) => (
-          <div
+        {cycle.components.map((c) => (
+          <Link
             key={c.name}
-            className="flex flex-col gap-2.5 rounded-[14px] border border-ink/10 bg-surface p-[18px]"
+            to="/sensors"
+            search={{ component: c.name }}
+            className="flex flex-col gap-2.5 rounded-[14px] border border-ink/10 bg-surface p-[18px] transition-colors hover:border-accent-border"
           >
             <div className="flex items-center justify-between">
               <div className="text-[15px] font-semibold">{c.name}</div>
@@ -47,7 +51,7 @@ function LoopView() {
                 style={{ width: `${c.gaugePct}%` }}
               />
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
