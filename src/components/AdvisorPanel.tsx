@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useAppState } from "../context/AppState"
-import { useSettings } from "../context/SettingsContext"
 
 export function AdvisorPanel() {
   const { cycle, messages, askAbout, hasAskedCurrent, sendChat } = useAppState()
-  const { effectiveModel } = useSettings()
   const flagged = cycle.flaggedComponent
   const [input, setInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -17,12 +15,12 @@ export function AdvisorPanel() {
 
   function send() {
     if (!input.trim() || isStreaming) return
-    sendChat(input, effectiveModel)
+    sendChat(input)
     setInput("")
   }
 
   return (
-    <div className="sticky top-8 flex w-[360px] max-h-[calc(100vh-64px)] shrink-0 flex-col gap-3.5 rounded-2xl border border-ink/10 bg-surface p-5">
+    <div className="flex max-h-full w-[360px] shrink-0 self-start flex-col gap-3.5 rounded-2xl border border-ink/10 bg-surface p-5">
       <div>
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-accent" />

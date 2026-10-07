@@ -8,11 +8,13 @@ export interface OllamaModel {
   family: string | null
   parameter_size: string | null
   quantization_level: string | null
+  embedding?: boolean
 }
 
 export interface ActiveModel {
-  mode: "auto" | "pinned"
+  mode: "auto" | "pinned" | "cloud"
   tag: string | null
+  provider?: string | null
   resolved: boolean
   reason: string
   ollama_error: string | null
@@ -23,10 +25,9 @@ interface SettingsValue {
   modelsLoading: boolean
   modelsError: string | null
   active: ActiveModel | null
-  /** The model tag the Advisor will actually use — the resolved tag, whatever the mode. */
-  effectiveModel: string | null
   setModel: (tag: string) => Promise<void>
   setAuto: () => Promise<void>
+  setCloud: (provider: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -75,14 +76,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setActive(result)
   }, [])
 
+  const setCloud = useCallback(async (provider: string) => {
+    const result = await request<ActiveModel>("/api/models/select", {
+      method: "POST",
+      body: JSON.stringify({ mode: "cloud", provider }),
+    })
+    setActive(result)
+  }, [])
+
   const value: SettingsValue = {
     models,
     modelsLoading,
     modelsError,
     active,
-    effectiveModel: active?.tag ?? null,
     setModel,
     setAuto,
+    setCloud,
     refresh,
   }
 

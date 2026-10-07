@@ -8,11 +8,11 @@ means something on another.
 |----------|-------------------------------------------------------------------|
 | `pinned` | Run this exact model. Reported unresolved if it isn't installed.  |
 | `auto`   | Run the biggest installed model that comfortably fits in RAM.     |
+| `cloud`  | Answer from a cloud provider (`provider`), via `services/cloud`.  |
 
 `auto`'s fit rule is a simple heuristic (model's on-disk size against total
-RAM) rather than Daedalus's measured-architecture fit scorer — there is no
-model catalogue here, and a dashboard's model picker doesn't need one to make
-a reasonable default.
+RAM) rather than Daedalus's measured-architecture fit scorer — it ranks what
+is installed, and needs no catalogue to make a reasonable default.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
-from . import paths
+from . import cloud, paths
 
 SCHEMA_VERSION = 1
 
@@ -34,6 +34,7 @@ _DEFAULT: dict[str, Any] = {
     "schema_version": SCHEMA_VERSION,
     "mode": "auto",
     "pinned": None,
+    "provider": None,
     "updated_at": None,
     "updated_by": None,
 }
@@ -41,7 +42,9 @@ _DEFAULT: dict[str, Any] = {
 # A model is "safe" to auto-select when it takes up no more than this fraction
 # of total RAM — leaving room for the OS, the browser, and everything else
 # running on the machine that also happens to be running this dashboard.
-_SAFE_RAM_FRACTION = 0.6
+SAFE_RAM_FRACTION = 0.6
+
+_MODES = {"auto", "pinned", "cloud"}
 
 
 def _now() -> str:
@@ -60,24 +63,27 @@ def read() -> dict[str, Any]:
 
     config = dict(_DEFAULT)
     config.update({k: v for k, v in data.items() if k in _DEFAULT})
-    if config.get("mode") not in {"auto", "pinned"}:
+    if config.get("mode") not in _MODES:
         config["mode"] = "auto"
     return config
 
 
-def write(*, mode: str, tag: str | None = None) -> dict[str, Any]:
+def write(*, mode: str, tag: str | None = None, provider: str | None = None) -> dict[str, Any]:
     """Commit a choice, atomically. Returns the config as written."""
-    if mode not in {"auto", "pinned"}:
-        raise ValueError(f"mode must be 'auto' or 'pinned', not {mode!r}")
+    if mode not in _MODES:
+        raise ValueError(f"mode must be one of {sorted(_MODES)}, not {mode!r}")
     if mode == "pinned" and not tag:
         raise ValueError("pinned mode needs a tag")
+    if mode == "cloud" and provider not in cloud.PROVIDERS:
+        raise ValueError(f"cloud mode needs a known provider, not {provider!r}")
 
     config = {
         "schema_version": SCHEMA_VERSION,
         "mode": mode,
         "pinned": tag if mode == "pinned" else None,
+        "provider": provider if mode == "cloud" else None,
         "updated_at": _now(),
-        "updated_by": "model-picker",
+        "updated_by": "models-page",
     }
 
     with _write_lock:
@@ -105,6 +111,22 @@ def resolve(installed: list[dict[str, Any]], hardware: dict[str, Any]) -> dict[s
     config = read()
     mode = config["mode"]
 
+    if mode == "cloud":
+        pid = config.get("provider") or ""
+        entry = next((p for p in cloud.public() if p["id"] == pid), None)
+        ready = bool(entry and entry["ready"])
+        return {
+            "mode": "cloud",
+            "tag": entry["model"] if entry and entry["model"] else None,
+            "provider": pid,
+            "resolved": ready,
+            "reason": (
+                f"cloud: {entry['label']}" if ready
+                else f"cloud provider {pid or '(none)'} needs an API key and a model. Set them on the Models page."
+            ),
+            "config": config,
+        }
+
     if mode == "pinned":
         tag = config.get("pinned")
         match = next((m for m in installed if m["name"] == tag), None)
@@ -120,6 +142,7 @@ def resolve(installed: list[dict[str, Any]], hardware: dict[str, Any]) -> dict[s
             "config": config,
         }
 
+    installed = [m for m in installed if not m.get("embedding")]
     if not installed:
         return {
             "mode": "auto",
@@ -133,7 +156,7 @@ def resolve(installed: list[dict[str, Any]], hardware: dict[str, Any]) -> dict[s
     with_size = [m for m in installed if isinstance(m.get("size_bytes"), int)]
 
     if ram_total:
-        budget = ram_total * _SAFE_RAM_FRACTION
+        budget = ram_total * SAFE_RAM_FRACTION
         safe = [m for m in with_size if m["size_bytes"] <= budget]
         if safe:
             best = max(safe, key=lambda m: m["size_bytes"])

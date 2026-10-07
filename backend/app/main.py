@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, hardware, health, models
+from .api import chat, cloud, hardware, health, models
 from .services import paths
 
 paths.ensure_dirs()
@@ -36,7 +36,7 @@ app.add_middleware(
         "http://127.0.0.1:4173",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
 
@@ -44,6 +44,7 @@ app.include_router(health.router)
 app.include_router(models.router)
 app.include_router(hardware.router)
 app.include_router(chat.router)
+app.include_router(cloud.router)
 
 
 _static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR", "static"))

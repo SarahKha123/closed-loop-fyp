@@ -36,3 +36,7 @@ backend/__pycache__
 # Local environment overrides — .env.example is the tracked template
 .env
 
+
+# Cloud API keys (written by the Models page)
+config/cloud.json
+config/.cloud-*.tmp

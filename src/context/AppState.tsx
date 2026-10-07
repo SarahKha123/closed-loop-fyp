@@ -125,7 +125,7 @@ interface AppStateValue {
   askAbout: (componentName: string) => void
   hasAskedCurrent: boolean
   dismissToast: (id: number) => void
-  sendChat: (text: string, model?: string | null) => void
+  sendChat: (text: string) => void
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null)
@@ -163,7 +163,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const hasAskedCurrent = currentWorkOrder ? state.askedWorkOrders.has(currentWorkOrder.id) : true
 
   const sendChat = useCallback(
-    (text: string, model?: string | null) => {
+    (text: string) => {
       const trimmed = text.trim()
       if (!trimmed) return
 
@@ -185,8 +185,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       streamEvents<ChatEvent>(
         "/api/chat",
         {
+          // No model: the backend answers with whatever the Models page made active, local or cloud.
           messages: [{ role: "system", content: context }, ...history, { role: "user", content: trimmed }],
-          model: model ?? undefined,
         },
         (event) => {
           if (event.phase === "token") dispatch({ type: "APPEND_TOKEN", text: event.text })

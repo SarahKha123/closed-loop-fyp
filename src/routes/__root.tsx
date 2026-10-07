@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router"
+import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
 import { AdvisorPanel } from "../components/AdvisorPanel"
 import { Sidebar } from "../components/Sidebar"
 import { ToastStack } from "../components/ToastStack"
@@ -19,17 +19,19 @@ function RootLayout() {
   )
 }
 
+// Fixed to the viewport: the page itself never scrolls. A view taller than
+// the window scrolls inside its own column instead.
 function RootShell() {
+  // The Models page gets the full width — it's a settings page, not a dashboard view.
+  const onModels = useRouterState({ select: (s) => s.location.pathname.startsWith("/models") })
   return (
-    <div className="min-h-screen w-full bg-paper">
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="flex min-w-0 grow items-start gap-6 p-8">
-          <div className="flex min-w-0 grow flex-col gap-[22px]">
-            <Outlet />
-          </div>
-          <AdvisorPanel />
-        </div>
+    <div className="flex h-screen w-full overflow-hidden bg-paper">
+      <Sidebar />
+      <div className="flex min-h-0 min-w-0 grow gap-6 p-8">
+        <main className="flex min-h-0 min-w-0 grow flex-col gap-[22px] overflow-y-auto">
+          <Outlet />
+        </main>
+        {!onModels && <AdvisorPanel />}
       </div>
       <ToastStack />
     </div>

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { dataLayer } from "../data"
 import { CycleSelector } from "./CycleSelector"
-import { ModelPicker } from "./ModelPicker"
+import { ModelCard } from "./ModelCard"
 import { NotificationBell } from "./NotificationBell"
 
 const navItems = [
@@ -12,7 +12,7 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <div className="flex w-[310px] shrink-0 flex-col gap-[26px] border-r border-ink/10 bg-surface px-6 py-8">
+    <div className="flex h-full w-[310px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-ink/10 bg-surface px-6 py-6">
       <div className="flex items-center gap-3">
         <svg
           width="32"
@@ -75,7 +75,7 @@ export function Sidebar() {
 
       <div className="grow" />
 
-      <ModelPicker />
+      <ModelCard />
 
       <div className="border-t border-ink/10 pt-3.5 text-[16px] text-ink-faint">
         FYP I · Universiti Teknologi PETRONAS

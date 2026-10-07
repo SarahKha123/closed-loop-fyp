@@ -25,6 +25,7 @@ except Exception:  # pragma: no cover - defensive
 CONNECT_TIMEOUT = 2.0
 LIST_TIMEOUT = 5.0
 CHAT_READ_TIMEOUT = 120.0
+PULL_READ_TIMEOUT = 600.0
 
 _resolved_base: str | None = None
 _resolve_lock = threading.Lock()
@@ -123,6 +124,9 @@ def list_models() -> list[dict[str, Any]]:
                 "family": details.get("family"),
                 "parameter_size": details.get("parameter_size"),
                 "quantization_level": details.get("quantization_level"),
+                # Embedding models can't chat. Ollama's tags carry no capability
+                # field, so go by name / family (bert-style families are embedders).
+                "embedding": "embed" in (model.get("name") or "") or "bert" in (details.get("family") or ""),
             })
         return out
 
@@ -132,9 +136,8 @@ def list_models() -> list[dict[str, Any]]:
 def chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[dict[str, Any]]:
     """Stream a chat completion, yielding `{"content": ...}` deltas then `{"done": True}`.
 
-    Non-streaming calls (`show`, `pull`, benchmarking) are what Daedalus needs
-    from this client; the Advisor only ever needs this one call, so it is the
-    only one implemented here.
+    Daedalus also needs `show` and benchmarking from this client; the
+    Advisor needs only this, and the Models page only `pull` and `delete`.
     """
     if httpx is None:
         raise OllamaUnavailable("httpx is not installed")
@@ -176,6 +179,79 @@ def chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[dict[str
                     if event.get("done"):
                         yield {"done": True}
                         return
+                return
+        except (OllamaError, OllamaUnavailable):
+            raise
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    raise OllamaUnavailable(_unavailable_message(last_error))
+
+
+def _first_answering(method: str, path: str, **kwargs: Any) -> Any:
+    """One non-streaming call against whichever candidate URL answers."""
+    if httpx is None:
+        raise OllamaUnavailable("httpx is not installed")
+    last_error: Exception | None = None
+    for base in candidate_base_urls():
+        try:
+            response = httpx.request(method, f"{base}{path}", timeout=_timeout(LIST_TIMEOUT), **kwargs)
+        except Exception as exc:
+            last_error = exc
+            continue
+        _remember(base)
+        return response
+    raise OllamaUnavailable(_unavailable_message(last_error))
+
+
+def delete(name: str) -> None:
+    response = _first_answering("DELETE", "/api/delete", json={"model": name})
+    if response.status_code == 404:
+        raise OllamaError(f"{name} is not installed")
+    if response.status_code >= 400:
+        raise OllamaError(f"HTTP {response.status_code} deleting {name}")
+
+
+def pull(name: str) -> Iterator[dict[str, Any]]:
+    """Stream a pull as `{status, percent, done}` — Ollama's NDJSON, normalised.
+
+    Ollama's lines change shape through a pull (manifest, per-layer download
+    with total/completed, verify, success); `percent` is only set where it
+    means something. A pull interrupted half-way resumes from the layers
+    already on disk next time.
+    """
+    if httpx is None:
+        raise OllamaUnavailable("httpx is not installed")
+
+    last_error: Exception | None = None
+    for base in candidate_base_urls():
+        try:
+            with httpx.stream(
+                "POST",
+                f"{base}/api/pull",
+                json={"model": name, "stream": True},
+                timeout=_timeout(PULL_READ_TIMEOUT),
+            ) as response:
+                _remember(base)
+                if response.status_code >= 400:
+                    response.read()
+                    raise OllamaError(response.text[:400] or f"HTTP {response.status_code}")
+                for line in response.iter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        event = json.loads(line)
+                    except ValueError:
+                        continue
+                    if event.get("error"):
+                        raise OllamaError(str(event["error"]))
+                    status = str(event.get("status") or "")
+                    total, completed = event.get("total"), event.get("completed")
+                    percent = None
+                    if isinstance(total, int) and isinstance(completed, int) and total > 0:
+                        percent = round(min(100.0, completed / total * 100.0), 1)
+                    yield {"status": status, "percent": percent, "done": status == "success"}
                 return
         except (OllamaError, OllamaUnavailable):
             raise
