@@ -55,6 +55,8 @@ closed-loop-fyp/
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the pieces fit, request flows, design decisions
 - [docs/API.md](docs/API.md) — every backend endpoint, with request and response shapes
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, checks, and how to add a page, endpoint or provider
+- [docs/FYP_NEW_SCOPE.md](docs/FYP_NEW_SCOPE.md) — the revised FYP topic, chapter by chapter
+- [TODO.md](TODO.md) — the project tracker: decisions, milestones, known issues
 
 ## Stack
 
