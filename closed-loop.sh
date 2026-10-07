@@ -216,13 +216,20 @@ cmd_dev_host() {
   [ -d node_modules ] || fail "node_modules missing — run './closed-loop.sh setup' first"
   ensure_env
   ensure_dirs
-  check_ollama || true
+  # Start Ollama ourselves if it's installed but not running; leave an
+  # already-running one alone (it isn't ours to stop).
+  local ollama_pid=""
+  if ! check_ollama && have ollama; then
+    ollama serve >/dev/null 2>&1 &
+    ollama_pid=$!
+    ok "started ollama serve (pid $ollama_pid)"
+  fi
 
   head_ "Starting dev servers on the host"
   CLOSED_LOOP_CONFIG_DIR=config backend/.venv/bin/uvicorn app.main:app --reload \
     --port "$BACKEND_PORT" --app-dir backend --timeout-graceful-shutdown 3 &
   local api_pid=$!
-  trap 'kill $api_pid 2>/dev/null || true' EXIT INT TERM
+  trap 'kill $api_pid $ollama_pid 2>/dev/null || true' EXIT INT TERM
   ok "backend   http://localhost:${BACKEND_PORT}  (pid $api_pid)"
   ok "frontend  http://localhost:${FRONTEND_PORT}"
   say ""

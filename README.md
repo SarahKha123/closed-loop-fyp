@@ -24,8 +24,9 @@ Needs Node, pnpm and Python 3. Docker is optional.
 ./closed-loop.sh dev --host   # backend :8000 + frontend :5173, no Docker
 ```
 
-Open `http://localhost:5173`. The Advisor chat also needs
-[Ollama](https://ollama.com) running (`ollama serve`).
+Open `http://localhost:5173`. The Advisor chat needs
+[Ollama](https://ollama.com) installed; `dev --host` starts it if it isn't
+already running.
 
 With Docker, `./closed-loop.sh start` runs everything in one container at
 `http://localhost:8000`. See `./closed-loop.sh --help` for the rest.
