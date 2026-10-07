@@ -1,3 +1,5 @@
+// Entry point: builds the router from the file-based routes in routes/ and mounts the app.
+
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx  # noqa: E402
 
-from app.services import cloud, model_config  # noqa: E402
+from app.services import advisor, cloud, model_config  # noqa: E402
 
 GB = 1024**3
 hw = {"ram": {"total_bytes": 8 * GB}}
@@ -30,6 +30,8 @@ cloud.save("openai", api_key="sk-abcdefgh1234", model="m-1", base_url=None)
 r = model_config.resolve([], {})
 assert (r["resolved"], r["provider"], r["tag"]) == (True, "openai", "m-1"), r
 assert all("sk-abcdefgh1234" not in str(p) for p in cloud.public())
+# ...and the Advisor routes to it without touching Ollama.
+assert advisor.choose() == advisor.Target(label="openai/m-1", cloud_provider="openai")
 
 # SSE parsing: content deltas joined, empty deltas and [DONE] handled.
 sse = (

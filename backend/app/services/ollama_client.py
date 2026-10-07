@@ -1,12 +1,20 @@
-"""The local LLM runtime the model picker and Advisor talk to.
+"""The local LLM runtime (Ollama) — the only module that talks to it.
 
-A scaled-down version of Daedalus's `services/ollama_client.py`: same
-candidate-URL fallback (a container reaches the host via
-`host.docker.internal`, which does not resolve when the backend runs directly
-on the host, so localhost and 127.0.0.1 are tried too), same "answer, don't
-raise" contract for listing models, and a streaming `chat()` in place of
-Daedalus's `generate()` — the Advisor is a multi-turn conversation, not a
-single completion.
+Ollama may be reachable at different addresses depending on where the backend
+runs: a container reaches the host via `host.docker.internal`, which does not
+resolve when the backend runs directly on the host. So every call tries the
+configured URL first, then its localhost/127.0.0.1 variants, and remembers
+whichever answered. That fallback lives in two helpers, `_request` (one-shot
+calls) and `_stream` (NDJSON streams); the public functions only shape data.
+
+Public API:
+    list_models()        installed models, normalised
+    version()            Ollama's version string
+    chat_stream(...)     streamed chat reply, as text deltas
+    pull(tag)            streamed download progress
+    delete(tag)          remove a model
+
+Scaled down from Daedalus's `services/ollama_client.py` (reference only).
 """
 
 from __future__ import annotations
@@ -17,10 +25,7 @@ import threading
 from collections.abc import Iterator
 from typing import Any
 
-try:
-    import httpx
-except Exception:  # pragma: no cover - defensive
-    httpx = None  # type: ignore[assignment]
+import httpx
 
 CONNECT_TIMEOUT = 2.0
 LIST_TIMEOUT = 5.0
@@ -39,24 +44,24 @@ class OllamaUnavailable(RuntimeError):
     """Nothing answered on any candidate URL."""
 
 
+# ── where Ollama is ──────────────────────────────────────────────────────────
+
+
 def candidate_base_urls() -> list[str]:
     """Where to look for Ollama, best guess first — see the module docstring."""
     base = os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434").rstrip("/")
     candidates = [base]
-
-    def add(url: str) -> None:
-        if url not in candidates:
-            candidates.append(url)
-
-    if any(alias in base for alias in ("host.docker.internal", "localhost", "127.0.0.1")):
-        for alias in ("host.docker.internal", "localhost", "127.0.0.1"):
-            for replacement in ("localhost", "127.0.0.1", "host.docker.internal"):
-                if alias in base:
-                    add(base.replace(alias, replacement))
+    aliases = ("host.docker.internal", "localhost", "127.0.0.1")
+    for alias in aliases:
+        if alias in base:
+            for replacement in aliases:
+                url = base.replace(alias, replacement)
+                if url not in candidates:
+                    candidates.append(url)
 
     with _resolve_lock:
         known = _resolved_base
-    if known and known in candidates:
+    if known in candidates:
         candidates.remove(known)
         candidates.insert(0, known)
     return candidates
@@ -68,11 +73,11 @@ def _remember(base: str) -> None:
         _resolved_base = base
 
 
-def _timeout(read: float) -> Any:
+def _timeout(read: float) -> httpx.Timeout:
     return httpx.Timeout(connect=CONNECT_TIMEOUT, read=read, write=10.0, pool=CONNECT_TIMEOUT)
 
 
-def _unavailable_message(last_error: Exception | None) -> str:
+def _unavailable(last_error: Exception | None) -> OllamaUnavailable:
     tried = ", ".join(candidate_base_urls())
     kind = last_error.__class__.__name__ if last_error else "no response"
     hint = "Start it with `ollama serve`, or check it is installed."
@@ -82,161 +87,51 @@ def _unavailable_message(last_error: Exception | None) -> str:
             "machine or in Docker, it binds 127.0.0.1 by default — start it with "
             "OLLAMA_HOST=0.0.0.0 and point OLLAMA_BASE_URL at it."
         )
-    return f"no Ollama daemon answered on {tried} ({kind}). {hint}"
+    return OllamaUnavailable(f"no Ollama daemon answered on {tried} ({kind}). {hint}")
 
 
-def available() -> bool:
-    if httpx is None:
-        return False
-    for base in candidate_base_urls():
-        try:
-            httpx.get(f"{base}/api/version", timeout=_timeout(2.0))
-        except Exception:
-            continue
-        _remember(base)
-        return True
-    return False
+def _error_detail(response: httpx.Response) -> str:
+    """Ollama's `{"error": ...}` body if there is one, else the status."""
+    try:
+        body = response.json()
+        if isinstance(body, dict) and body.get("error"):
+            return str(body["error"])
+    except ValueError:
+        pass
+    return response.text[:400] or f"HTTP {response.status_code}"
 
 
-def list_models() -> list[dict[str, Any]]:
-    """Every model pulled locally. Raises OllamaUnavailable if nothing answers."""
-    if httpx is None:
-        raise OllamaUnavailable("httpx is not installed")
-
-    last_error: Exception | None = None
-    for base in candidate_base_urls():
-        try:
-            response = httpx.get(f"{base}/api/tags", timeout=_timeout(LIST_TIMEOUT))
-        except Exception as exc:
-            last_error = exc
-            continue
-        _remember(base)
-        if response.status_code >= 400:
-            raise OllamaError(f"HTTP {response.status_code} from {base}/api/tags")
-        data = response.json()
-        out: list[dict[str, Any]] = []
-        for model in data.get("models") or []:
-            details = model.get("details") or {}
-            out.append({
-                "name": model.get("name"),
-                "size_bytes": model.get("size"),
-                "modified_at": model.get("modified_at"),
-                "family": details.get("family"),
-                "parameter_size": details.get("parameter_size"),
-                "quantization_level": details.get("quantization_level"),
-                # Embedding models can't chat. Ollama's tags carry no capability
-                # field, so go by name / family (bert-style families are embedders).
-                "embedding": "embed" in (model.get("name") or "") or "bert" in (details.get("family") or ""),
-            })
-        return out
-
-    raise OllamaUnavailable(_unavailable_message(last_error))
+# ── transport: the URL fallback, written once ────────────────────────────────
 
 
-def chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[dict[str, Any]]:
-    """Stream a chat completion, yielding `{"content": ...}` deltas then `{"done": True}`.
-
-    Daedalus also needs `show` and benchmarking from this client; the
-    Advisor needs only this, and the Models page only `pull` and `delete`.
-    """
-    if httpx is None:
-        raise OllamaUnavailable("httpx is not installed")
-
-    last_error: Exception | None = None
-    for base in candidate_base_urls():
-        try:
-            with httpx.stream(
-                "POST",
-                f"{base}/api/chat",
-                json={"model": model, "messages": messages, "stream": True},
-                timeout=_timeout(CHAT_READ_TIMEOUT),
-            ) as response:
-                _remember(base)
-                if response.status_code >= 400:
-                    response.read()
-                    detail = response.text[:400] or f"HTTP {response.status_code}"
-                    try:
-                        body = response.json()
-                        if isinstance(body, dict) and body.get("error"):
-                            detail = str(body["error"])
-                    except Exception:
-                        pass
-                    raise OllamaError(detail)
-
-                for line in response.iter_lines():
-                    if not line.strip():
-                        continue
-                    try:
-                        event = json.loads(line)
-                    except ValueError:
-                        continue
-                    if event.get("error"):
-                        raise OllamaError(str(event["error"]))
-                    message = event.get("message") or {}
-                    content = message.get("content") or ""
-                    if content:
-                        yield {"content": content}
-                    if event.get("done"):
-                        yield {"done": True}
-                        return
-                return
-        except (OllamaError, OllamaUnavailable):
-            raise
-        except Exception as exc:
-            last_error = exc
-            continue
-
-    raise OllamaUnavailable(_unavailable_message(last_error))
-
-
-def _first_answering(method: str, path: str, **kwargs: Any) -> Any:
-    """One non-streaming call against whichever candidate URL answers."""
-    if httpx is None:
-        raise OllamaUnavailable("httpx is not installed")
+def _request(method: str, path: str, **kwargs: Any) -> httpx.Response:
+    """One call against the first URL that answers. Raises OllamaUnavailable if none does."""
     last_error: Exception | None = None
     for base in candidate_base_urls():
         try:
             response = httpx.request(method, f"{base}{path}", timeout=_timeout(LIST_TIMEOUT), **kwargs)
-        except Exception as exc:
+        except httpx.HTTPError as exc:
             last_error = exc
             continue
         _remember(base)
         return response
-    raise OllamaUnavailable(_unavailable_message(last_error))
+    raise _unavailable(last_error)
 
 
-def delete(name: str) -> None:
-    response = _first_answering("DELETE", "/api/delete", json={"model": name})
-    if response.status_code == 404:
-        raise OllamaError(f"{name} is not installed")
-    if response.status_code >= 400:
-        raise OllamaError(f"HTTP {response.status_code} deleting {name}")
+def _stream(path: str, payload: dict[str, Any], read_timeout: float) -> Iterator[dict[str, Any]]:
+    """POST and yield each NDJSON line as a dict. Raises OllamaError on an error line or status.
 
-
-def pull(name: str) -> Iterator[dict[str, Any]]:
-    """Stream a pull as `{status, percent, done}` — Ollama's NDJSON, normalised.
-
-    Ollama's lines change shape through a pull (manifest, per-layer download
-    with total/completed, verify, success); `percent` is only set where it
-    means something. A pull interrupted half-way resumes from the layers
-    already on disk next time.
+    Only a failure to *connect* moves on to the next URL; once a stream has
+    started, a dropped connection ends it.
     """
-    if httpx is None:
-        raise OllamaUnavailable("httpx is not installed")
-
     last_error: Exception | None = None
     for base in candidate_base_urls():
         try:
-            with httpx.stream(
-                "POST",
-                f"{base}/api/pull",
-                json={"model": name, "stream": True},
-                timeout=_timeout(PULL_READ_TIMEOUT),
-            ) as response:
+            with httpx.stream("POST", f"{base}{path}", json=payload, timeout=_timeout(read_timeout)) as response:
                 _remember(base)
                 if response.status_code >= 400:
                     response.read()
-                    raise OllamaError(response.text[:400] or f"HTTP {response.status_code}")
+                    raise OllamaError(_error_detail(response))
                 for line in response.iter_lines():
                     if not line.strip():
                         continue
@@ -246,17 +141,80 @@ def pull(name: str) -> Iterator[dict[str, Any]]:
                         continue
                     if event.get("error"):
                         raise OllamaError(str(event["error"]))
-                    status = str(event.get("status") or "")
-                    total, completed = event.get("total"), event.get("completed")
-                    percent = None
-                    if isinstance(total, int) and isinstance(completed, int) and total > 0:
-                        percent = round(min(100.0, completed / total * 100.0), 1)
-                    yield {"status": status, "percent": percent, "done": status == "success"}
+                    yield event
                 return
-        except (OllamaError, OllamaUnavailable):
-            raise
-        except Exception as exc:
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             last_error = exc
             continue
+        except httpx.HTTPError as exc:
+            raise OllamaError(f"connection to Ollama dropped ({exc.__class__.__name__})") from exc
+    raise _unavailable(last_error)
 
-    raise OllamaUnavailable(_unavailable_message(last_error))
+
+# ── public API ───────────────────────────────────────────────────────────────
+
+
+def _is_embedding(name: str, family: str) -> bool:
+    # Ollama's tags carry no capability field, so go by name / family
+    # (bert-style families are embedders). Embedding models can't chat.
+    return "embed" in name or "bert" in family
+
+
+def list_models() -> list[dict[str, Any]]:
+    """Every model pulled locally. Raises OllamaUnavailable if nothing answers."""
+    response = _request("GET", "/api/tags")
+    if response.status_code >= 400:
+        raise OllamaError(f"HTTP {response.status_code} from /api/tags")
+    out: list[dict[str, Any]] = []
+    for model in response.json().get("models") or []:
+        details = model.get("details") or {}
+        name = model.get("name") or ""
+        out.append({
+            "name": name,
+            "size_bytes": model.get("size"),
+            "modified_at": model.get("modified_at"),
+            "family": details.get("family"),
+            "parameter_size": details.get("parameter_size"),
+            "quantization_level": details.get("quantization_level"),
+            "embedding": _is_embedding(name, details.get("family") or ""),
+        })
+    return out
+
+
+def version() -> str | None:
+    response = _request("GET", "/api/version")
+    return (response.json() or {}).get("version") if response.status_code < 400 else None
+
+
+def chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
+    """Stream a chat reply as text deltas."""
+    for event in _stream("/api/chat", {"model": model, "messages": messages, "stream": True}, CHAT_READ_TIMEOUT):
+        content = (event.get("message") or {}).get("content")
+        if content:
+            yield content
+        if event.get("done"):
+            return
+
+
+def pull(name: str) -> Iterator[dict[str, Any]]:
+    """Stream a download as `{status, percent, done}`.
+
+    Ollama's lines change shape through a pull (manifest, per-layer download
+    with total/completed, verify, success); `percent` is only set where it
+    means something. An interrupted pull resumes from the layers on disk.
+    """
+    for event in _stream("/api/pull", {"model": name, "stream": True}, PULL_READ_TIMEOUT):
+        status = str(event.get("status") or "")
+        total, completed = event.get("total"), event.get("completed")
+        percent = None
+        if isinstance(total, int) and isinstance(completed, int) and total > 0:
+            percent = round(min(100.0, completed / total * 100.0), 1)
+        yield {"status": status, "percent": percent, "done": status == "success"}
+
+
+def delete(name: str) -> None:
+    response = _request("DELETE", "/api/delete", json={"model": name})
+    if response.status_code == 404:
+        raise OllamaError(f"{name} is not installed")
+    if response.status_code >= 400:
+        raise OllamaError(f"HTTP {response.status_code} deleting {name}")

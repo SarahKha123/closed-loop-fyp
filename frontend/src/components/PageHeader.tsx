@@ -1,3 +1,5 @@
+// Page title + subtitle, used at the top of every route.
+
 export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div>

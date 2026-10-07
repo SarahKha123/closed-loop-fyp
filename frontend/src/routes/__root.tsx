@@ -1,9 +1,11 @@
+// The app shell every page renders inside: providers, sidebar, page column, Advisor panel, toasts.
+
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
-import { AdvisorPanel } from "../components/AdvisorPanel"
-import { Sidebar } from "../components/Sidebar"
-import { ToastStack } from "../components/ToastStack"
+import { AdvisorPanel } from "../components/shell/AdvisorPanel"
+import { Sidebar } from "../components/shell/Sidebar"
+import { ToastStack } from "../components/shell/ToastStack"
 import { AppStateProvider } from "../context/AppState"
-import { SettingsProvider } from "../context/SettingsContext"
+import { ModelsProvider } from "../context/ModelsContext"
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -11,11 +13,11 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <SettingsProvider>
+    <ModelsProvider>
       <AppStateProvider>
         <RootShell />
       </AppStateProvider>
-    </SettingsProvider>
+    </ModelsProvider>
   )
 }
 

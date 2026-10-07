@@ -1,6 +1,8 @@
+// /sensors — the selected cycle's sensor means; ?component=Valve highlights that component's sensors.
+
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"
-import { componentSensorCodes } from "../data"
+import { componentSensorCodes } from "../domain/demo-data"
 import { useAppState } from "../context/AppState"
 
 interface SensorsSearch {

@@ -1,18 +1,28 @@
-import type { ComponentReading, KpiTile, SensorRow, WorkOrder } from "./data"
+// Demo data standing in for the ML pipeline's output: six processed batch
+// cycles from the UCI Hydraulic Condition Monitoring dataset, plus the
+// work-order history before them. Swap this file for a real API later; the
+// rest of the app only reads it through maintenance.ts.
 
-interface CycleWorkOrderEvent {
-  id: string
-  component: string
-  note: string
-}
+import type { ComponentReading, Cycle, DataLayerStat, WorkOrder } from "./types"
 
-export interface Cycle {
-  id: number
-  flaggedComponent: string | null
-  newWorkOrder: CycleWorkOrderEvent | null
-  closesWorkOrderIds: string[] | null
-  components: ComponentReading[]
-  sensorRows: SensorRow[]
+/** Cycles in the full dataset (the demo only includes a few of them). */
+export const TOTAL_CYCLES = 2205
+
+export const defaultCycleId = 1465
+
+export const dataLayer: DataLayerStat[] = [
+  { label: "Telemetry", value: "17 sensors" },
+  { label: "Component models", value: "4 (RF / XGB)" },
+  { label: "Automation log", value: "Power Automate" },
+  { label: "Historical cycles", value: TOTAL_CYCLES.toLocaleString() },
+]
+
+/** Which sensor-code prefixes (from SensorRow.sensor) are relevant to each component. */
+export const componentSensorCodes: Record<string, string[]> = {
+  Cooler: ["TS1", "CP", "SE"],
+  Valve: ["FS1", "PS2"],
+  Pump: ["PS2", "VS1"],
+  Accumulator: ["PS2", "VS1"],
 }
 
 const good = (name: string, unit: string, value: string): ComponentReading => ({
@@ -163,91 +173,13 @@ export const cycles: Cycle[] = [
   },
 ]
 
-export const defaultCycleId = 1465
-
-export function getCycle(id: number): Cycle {
-  return cycles.find((c) => c.id === id) ?? cycles[cycles.length - 1]
-}
-
-const historicalWorkOrders: WorkOrder[] = [
+export const historicalWorkOrders: WorkOrder[] = [
   { id: "WO-0398", component: "Cooler", status: "Closed", kind: "good", note: "Resolved after component service", when: "186 batches ago", assignee: "Maintenance team" },
   { id: "WO-0355", component: "Valve", status: "Closed", kind: "good", note: "Resolved — seal replaced", when: "412 batches ago", assignee: "Maintenance team" },
 ]
 
-const resolutionNotes: Record<string, string> = {
+export const resolutionNotes: Record<string, string> = {
   "WO-0399": "Resolved — switching solenoid recalibrated",
   "WO-0417": "Resolved — heat exchanger cleaned",
   "WO-0442": "Resolved — accumulator gas recharged",
-}
-
-function formatWhen(eventCycleId: number, selectedCycleId: number): string {
-  const delta = selectedCycleId - eventCycleId
-  if (delta <= 0) return "Just now"
-  return `${delta} ${delta === 1 ? "batch" : "batches"} ago`
-}
-
-/** Derives the running work-order list as of the selected cycle, folding in every open/close event up to that point. */
-export function getWorkOrders(selectedCycleId: number): WorkOrder[] {
-  const timeline = cycles.filter((c) => c.id <= selectedCycleId).sort((a, b) => a.id - b.id)
-  const open = new Map<string, WorkOrder>()
-  const closed: WorkOrder[] = []
-
-  for (const eventCycle of timeline) {
-    if (eventCycle.newWorkOrder) {
-      const kind = eventCycle.components.find((c) => c.name === eventCycle.newWorkOrder!.component)?.kind ?? "critical"
-      open.set(eventCycle.newWorkOrder.id, {
-        id: eventCycle.newWorkOrder.id,
-        component: eventCycle.newWorkOrder.component,
-        status: "Open",
-        kind,
-        note: eventCycle.newWorkOrder.note,
-        when: formatWhen(eventCycle.id, selectedCycleId),
-        assignee: "Maintenance queue",
-      })
-    }
-    if (eventCycle.closesWorkOrderIds) {
-      for (const id of eventCycle.closesWorkOrderIds) {
-        const existing = open.get(id)
-        if (!existing) continue
-        open.delete(id)
-        closed.unshift({
-          ...existing,
-          status: "Closed",
-          kind: "good",
-          note: resolutionNotes[id] ?? existing.note,
-          when: formatWhen(eventCycle.id, selectedCycleId),
-          assignee: "Maintenance team",
-        })
-      }
-    }
-  }
-
-  return [...open.values()].reverse().concat(closed, historicalWorkOrders)
-}
-
-export function getKpiTiles(selectedCycleId: number): KpiTile[] {
-  const openCount = getWorkOrders(selectedCycleId).filter((w) => w.status === "Open").length
-  return [
-    { label: "Active alerts", value: String(openCount), kind: openCount > 0 ? "critical" : "good" },
-    { label: "Components monitored", value: "4", kind: null },
-    { label: "Model macro-F1", value: "0.982–0.999", kind: "good" },
-    { label: "Automation", value: "Autonomous", kind: null },
-  ]
-}
-
-const explanationTemplates: Record<string, (value: string, woId: string) => string> = {
-  Accumulator: (value, woId) =>
-    `Gas pre-charge pressure is reading ${value}, below the 100 bar threshold used in training — consistent with early accumulator wear. ${woId} has been routed to the maintenance queue.`,
-  Valve: (value, woId) =>
-    `Switching response has drifted to ${value}, below the 95% baseline used in training — consistent with solenoid wear. ${woId} has been routed to the maintenance queue.`,
-  Cooler: (value, woId) =>
-    `Cooling efficiency has dropped to ${value}, below the 90% baseline used in training — consistent with a partially blocked heat exchanger. ${woId} has been routed to the maintenance queue.`,
-  Pump: (value, woId) =>
-    `Internal leakage has been detected (${value}), consistent with worn piston seals. ${woId} has been routed to the maintenance queue.`,
-}
-
-export function explanationFor(componentName: string, value: string, woId: string): string {
-  const template = explanationTemplates[componentName]
-  if (template) return template(value, woId)
-  return `${componentName} is reading ${value}, outside the trained baseline. ${woId} has been routed to the maintenance queue.`
 }

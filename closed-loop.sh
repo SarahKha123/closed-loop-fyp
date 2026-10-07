@@ -122,7 +122,7 @@ cmd_setup() {
   ensure_env
 
   head_ "Frontend dependencies"
-  pnpm install
+  pnpm --dir frontend install
   ok "node modules installed"
 
   head_ "Backend virtualenv"
@@ -213,7 +213,7 @@ cmd_dev() {
 # be unable to run anything.
 cmd_dev_host() {
   [ -x backend/.venv/bin/uvicorn ] || fail "backend/.venv missing — run './closed-loop.sh setup' first"
-  [ -d node_modules ] || fail "node_modules missing — run './closed-loop.sh setup' first"
+  [ -d frontend/node_modules ] || fail "frontend/node_modules missing — run './closed-loop.sh setup' first"
   ensure_env
   ensure_dirs
   # Start Ollama ourselves if it's installed but not running; leave an
@@ -226,14 +226,15 @@ cmd_dev_host() {
   fi
 
   head_ "Starting dev servers on the host"
-  CLOSED_LOOP_CONFIG_DIR=config backend/.venv/bin/uvicorn app.main:app --reload \
+  CLOSED_LOOP_CONFIG_DIR=config backend/.venv/bin/uvicorn app.main:app --reload --reload-dir backend/app \
     --port "$BACKEND_PORT" --app-dir backend --timeout-graceful-shutdown 3 &
   local api_pid=$!
   trap 'kill $api_pid $ollama_pid 2>/dev/null || true' EXIT INT TERM
   ok "backend   http://localhost:${BACKEND_PORT}  (pid $api_pid)"
   ok "frontend  http://localhost:${FRONTEND_PORT}"
   say ""
-  pnpm dev --port "$FRONTEND_PORT"
+  # Point Vite's /api proxy at this backend, whatever port it's on.
+  CLOSED_LOOP_API_URL="http://localhost:${BACKEND_PORT}" pnpm --dir frontend dev --port "$FRONTEND_PORT"
 }
 
 # `--remove-orphans`: `dev` layers an overlay that adds a service (frontend)

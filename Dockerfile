@@ -9,12 +9,12 @@ WORKDIR /build
 
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
-COPY tsconfig*.json vite.config.ts index.html ./
-COPY src ./src
+COPY frontend/tsconfig*.json frontend/vite.config.ts frontend/index.html ./
+COPY frontend/src ./src
 
 RUN pnpm build
 

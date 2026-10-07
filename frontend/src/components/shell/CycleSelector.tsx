@@ -1,5 +1,7 @@
-import { useAppState } from "../context/AppState"
-import { statusClasses } from "../lib/status"
+// Sidebar control to step through the demo batch cycles; the whole dashboard follows the selected one.
+
+import { useAppState } from "../../context/AppState"
+import { statusClasses } from "../../lib/status"
 
 export function CycleSelector() {
   const { cycles, selectedCycleId, cycle, setCycle } = useAppState()

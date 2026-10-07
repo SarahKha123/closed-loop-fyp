@@ -1,9 +1,11 @@
+// Sidebar summary of the active model; links to the Models page (or opens it in a new tab).
+
 import { Link } from "@tanstack/react-router"
-import { useSettings } from "../context/SettingsContext"
+import { useModels } from "../../context/ModelsContext"
 
 /** The sidebar's view of the active model — a way into the Models page, not a picker. */
 export function ModelCard() {
-  const { modelsLoading, modelsError, models, active } = useSettings()
+  const { modelsLoading, modelsError, models, active } = useModels()
 
   let label = "Loading…"
   if (!modelsLoading) {

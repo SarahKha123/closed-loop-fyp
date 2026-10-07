@@ -14,7 +14,7 @@ dist-ssr
 
 # TanStack Router generated files
 .tanstack
-src/routeTree.gen.ts
+frontend/src/routeTree.gen.ts
 
 # Editor directories and files
 .vscode/*

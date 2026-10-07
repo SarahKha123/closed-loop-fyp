@@ -1,5 +1,7 @@
+// Sidebar alert banner: how many components are flagged in this cycle; links to Work Orders.
+
 import { Link } from "@tanstack/react-router"
-import { useAppState } from "../context/AppState"
+import { useAppState } from "../../context/AppState"
 
 export function NotificationBell() {
   const { cycle } = useAppState()

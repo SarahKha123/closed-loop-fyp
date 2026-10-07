@@ -1,4 +1,6 @@
-import type { StatusKind } from "../data"
+// Tailwind classes for each status kind (good / warning / serious / critical), shared by pills, dots and gauges.
+
+import type { StatusKind } from "../domain/types"
 
 export const statusClasses: Record<StatusKind, { text: string; bg: string; dot: string }> = {
   good: { text: "text-good-text", bg: "bg-good-bg", dot: "bg-good" },

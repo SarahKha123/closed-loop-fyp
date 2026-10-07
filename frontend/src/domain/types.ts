@@ -1,3 +1,7 @@
+// Domain types for the dashboard: what a cycle, a component reading and a
+// work order look like. No data and no logic here — see demo-data.ts and
+// maintenance.ts.
+
 export type StatusKind = "good" | "warning" | "serious" | "critical"
 
 export interface ComponentReading {
@@ -29,13 +33,6 @@ export interface DataLayerStat {
   value: string
 }
 
-export const dataLayer: DataLayerStat[] = [
-  { label: "Telemetry", value: "17 sensors" },
-  { label: "Component models", value: "4 (RF / XGB)" },
-  { label: "Automation log", value: "Power Automate" },
-  { label: "Historical cycles", value: "2,205" },
-]
-
 export interface KpiTile {
   label: string
   value: string
@@ -51,10 +48,25 @@ export interface ChatMessage {
   error?: boolean
 }
 
-/** Which sensor-code prefixes (from SensorRow.sensor) are relevant to each component. */
-export const componentSensorCodes: Record<string, string[]> = {
-  Cooler: ["TS1", "CP", "SE"],
-  Valve: ["FS1", "PS2"],
-  Pump: ["PS2", "VS1"],
-  Accumulator: ["PS2", "VS1"],
+export interface Toast {
+  id: number
+  text: string
+  tone: "critical" | "good"
+}
+
+/** A work order opened by a cycle's batch run. */
+export interface CycleWorkOrderEvent {
+  id: string
+  component: string
+  note: string
+}
+
+/** One processed batch: its component health, its sensor means, and the work-order events it caused. */
+export interface Cycle {
+  id: number
+  flaggedComponent: string | null
+  newWorkOrder: CycleWorkOrderEvent | null
+  closesWorkOrderIds: string[] | null
+  components: ComponentReading[]
+  sensorRows: SensorRow[]
 }

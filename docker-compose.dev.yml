@@ -39,18 +39,7 @@ services:
       # which is what resolves inside this network.
       CLOSED_LOOP_API_URL: http://app:8000
     volumes:
-      # Named individually rather than binding the whole repo root: this
-      # project keeps the frontend at the repo root alongside backend/,
-      # config/ and the reference-only Daedalus/ checkout, and none of those
-      # belong in a container whose only job is running Vite.
-      - ./src:/app/src
-      - ./index.html:/app/index.html
-      - ./package.json:/app/package.json
-      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
-      - ./vite.config.ts:/app/vite.config.ts
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./tsconfig.app.json:/app/tsconfig.app.json
-      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - ./frontend:/app
       # Named volumes so the container's own node_modules isn't shadowed by
       # the host's, and survives container recreation.
       - frontend-node-modules:/app/node_modules

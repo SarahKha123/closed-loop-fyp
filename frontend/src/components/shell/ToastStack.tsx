@@ -1,5 +1,7 @@
+// Bottom-right notifications (work order created / resolved); each dismisses itself after 4s.
+
 import { useEffect } from "react"
-import { useAppState } from "../context/AppState"
+import { useAppState } from "../../context/AppState"
 
 interface ToastItemProps {
   id: number

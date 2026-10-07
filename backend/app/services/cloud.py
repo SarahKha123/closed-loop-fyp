@@ -13,15 +13,13 @@ ever carries a key, only `key_hint` (its last four characters).
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import threading
 from collections.abc import Iterator
 from typing import Any
 
 import httpx
 
-from . import paths
+from . import jsonfile, paths
 
 # id → (label, default base URL, where to get a key)
 PROVIDERS: dict[str, tuple[str, str, str]] = {
@@ -46,28 +44,11 @@ class CloudError(RuntimeError):
 
 
 def _read_all() -> dict[str, dict[str, Any]]:
-    try:
-        with open(paths.CLOUD_CONFIG, encoding="utf-8") as fh:
-            data = json.load(fh)
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    return jsonfile.read(paths.CLOUD_CONFIG) or {}
 
 
 def _write_all(data: dict[str, dict[str, Any]]) -> None:
-    paths.ensure_dirs()
-    fd, tmp = tempfile.mkstemp(dir=paths.CONFIG_DIR, prefix=".cloud-", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=2)
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, paths.CLOUD_CONFIG)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    jsonfile.write_atomic(paths.CLOUD_CONFIG, data, private=True)
 
 
 def get(provider: str) -> dict[str, Any]:

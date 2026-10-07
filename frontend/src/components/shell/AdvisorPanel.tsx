@@ -1,5 +1,7 @@
+// Right-hand chat panel: the transcript, the "why is X flagged?" shortcut, and the message box.
+
 import { useEffect, useRef, useState } from "react"
-import { useAppState } from "../context/AppState"
+import { useAppState } from "../../context/AppState"
 
 export function AdvisorPanel() {
   const { cycle, messages, askAbout, hasAskedCurrent, sendChat } = useAppState()

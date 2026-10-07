@@ -1,5 +1,7 @@
+// Coloured pill with a status dot, e.g. "• Critical".
+
 import { statusClasses } from "../lib/status"
-import type { StatusKind } from "../data"
+import type { StatusKind } from "../domain/types"
 
 export function StatusPill({ kind, label }: { kind: StatusKind; label: string }) {
   const c = statusClasses[kind]

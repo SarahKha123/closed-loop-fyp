@@ -1,7 +1,10 @@
+// / ("The Loop") — KPI tiles and the four component health cards for the selected cycle.
+
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"
 import { StatusPill } from "../components/StatusPill"
 import { useAppState } from "../context/AppState"
+import { TOTAL_CYCLES } from "../domain/demo-data"
 import { statusClasses } from "../lib/status"
 
 export const Route = createFileRoute("/")({
@@ -15,7 +18,7 @@ function LoopView() {
     <div className="flex flex-col gap-[22px]">
       <PageHeader
         title="System Overview"
-        subtitle={`Latest batch · Cycle ${cycle.id.toLocaleString()} of 2,205 · UCI Hydraulic Condition Monitoring dataset`}
+        subtitle={`Latest batch · Cycle ${cycle.id.toLocaleString()} of ${TOTAL_CYCLES.toLocaleString()} · UCI Hydraulic Condition Monitoring dataset`}
       />
 
       <div className="flex gap-4">

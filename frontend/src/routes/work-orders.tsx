@@ -1,3 +1,5 @@
+// /work-orders — open and closed maintenance work orders as of the selected cycle.
+
 import { createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"
 import { StatusPill } from "../components/StatusPill"

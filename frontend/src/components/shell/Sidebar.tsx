@@ -1,5 +1,7 @@
+// Left navigation: brand, alerts, cycle selector, page links, data-layer stats, active model.
+
 import { Link } from "@tanstack/react-router"
-import { dataLayer } from "../data"
+import { dataLayer } from "../../domain/demo-data"
 import { CycleSelector } from "./CycleSelector"
 import { ModelCard } from "./ModelCard"
 import { NotificationBell } from "./NotificationBell"

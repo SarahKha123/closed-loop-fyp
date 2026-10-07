@@ -1,26 +1,13 @@
+// Which models are installed and which one the Advisor is using. Shared by
+// the sidebar's ModelCard and the Models page; the backend is the source of
+// truth (config/model_config.json), this only caches what it last said.
+
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import type { ReactNode } from "react"
+import type { ActiveModel, OllamaModel } from "../features/models/types"
 import { request } from "../lib/http"
 
-export interface OllamaModel {
-  name: string
-  size_bytes: number | null
-  family: string | null
-  parameter_size: string | null
-  quantization_level: string | null
-  embedding?: boolean
-}
-
-export interface ActiveModel {
-  mode: "auto" | "pinned" | "cloud"
-  tag: string | null
-  provider?: string | null
-  resolved: boolean
-  reason: string
-  ollama_error: string | null
-}
-
-interface SettingsValue {
+interface ModelsValue {
   models: OllamaModel[]
   modelsLoading: boolean
   modelsError: string | null
@@ -31,9 +18,9 @@ interface SettingsValue {
   refresh: () => Promise<void>
 }
 
-const SettingsContext = createContext<SettingsValue | null>(null)
+const ModelsContext = createContext<ModelsValue | null>(null)
 
-export function SettingsProvider({ children }: { children: ReactNode }) {
+export function ModelsProvider({ children }: { children: ReactNode }) {
   const [models, setModels] = useState<OllamaModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(true)
   const [modelsError, setModelsError] = useState<string | null>(null)
@@ -84,7 +71,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setActive(result)
   }, [])
 
-  const value: SettingsValue = {
+  const value: ModelsValue = {
     models,
     modelsLoading,
     modelsError,
@@ -95,11 +82,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     refresh,
   }
 
-  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
+  return <ModelsContext.Provider value={value}>{children}</ModelsContext.Provider>
 }
 
-export function useSettings() {
-  const ctx = useContext(SettingsContext)
-  if (!ctx) throw new Error("useSettings must be used within SettingsProvider")
+export function useModels() {
+  const ctx = useContext(ModelsContext)
+  if (!ctx) throw new Error("useModels must be used within ModelsProvider")
   return ctx
 }
