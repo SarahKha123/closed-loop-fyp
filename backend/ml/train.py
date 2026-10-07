@@ -1,14 +1,14 @@
 """Fit the final model per component, save it, and explain it with SHAP.
 
 Picks the best model per component from evaluate.py's cross-validation
-(ml/results/metrics.csv; runs the evaluation first if it's missing), refits
+(backend/ml/results/metrics.csv; runs the evaluation first if it's missing), refits
 it on all 2,205 cycles, and writes:
 
-    ml/models/<component>.joblib   the fitted pipeline (scaler → SMOTE → classifier)
-    ml/models/manifest.json        what the backend needs to load and trust them
-    ml/results/shap_<component>.png  global SHAP importance (top 15 features)
+    backend/ml/models/<component>.joblib   the fitted pipeline (scaler → SMOTE → classifier)
+    backend/ml/models/manifest.json        what the backend needs to load and trust them
+    backend/ml/results/shap_<component>.png  global SHAP importance (top 15 features)
 
-Run:  python -m ml.train
+Run (from backend/):  python -m ml.train
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import shap  # noqa: E402
 from . import evaluate, features, labels  # noqa: E402
 from .pipeline import SEED, make_pipeline  # noqa: E402
 
-MODELS_DIR = features.REPO / "ml" / "models"
+MODELS_DIR = features.BACKEND / "ml" / "models"
 SHAP_SAMPLE = 600  # rows used for the global SHAP summary; plenty for a stable ranking
 
 

@@ -4,19 +4,23 @@ Rebuilt from the FYP1 interim report (Sections 3.1, 3.3, 4.1–4.2) so the
 models the live system uses can be recreated from scratch. Reproduces Table
 4.1 exactly and Table 4.2 to within ±0.005 macro-F1 (the baseline row exactly).
 
-**Data:** `data/hydraulic_condition_monitoring_summary.csv` (committed, 1 MB) —
-the 68 features per cycle plus the condition labels. See
-[`docs/DATASET.md`](../docs/DATASET.md) for what's in it and how it was verified.
+**Data:** `backend/data/hydraulic_condition_monitoring_summary.csv` (committed,
+1 MB) — the 68 features per cycle plus the condition labels. See
+[`docs/DATASET.md`](../../docs/DATASET.md) for what's in it and how it was verified.
+
+This package lives inside `backend/` because the backend is its user: the
+live replay reads the dataset through `features.py`, and the predictor (M4)
+loads the models this pipeline trains.
 
 ## Run it
 
-From the repo root, with the backend virtualenv:
+From `backend/` (the ML libraries are in `backend/requirements.txt`):
 
 ```bash
-backend/.venv/bin/pip install -r ml/requirements.txt   # once (unpinned — see below)
-backend/.venv/bin/python -m ml.evaluate                # Part A: 15-fold CV, stats, confusion matrices (~1 min)
-backend/.venv/bin/python -m ml.train                   # best model per component, refit, SHAP (~20 s)
-backend/.venv/bin/python -m ml.dataset_report          # dataset statistics + the figures in docs/img/
+cd backend
+.venv/bin/python -m ml.evaluate         # Part A: 15-fold CV, stats, confusion matrices (~1 min)
+.venv/bin/python -m ml.train            # best model per component, refit, SHAP (~20 s)
+.venv/bin/python -m ml.dataset_report   # dataset statistics + the figures in docs/img/
 ```
 
 ## Files
@@ -34,7 +38,7 @@ backend/.venv/bin/python -m ml.dataset_report          # dataset statistics + th
 
 ## Dependencies are unpinned
 
-`ml/requirements.txt` lists package names only, so the project keeps
+`backend/requirements.txt` lists package names only, so the project keeps
 installing as libraries move on. The trained models are the part that's
 version-sensitive, so they're never committed: **after upgrading any ML
 library, run `python -m ml.train` again.** `models/manifest.json` records the

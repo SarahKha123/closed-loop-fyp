@@ -1,22 +1,17 @@
 """The dataset, held in memory for the replay: one record per cycle.
 
-Reads `data/hydraulic_condition_monitoring_summary.csv` through the ML
-pipeline's own loader (`ml.features`), so the live system and the trained
-models see identical features. 2,205 rows; well under 10 MB in memory.
+Reads `backend/data/hydraulic_condition_monitoring_summary.csv` through the
+ML pipeline's own loader (`backend/ml/features.py`), so the live system and
+the trained models see identical features. 2,205 rows; well under 10 MB.
 
-The `ml` package lives at the repo root, beside `backend/`. If it can't be
-imported (e.g. a container built without it), the dataset reports itself
-unavailable with the reason, and the rest of the API keeps working.
+If it can't load, the dataset reports itself unavailable with the reason,
+and the rest of the API keeps working.
 """
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
@@ -49,9 +44,7 @@ class Dataset:
 
 def load() -> Dataset:
     """Load the summary CSV. Raises ImportError / FileNotFoundError / ValueError with a readable reason."""
-    if str(REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(REPO_ROOT))
-    from ml import features, labels  # noqa: PLC0415 — deferred: needs the repo root on sys.path
+    from ml import features, labels  # noqa: PLC0415 — deferred: pandas loads only when the replay starts
 
     summary = features.load_summary()
     y = labels.load_labels()

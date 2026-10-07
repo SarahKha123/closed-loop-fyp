@@ -6,8 +6,8 @@ Reproduces FYP1 interim report Tables 4.2 and 4.3:
   - paired t-test and Cohen's d (best model vs baseline, on per-fold macro-F1)
   - confusion matrices on a held-out 20 % stratified split
 
-Writes ml/results/cv_scores.csv (every fold), metrics.csv and metrics.md.
-Run:  python -m ml.evaluate
+Writes backend/ml/results/cv_scores.csv (every fold), metrics.csv and metrics.md.
+Run (from backend/):  python -m ml.evaluate
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from sklearn.model_selection import cross_validate, train_test_split
 from . import features, labels
 from .pipeline import MODELS, SCORING, SEED, cv_splitter, make_pipeline
 
-RESULTS = features.REPO / "ml" / "results"
+RESULTS = features.BACKEND / "ml" / "results"
 
 
 def run_cv(X: pd.DataFrame, y_all: pd.DataFrame) -> pd.DataFrame:

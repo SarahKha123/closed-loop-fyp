@@ -40,9 +40,10 @@ container at <http://localhost:8000>.
 ```
 closed-loop-fyp/
 ├── frontend/          React + Vite dashboard (TypeScript, Tailwind, TanStack Router)
-├── backend/           FastAPI service: model selection, Ollama, cloud APIs, Advisor chat
-├── ml/                FYP1 ML pipeline: features, labels, evaluation, training, SHAP
-├── data/              The dataset (hydraulic_condition_monitoring_summary.csv)
+├── backend/           FastAPI service: live replay, data layer, model selection, Ollama, cloud APIs, Advisor chat
+│   ├── app/             the API (api/ routers, services/ logic)
+│   ├── ml/              FYP1 ML pipeline: features, labels, evaluation, training, SHAP, saved models
+│   └── data/            the dataset (hydraulic_condition_monitoring_summary.csv)
 ├── config/            Runtime config and the SQLite database (cloud keys and DB gitignored)
 ├── docs/              Architecture, API reference, development guide
 ├── scripts/common.sh  Shell helpers for closed-loop.sh

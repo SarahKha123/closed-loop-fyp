@@ -41,8 +41,8 @@ backend/__pycache__
 config/cloud.json
 config/.cloud-*.tmp
 
-# The app database. (data/hydraulic_condition_monitoring_summary.csv IS committed: it is the dataset.)
+# The app database. (backend/data/hydraulic_condition_monitoring_summary.csv IS committed: it is the dataset.)
 config/closed_loop.db*
 
-# Trained models: rebuilt by `python -m ml.train` (~1.5 min); the manifest and results are committed
-ml/models/*.joblib
+# Trained models: rebuilt by `python -m ml.train` (from backend/) (~1.5 min); the manifest and results are committed
+backend/ml/models/*.joblib

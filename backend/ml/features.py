@@ -1,6 +1,6 @@
 """The 68 per-cycle features: mean, std, min and max of each of the 17 sensors.
 
-The project's dataset is `data/hydraulic_condition_monitoring_summary.csv`:
+The project's dataset is `backend/data/hydraulic_condition_monitoring_summary.csv`:
 one row per cycle with these 68 features (4 decimals) and the five
 `profile.txt` condition columns — see docs/DATASET.md. Everything (training,
 evaluation, the live replay) reads that file through `load_features()`.
@@ -18,8 +18,9 @@ from pathlib import Path
 
 import pandas as pd
 
-REPO = Path(__file__).resolve().parents[1]
-DATA_DIR = REPO / "data"
+BACKEND = Path(__file__).resolve().parents[1]
+REPO = BACKEND.parent
+DATA_DIR = BACKEND / "data"
 SUMMARY_CSV = DATA_DIR / "hydraulic_condition_monitoring_summary.csv"
 
 # Order matters: it fixes the column order of the feature matrix and the models.
@@ -48,7 +49,7 @@ def load_summary(path: Path = SUMMARY_CSV) -> pd.DataFrame:
     """
     if not path.exists():
         raise FileNotFoundError(f"{path} is missing — it's committed to the repo; restore it with "
-                                "`git checkout -- data/`")
+                                "`git checkout -- backend/data/`")
     df = pd.read_csv(path, index_col="cycle")
     expected = list(FEATURE_NAMES) + list(LABEL_COLUMNS)
     if list(df.columns) != expected or len(df) != N_CYCLES:

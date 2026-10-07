@@ -26,8 +26,8 @@ reload and proxies `/api` to the backend (`frontend/vite.config.ts`).
 **The live pipeline (being built milestone by milestone, see TODO.md):**
 
 ```
-data/hydraulic_condition_monitoring_summary.csv
-   │ loaded once at startup (services/ingest.py, via ml/features.py)
+backend/data/hydraulic_condition_monitoring_summary.csv
+   │ loaded once at startup (services/ingest.py, via backend/ml/features.py)
    ▼
 replay (services/replay.py) ── every N s ──► tbl_SensorReading (SQLite, services/db.py + repo.py)
    │ publishes "cycle"                       │

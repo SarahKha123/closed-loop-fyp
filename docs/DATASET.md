@@ -1,13 +1,13 @@
 # Dataset
 
-The project's data is **`data/hydraulic_condition_monitoring_summary.csv`**: the
+The project's data is **`backend/data/hydraulic_condition_monitoring_summary.csv`**: the
 UCI *Condition Monitoring of Hydraulic Systems* dataset, reduced to 68
 statistical features per cycle plus the condition labels. Training,
 evaluation and the live replay all read this one file.
 
 Every number on this page can be regenerated with
-`python -m ml.dataset_report` (statistics + figures) and
-`python -m ml.evaluate` (model results).
+`cd backend && python -m ml.dataset_report` (statistics + figures) and
+`cd backend && python -m ml.evaluate` (model results).
 
 ---
 
@@ -119,7 +119,7 @@ FYP1), and stored as `StableFlag` in `tbl_SensorReading`.
 
 ## 5. The summary CSV
 
-`data/hydraulic_condition_monitoring_summary.csv` — 1 MB, 2,205 rows × 74 columns, no missing values, no duplicate cycles.
+`backend/data/hydraulic_condition_monitoring_summary.csv` — 1 MB, 2,205 rows × 74 columns, no missing values, no duplicate cycles.
 
 | Columns | Count | Content |
 |---|---|---|
@@ -215,7 +215,7 @@ Strongest single-feature associations with each component's graded condition
 The cooler separates cleanly on one feature; the accumulator does not.*
 
 These single-feature correlations are a different measure from the trained
-models' SHAP importance (`ml/results/shap_<component>.png`), which ranks what
+models' SHAP importance (`backend/ml/results/shap_<component>.png`), which ranks what
 the model actually used; both agree on the cooler (cooling power) and the
 pump (efficiency and flow).
 
@@ -223,9 +223,9 @@ pump (efficiency and flow).
 
 | Where | Uses |
 |---|---|
-| `ml/features.py` | `load_summary()` / `load_features()` read the CSV; the only reader |
-| `ml/labels.py` | Maps the graded values to Optimal / Degraded / Critical (§4) and checks the class counts |
-| `ml/evaluate.py`, `ml/train.py` | Part A evaluation and the four saved models (results: `ml/results/metrics.md`) |
+| `backend/ml/features.py` | `load_summary()` / `load_features()` read the CSV; the only reader |
+| `backend/ml/labels.py` | Maps the graded values to Optimal / Degraded / Critical (§4) and checks the class counts |
+| `backend/ml/evaluate.py`, `backend/ml/train.py` | Part A evaluation and the four saved models (results: `backend/ml/results/metrics.md`) |
 | Backend replay (M3) | Streams one row per cycle into `tbl_SensorReading`: the 68 features, the 17 `_mean` values for the Sensor Feed, the stable flag |
 | `tbl_Prediction.TrueCondition` | The label for each replayed cycle, kept for evaluation only — **never shown to the AI or the dashboard** |
 
@@ -241,4 +241,4 @@ mean ± sd. Reproduces FYP1 Table 4.2 (baselines exactly; models within ±0.005)
 | Pump | 0.550 | Random Forest | 0.995 ± 0.003 | 1.000 |
 | Accumulator | 0.419 | XGBoost | 0.990 ± 0.007 | 1.000 |
 
-Full tables, significance tests and confusion matrices: `ml/results/metrics.md`.
+Full tables, significance tests and confusion matrices: `backend/ml/results/metrics.md`.

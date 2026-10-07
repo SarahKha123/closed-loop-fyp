@@ -134,13 +134,13 @@ cap and clean-ups.
 
 ```
 closed-loop-fyp/
-├── ml/                         M1  dataset download, features, training, evaluation, saved models
+├── backend/ml/                 M1  features, labels, training, evaluation, saved models (inside the backend)
 │   ├── features.py               the 68-feature extraction (shared with the backend)
 │   ├── labels.py                 graded conditions → Optimal/Degraded/Critical
 │   ├── train.py · evaluate.py · dataset_report.py
 │   ├── models/<component>.joblib + manifest.json
 │   └── results/                  metrics, SHAP plots, replay check
-├── data/                       M1  hydraulic_condition_monitoring_summary.csv (committed)
+├── backend/data/               M1  hydraulic_condition_monitoring_summary.csv (committed)
 ├── backend/app/
 │   ├── api/                      dashboard, replay, stream, work_orders, insights, study (+ existing)
 │   └── services/
@@ -206,46 +206,46 @@ Each one changes code. Decide before starting the milestone it's tagged with.
 **Goal:** the FYP1 feature extraction, training and evaluation run from this repo and recreate the models deterministically.
 
 **Dataset**
-- [x] **Primary data source: `data/hydraulic_condition_monitoring_summary.csv`** (your dataset; committed, 1 MB): cycle + 68 features + the 5 profile columns. Verified against the raw UCI files — matches to within its 4-decimal rounding; labels identical. Documented in `docs/DATASET.md`
+- [x] **Primary data source: `backend/data/hydraulic_condition_monitoring_summary.csv`** (your dataset; committed, 1 MB): cycle + 68 features + the 5 profile columns. Verified against the raw UCI files — matches to within its 4-decimal rounding; labels identical. Documented in `docs/DATASET.md`
 - [-] Raw-file download and rebuild scripts — removed after the one-off verification; the CSV is the only data the project uses
 - [x] The raw layout (17 sensor matrices at 100/10/1 Hz + `profile.txt`) is documented in `docs/DATASET.md` §3–4 for the report
 
-**Features** — `ml/features.py`
+**Features** — `backend/ml/features.py`
 - [x] `load_summary()` / `load_features()` read the CSV and check its shape and column order
 - [x] Per-cycle features: for each of the 17 sensors, `mean`, `std` (population), `min`, `max` → 68 values named `<SENSOR>_<stat>` (e.g. `CP_max`); one CSV row is one cycle (the backend reads rows)
 - [x] Column order fixed by a `FEATURE_NAMES` constant (2,205 × 68)
 - [x] **Pure and importable**: the backend imports this module, so no notebook code, no plotting, no file writes
 
-**Labels** — `ml/labels.py` (must reproduce FYP1 Table 4.1 exactly)
+**Labels** — `backend/ml/labels.py` (must reproduce FYP1 Table 4.1 exactly)
 - [x] Cooler: 100 → Optimal, 20 → Degraded, 3 → Critical (741 / 732 / 732)
 - [x] Valve: 100 → Optimal, 90 → Degraded, 80 and 73 → Critical (1,125 / 360 / 720)
 - [x] Pump: 0 → Optimal, 1 → Degraded, 2 → Critical (1,221 / 492 / 492)
 - [x] Accumulator: 130 → Optimal, 115 → Degraded, 100 and 90 → Critical (599 / 399 / 1,207)
 - [x] Assert the class counts — `labels.check_counts()` runs on every evaluate/train; **counts match Table 4.1 exactly**
 
-**Training** — `ml/train.py`
+**Training** — `backend/ml/train.py`
 - [x] Pipeline per component: `StandardScaler → SMOTE (imblearn, inside the pipeline so it only fits on training folds) → classifier` — **the baseline has no SMOTE**: that reproduces FYP1's baseline row exactly (with SMOTE the accumulator stump drops to 0.282 vs FYP1's 0.419)
 - [x] Models: rule-based baseline (`DecisionTreeClassifier(max_depth=1)`), `LogisticRegression`, `RandomForestClassifier`, `XGBClassifier`; fixed `random_state`
 - [x] Pick the best per component by mean CV macro-F1 (FYP1: XGBoost for cooler and accumulator, RF for valve and pump); refit on all data; save with `joblib`
-- [x] `ml/models/manifest.json`: per component → model type, file, `FEATURE_NAMES`, class labels in order, CV macro-F1 and PR-AUC, library versions, trained-at timestamp
+- [x] `backend/ml/models/manifest.json`: per component → model type, file, `FEATURE_NAMES`, class labels in order, CV macro-F1 and PR-AUC, library versions, trained-at timestamp
 
-**Evaluation** — `ml/evaluate.py`
+**Evaluation** — `backend/ml/evaluate.py`
 - [x] Repeated stratified 5-fold × 3 repeats (15 folds); macro-F1, macro PR-AUC; mean ± sd (per-class recall is reported on the held-out split)
 - [x] Paired t-test and Cohen's d, best model vs baseline, per component
 - [x] Held-out 20 % stratified split confusion matrices (FYP1 Table 4.3)
-- [x] Write `ml/results/metrics.csv` and `ml/results/metrics.md`
+- [x] Write `backend/ml/results/metrics.csv` and `backend/ml/results/metrics.md`
 
 **SHAP** — finish O1
-- [x] `shap.TreeExplainer` for RF/XGBoost; summary plots for **all four** components → `ml/results/shap_<component>.png`
+- [x] `shap.TreeExplainer` for RF/XGBoost; summary plots for **all four** components → `backend/ml/results/shap_<component>.png`
 - [x] Multi-class: the global plots average |SHAP| over all classes (documented in `train.py`); per-prediction SHAP for the predicted class is M4's job
 
 **Environment**
-- [x] `ml/requirements.txt` — **unpinned** (project rule: package names only); models are rebuilt after upgrades and `manifest.json` records the versions used. Uses **`xgboost-cpu`**: the default wheel is CUDA-built and fails on this WSL GPU driver
-- [x] `docs/DATASET.md` + `ml/dataset_report.py` (statistics and figures in `docs/img/`)
+- [x] ML packages listed in `backend/requirements.txt` — **unpinned** (project rule: package names only); models are rebuilt after upgrades and `manifest.json` records the versions used. Uses **`xgboost-cpu`**: the default wheel is CUDA-built and fails on this WSL GPU driver
+- [x] `docs/DATASET.md` + `backend/ml/dataset_report.py` (statistics and figures in `docs/img/`)
 
-**Done when:** on a fresh clone, `python -m ml.evaluate && python -m ml.train` recreates `ml/models/` and `ml/results/metrics.md`, and the macro-F1 values match FYP1 Table 4.2 within the reported sd.
+**Done when:** on a fresh clone, `cd backend && python -m ml.evaluate && python -m ml.train` recreates `backend/ml/models/` and `backend/ml/results/metrics.md`, and the macro-F1 values match FYP1 Table 4.2 within the reported sd.
 
-✅ **Done (2026-10-07).** Every model within ±0.005 of Table 4.2; the baseline row exact; best models match FYP1 (XGBoost: cooler, accumulator; RF: valve, pump); SHAP for all four. Cooler's top SHAP feature is CP_min here vs CP_max in FYP1 (near-duplicate cooling-power features — same physical story). Trained from your summary CSV (re-run after switching from raw files: results unchanged within ±0.002). Details: `ml/README.md`, `ml/results/metrics.md`, `docs/DATASET.md`.
+✅ **Done (2026-10-07).** Every model within ±0.005 of Table 4.2; the baseline row exact; best models match FYP1 (XGBoost: cooler, accumulator; RF: valve, pump); SHAP for all four. Cooler's top SHAP feature is CP_min here vs CP_max in FYP1 (near-duplicate cooling-power features — same physical story). Trained from your summary CSV (re-run after switching from raw files: results unchanged within ±0.002). Details: `backend/ml/README.md`, `backend/ml/results/metrics.md`, `docs/DATASET.md`.
 
 ---
 
@@ -348,7 +348,7 @@ CREATE TABLE tbl_Insight (
 
 **Ingestion** — `backend/app/services/ingest.py`
 - [x] At startup, `ml.features.load_summary()` → keep the 2,205-row frame in memory (~1 MB): the 68 features, the 17 `<SENSOR>_mean` columns for the Sensor Feed, the condition columns (for `TrueCondition`) and the stable flag
-- [x] Make `ml/` importable from the backend — `ingest.load()` adds the repo root to `sys.path`; **one feature implementation, not two**. If it can't load, the API still runs and `/api/replay` answers 503 with the reason
+- [x] `ml` importable from the backend — it lives in `backend/ml/`, so a plain `from ml import features` works; **one feature implementation, not two**. If it can't load, the API still runs and `/api/replay` answers 503 with the reason
 - [x] Clear error if the CSV is missing (`load_summary` already raises with the fix)
 - [x] Default replay start: **cycle 1,665** (the first cycle where all four components are Optimal — see `docs/DATASET.md` §6); cycle 1 opens with the cooler Critical
 
@@ -392,7 +392,7 @@ CREATE TABLE tbl_Insight (
 **Goal:** each new cycle is scored by the four FYP1 models, with SHAP explanations, in well under a second.
 
 **Predictor** — `backend/app/services/predictor.py`
-- [ ] Load `ml/models/manifest.json` and the four `.joblib` files once at startup; fail clearly if missing ("run `python ml/train.py`")
+- [ ] Load `backend/ml/models/manifest.json` and the four `.joblib` files once at startup; fail clearly if missing ("run `cd backend && python -m ml.train`")
 - [ ] Check that the manifest's `FEATURE_NAMES` equals `ml.features.FEATURE_NAMES` (catches a stale model)
 - [ ] `predict(features: dict) -> list[Prediction]` per component:
   - `predict_proba` → `ClassProbabilities`; `PredictedCondition` = argmax
@@ -409,15 +409,15 @@ CREATE TABLE tbl_Insight (
 - [ ] `repo.insert_predictions` → compute `changedFrom` against the previous prediction per equipment → `publish(prediction)`
 
 **Dependencies**
-- [ ] Add the ML packages to `backend/requirements.txt` (unpinned, e.g. `-r ../ml/requirements.txt` or the same names)
+- [x] Add the ML packages to `backend/requirements.txt` (unpinned) — done when `backend/ml/` moved into the backend
 - [ ] At load, compare the installed library versions with `manifest.json["libraries"]`; on a mismatch log a warning: "models were trained with scikit-learn X; installed Y — run `python -m ml.train`"
 
 **Checks**
 - [ ] Time `predict` per cycle (target < 200 ms for all four + SHAP); log it; save the number for Part D
-- [ ] `ml/replay_check.py`: score all 2,205 cycles through `predictor.predict` and compare with `TrueCondition` → accuracy and macro-F1 per component → `ml/results/replay_check.md`. Expect it to be **higher** than CV (the final models saw all data) — note that honestly
+- [ ] `backend/ml/replay_check.py`: score all 2,205 cycles through `predictor.predict` and compare with `TrueCondition` → accuracy and macro-F1 per component → `backend/ml/results/replay_check.md`. Expect it to be **higher** than CV (the final models saw all data) — note that honestly
 - [ ] `test_predictor.py`: a known cycle (pick one per class from the CSV's condition columns) gets the expected condition; output has 3 SHAP features with numeric values
 
-**Done when:** with replay running, each cycle adds 4 rows to `tbl_Prediction` with SHAP drivers, and `ml/results/replay_check.md` exists.
+**Done when:** with replay running, each cycle adds 4 rows to `tbl_Prediction` with SHAP drivers, and `backend/ml/results/replay_check.md` exists.
 
 ---
 
@@ -507,7 +507,7 @@ CREATE TABLE tbl_Insight (
    "openWorkOrders": [{"id": "WO-0004", "component": "Accumulator", "createdBy": "system:monitor"}],
    "event": {"type": "condition_change", "component": "Accumulator", "from": "Degraded", "to": "Critical"}}
   ```
-- [ ] `ml/feature_labels.py` (or a dict in `snapshot.py`): human labels and units for the 68 features (`PS2_mean` → "Pump outlet pressure (mean)", bar) so the AI and UI say readable names
+- [ ] `backend/ml/feature_labels.py` (or a dict in `snapshot.py`): human labels and units for the 68 features (`PS2_mean` → "Pump outlet pressure (mean)", bar) so the AI and UI say readable names
 - [ ] Round values to the precision shown in the UI (the validator uses the same rounding)
 - [ ] Keep it under ~1,500 tokens; include only components that changed plus a one-line status for the rest
 
@@ -678,7 +678,7 @@ CREATE TABLE tbl_Insight (
 - [ ] Frontend: `tsc -b`, `oxlint`, `vite build` clean; optional Vitest for `lib/stream.ts` and the reducer
 
 **Robustness**
-- [ ] Clear UI states for: Ollama down, no model, models missing (`ml/models/`), dataset missing, cloud key rejected, SSE disconnected ("reconnecting…")
+- [ ] Clear UI states for: Ollama down, no model, models missing (`backend/ml/models/`), dataset missing, cloud key rejected, SSE disconnected ("reconnecting…")
 - [ ] Insight engine survives model errors (logs, publishes a notice, keeps running)
 - [ ] Full 2,205-cycle replay at 0.05 s/cycle: no errors, memory flat, UI stays responsive (throttled refreshes)
 - [ ] DB writes never block the event loop (writes in `to_thread` or kept tiny)
@@ -688,8 +688,8 @@ CREATE TABLE tbl_Insight (
 - [ ] Embedding detection via `/api/show` capabilities
 
 **Packaging**
-- [ ] `./closed-loop.sh setup` also: installs `ml/requirements.txt` into the backend venv and runs `ml.evaluate` + `ml.train` if `ml/models/` is empty (no download needed — the CSV is committed)
-- [ ] Dockerfile: copy `ml/` and `data/hydraulic_condition_monitoring_summary.csv`, train the models during the image build; test `./closed-loop.sh start` on a machine with Docker
+- [ ] `./closed-loop.sh setup` also runs `ml.evaluate` + `ml.train` (from `backend/`) if `backend/ml/models/` has no `.joblib` files (no download needed — the CSV is committed)
+- [ ] Dockerfile: copy `backend/ml/` and `backend/data/`, train the models during the image build; test `./closed-loop.sh start` on a machine with Docker
 - [ ] `.dockerignore` (node_modules, .venv, data, Daedalus, dist)
 - [ ] Keep every `requirements*.txt` unpinned (project rule); commit `pnpm-lock.yaml` changes
 - [ ] Delete the old root `node_modules/` and `dist/`

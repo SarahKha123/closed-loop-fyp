@@ -43,18 +43,18 @@ pnpm --dir frontend dev
 ## ML pipeline (once)
 
 The live system scores cycles with the FYP1 models. The dataset is committed
-(`data/hydraulic_condition_monitoring_summary.csv`, see [DATASET.md](DATASET.md));
-build the models once:
+(`backend/data/hydraulic_condition_monitoring_summary.csv`, see [DATASET.md](DATASET.md));
+the ML libraries come with `backend/requirements.txt`. Build the models once:
 
 ```bash
-backend/.venv/bin/pip install -r ml/requirements.txt   # ML libraries (unpinned)
-backend/.venv/bin/python -m ml.evaluate                # cross-validation → ml/results/ (~1 min)
-backend/.venv/bin/python -m ml.train                   # final models + SHAP → ml/models/ (~20 s)
+cd backend
+.venv/bin/python -m ml.evaluate     # cross-validation → ml/results/ (~1 min)
+.venv/bin/python -m ml.train        # final models + SHAP → ml/models/ (~20 s)
 ```
 
 Re-run `ml.train` after upgrading any ML library — the saved models are
 version-sensitive, which is why they're rebuilt rather than committed. See
-[`ml/README.md`](../ml/README.md).
+[`backend/ml/README.md`](../backend/ml/README.md).
 
 ## Database
 

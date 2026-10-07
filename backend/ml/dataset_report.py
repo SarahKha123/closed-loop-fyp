@@ -1,6 +1,6 @@
 """Figures and statistics for docs/DATASET.md, computed from the summary CSV.
 
-    python -m ml.dataset_report
+    cd backend && python -m ml.dataset_report
 
 Writes docs/img/dataset_conditions_over_cycles.png and
 docs/img/dataset_top_feature_by_condition.png, and prints the numbers the

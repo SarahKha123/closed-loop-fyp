@@ -1,4 +1,24 @@
+# Unpinned on purpose (project rule): package names only, so the project keeps
+# installing in future. The trained models are the version-sensitive part, so
+# they're rebuilt instead: after upgrading the ML libraries, run
+# `python -m ml.train` from backend/ (ml/models/manifest.json records the
+# versions the current models were trained with).
+
+# API
 fastapi
 uvicorn[standard]
 httpx
 psutil
+
+# ML: the live predictor (scoring + SHAP) and the training pipeline in ml/.
+# xgboost-cpu, not xgboost: the default wheel is CUDA-built and fails on
+# older GPU drivers (e.g. under WSL). The dataset is small; the CPU is plenty.
+numpy
+pandas
+scipy
+scikit-learn
+imbalanced-learn
+xgboost-cpu
+shap
+joblib
+matplotlib
