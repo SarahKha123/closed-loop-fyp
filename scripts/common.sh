@@ -130,10 +130,15 @@ wait_for_api() {
 
 check_ollama() {
   local url="${OLLAMA_BASE_URL:-http://localhost:11434}"
-  if curl -fsS --max-time 2 "${url}/api/tags" >/dev/null 2>&1; then
-    ok "Ollama reachable at ${url}"
-    return 0
-  fi
+  local u
+  # The default URL is the container's view of the host; on the host itself
+  # that name doesn't resolve, so try localhost too (the backend does the same).
+  for u in "$url" "${url/host.docker.internal/localhost}"; do
+    if curl -fsS --max-time 2 "${u}/api/tags" >/dev/null 2>&1; then
+      ok "Ollama reachable at ${u}"
+      return 0
+    fi
+  done
   warn "no Ollama reachable at ${url}"
   info "start it with 'ollama serve', or run this project with --with-ollama"
   return 1

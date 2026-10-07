@@ -106,10 +106,13 @@ compose_up() {
 cmd_setup() {
   head_ "Checking prerequisites"
   local missing=0
-  for tool in docker node python3; do
+  for tool in node python3; do
     if have "$tool"; then ok "$tool $($tool --version 2>/dev/null | head -1)"
     else err "$tool is not installed"; missing=1; fi
   done
+  # Optional: only `start`/`dev` need it; `dev --host` runs without.
+  if have docker; then ok "docker $(docker --version 2>/dev/null | head -1)"
+  else warn "docker not installed — use './closed-loop.sh dev --host'"; fi
   if have pnpm; then ok "pnpm $(pnpm --version)"
   elif have corepack; then warn "pnpm missing — enabling via corepack"; corepack enable || true
   else err "pnpm is not installed (npm i -g pnpm)"; missing=1; fi
