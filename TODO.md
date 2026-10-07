@@ -22,14 +22,15 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 | Dashboard pages | | 🟡 UI exists, runs on demo data | real data, trend chart, SHAP bars |
 | ML pipeline (M1) | ✅ rebuilt, matches FYP1 | | |
 | Data layer (M2) | ✅ schema, queries, tests | | |
-| Replay, prediction (M3–M4) | | | ⬜ next |
+| Replay + live stream (M3) | ✅ | | |
+| Prediction (M4) | | | ⬜ next |
 | Work orders (M6) | | 🟡 simulated by the demo data | real automation |
 | AI chat | ✅ streaming, local/cloud, history cap | 🟡 grounded only in demo values | tools, actions |
 | AI live insights + validator (M7–M8) | | 🟡 canned demo announcements only | ⬜ the real engine |
 | Evaluation + study mode (M10–M11) | | | ⬜ |
-| Tests, packaging, docs (M12) | ✅ docs for what exists; pytest (11 tests) | 🟡 Docker untested since the move | settings, fresh-clone setup |
+| Tests, packaging, docs (M12) | ✅ docs for what exists; pytest (23 tests) | 🟡 Docker untested since the move | settings, fresh-clone setup |
 
-**Milestones:** 2 of 12 complete (M1, M2). Next: M3 → M4.
+**Milestones:** 3 of 12 complete (M1, M2, M3). Next: M4 → M5.
 
 ## Feature map
 
@@ -53,8 +54,8 @@ Status: **Built** · **Partial** (exists but not on real data, or missing pieces
 | Feature | Status | Milestone |
 |---|---|---|
 | SQLite data layer (5 tables) + query module | Built | M2 |
-| Cycle replay with play / pause / step / speed / seek | — | M3 |
-| Event bus + live SSE stream to the browser | — | M3 |
+| Cycle replay with play / pause / step / speed / seek | Built | M3 |
+| Event bus + live SSE stream to the browser | Built | M3 |
 | CSV ingest in the same schema (stretch) | — | M3 |
 | Live scoring of each cycle with SHAP drivers | — | M4 |
 | Whole-replay accuracy check | — | M4 |
@@ -108,25 +109,24 @@ Status: **Built** · **Partial** (exists but not on real data, or missing pieces
 | `./closed-loop.sh dev --host` (no Docker, starts Ollama) | Built | — |
 | Docker / compose | Partial — untested since the `frontend/` move | M12 |
 | Docs (README, ARCHITECTURE, API, DEVELOPMENT) | Built for what exists | updated each milestone |
-| Tests | Partial — pytest, 11 tests (repo, history cap); `check_models.py` not yet converted | M12 |
+| Tests | Partial — pytest, 23 tests (repo, events, replay, history cap); `check_models.py` not yet converted | M12 |
 | Runtime settings file + API | — | Cross-cutting |
 
 ## Start here
 
-**Done so far:** M1 (ML pipeline rebuilt from the report, matching FYP1) and M2
-(the shared data layer), plus the chat history cap and the root clean-up.
+**Done so far:** M1 (ML pipeline, matching FYP1; trained from your summary CSV),
+M2 (shared data layer), M3 (live replay + event stream), plus the chat history
+cap and clean-ups.
 
 **Next, in order:**
 
-1. **M3 — replay and live events:** load the cached features, replay cycles
-   into `tbl_SensorReading`, publish events, stream them over `/api/stream`.
-2. **M4 — prediction service:** score each replayed cycle with the four saved
-   models, per-prediction SHAP, `changedFrom`; the full-replay accuracy check.
-3. **M5 — dashboard on real data:** that's where the demo data disappears.
-
-Before M3, add the ML packages to the backend's install path (they're in its
-virtualenv already, but `backend/requirements.txt` doesn't list them yet —
-M4's first task).
+1. **M4 — prediction service:** score each replayed cycle with the four saved
+   models; per-prediction SHAP; `changedFrom`; publish `prediction` events;
+   the full-replay accuracy check. First task: list the ML packages in
+   `backend/requirements.txt` (unpinned).
+2. **M5 — dashboard on real data:** replay controls in the sidebar, live
+   overview, trend chart, SHAP bars — the demo data disappears.
+3. **M6 — monitor and work orders.**
 
 ---
 
@@ -138,10 +138,9 @@ closed-loop-fyp/
 │   ├── features.py               the 68-feature extraction (shared with the backend)
 │   ├── labels.py                 graded conditions → Optimal/Degraded/Critical
 │   ├── train.py · evaluate.py · dataset_report.py
-│   ├── rebuild_summary.py · get_data.sh   optional: verify the CSV against the raw UCI files
 │   ├── models/<component>.joblib + manifest.json
 │   └── results/                  metrics, SHAP plots, replay check
-├── data/                       M1  hydraulic_condition_monitoring_summary.csv (committed); raw/ optional, gitignored
+├── data/                       M1  hydraulic_condition_monitoring_summary.csv (committed)
 ├── backend/app/
 │   ├── api/                      dashboard, replay, stream, work_orders, insights, study (+ existing)
 │   └── services/
@@ -208,18 +207,13 @@ Each one changes code. Decide before starting the milestone it's tagged with.
 
 **Dataset**
 - [x] **Primary data source: `data/hydraulic_condition_monitoring_summary.csv`** (your dataset; committed, 1 MB): cycle + 68 features + the 5 profile columns. Verified against the raw UCI files — matches to within its 4-decimal rounding; labels identical. Documented in `docs/DATASET.md`
-- [x] `ml/get_data.sh` (optional now): downloads the raw UCI archive (DOI 10.24432/C5CW21) into `data/raw/` — only needed to verify/regenerate the CSV with `python -m ml.rebuild_summary`
-- [x] Add `data/` to `.gitignore`
-- [x] Raw UCI files (optional; tab-separated, one row per cycle, 2,205 rows each):
-  - 100 Hz (6,000 columns): `PS1`–`PS6`, `EPS1`
-  - 10 Hz (600 columns): `FS1`, `FS2`
-  - 1 Hz (60 columns): `TS1`–`TS4`, `VS1`, `CE`, `CP`, `SE`
-  - `profile.txt`: 5 columns — cooler %, valve %, pump leakage, accumulator bar, stable flag
+- [-] Raw-file download and rebuild scripts — removed after the one-off verification; the CSV is the only data the project uses
+- [x] The raw layout (17 sensor matrices at 100/10/1 Hz + `profile.txt`) is documented in `docs/DATASET.md` §3–4 for the report
 
 **Features** — `ml/features.py`
-- [x] `load_summary()` / `load_features()` read the CSV and check its shape and column order; `load_raw()` + `feature_matrix()` + `build_summary()` recompute it from raw files (optional)
-- [x] Per-cycle features: for each of the 17 sensors, `mean`, `std` (population), `min`, `max` → 68 values named `<SENSOR>_<stat>` (e.g. `CP_max`) — computed vectorised for all cycles; one row of the matrix is one cycle (the backend reads rows)
-- [x] `feature_matrix(raw) -> pd.DataFrame` (2205 × 68), column order fixed by a `FEATURE_NAMES` constant
+- [x] `load_summary()` / `load_features()` read the CSV and check its shape and column order
+- [x] Per-cycle features: for each of the 17 sensors, `mean`, `std` (population), `min`, `max` → 68 values named `<SENSOR>_<stat>` (e.g. `CP_max`); one CSV row is one cycle (the backend reads rows)
+- [x] Column order fixed by a `FEATURE_NAMES` constant (2,205 × 68)
 - [x] **Pure and importable**: the backend imports this module, so no notebook code, no plotting, no file writes
 
 **Labels** — `ml/labels.py` (must reproduce FYP1 Table 4.1 exactly)
@@ -353,14 +347,14 @@ CREATE TABLE tbl_Insight (
 **Goal:** recorded cycles arrive one at a time as if live, and every part of the system hears about it.
 
 **Ingestion** — `backend/app/services/ingest.py`
-- [ ] At startup, `ml.features.load_summary()` → keep the 2,205-row frame in memory (~1 MB): the 68 features, the 17 `<SENSOR>_mean` columns for the Sensor Feed, the condition columns (for `TrueCondition`) and the stable flag
-- [ ] Make `ml/` importable from the backend (add the repo root to `sys.path` in `main.py`, or package `ml` with a `pyproject.toml`) — **one feature implementation, not two**
-- [ ] Clear error if the CSV is missing (`load_summary` already raises with the fix)
-- [ ] Default replay start: **cycle 1,665** (the first cycle where all four components are Optimal — see `docs/DATASET.md` §6); cycle 1 opens with the cooler Critical
+- [x] At startup, `ml.features.load_summary()` → keep the 2,205-row frame in memory (~1 MB): the 68 features, the 17 `<SENSOR>_mean` columns for the Sensor Feed, the condition columns (for `TrueCondition`) and the stable flag
+- [x] Make `ml/` importable from the backend — `ingest.load()` adds the repo root to `sys.path`; **one feature implementation, not two**. If it can't load, the API still runs and `/api/replay` answers 503 with the reason
+- [x] Clear error if the CSV is missing (`load_summary` already raises with the fix)
+- [x] Default replay start: **cycle 1,665** (the first cycle where all four components are Optimal — see `docs/DATASET.md` §6); cycle 1 opens with the cooler Critical
 
 **Event bus** — `backend/app/services/events.py`
-- [ ] `subscribe() -> asyncio.Queue`, `unsubscribe(q)`, `publish(event: dict)` (non-blocking; drop the oldest event for a slow subscriber rather than block)
-- [ ] Event shapes (also the SSE payloads):
+- [x] `subscribe() -> asyncio.Queue`, `unsubscribe(q)`, `publish(event: dict)` (non-blocking; drop the oldest event for a slow subscriber rather than block)
+- [x] Event shapes (also the SSE payloads):
   ```json
   {"type": "cycle",      "cycle": 1465, "readingId": 1465}
   {"type": "prediction", "cycle": 1465, "predictions": [{"equipment": "ACCUM-1", "condition": "Critical", "failureProbability": 0.97, "changedFrom": "Degraded"}]}
@@ -370,24 +364,26 @@ CREATE TABLE tbl_Insight (
   ```
 
 **Replay** — `backend/app/services/replay.py`
-- [ ] State: `cycle` (next to emit), `playing`, `seconds_per_cycle` (default 2.0, min 0.05)
-- [ ] An `asyncio` task started in `lifespan`: while playing → write the reading (`repo.insert_reading`) → `publish(cycle)` → sleep
-- [ ] Controls: `play()`, `pause()`, `step()`, `set_speed(s)`, `seek(cycle)`, `reset()` (seek/reset also clear later predictions so the timeline stays consistent)
-- [ ] Start paused at cycle 1 (or `settings.replay.start_cycle`)
-- [ ] Use `CycleNumber` as the time axis everywhere; `Timestamp` is only when it was replayed
+- [x] State: `cycle` (next to emit), `playing`, `seconds_per_cycle` (default 2.0, min 0.05)
+- [x] An `asyncio` task started in `lifespan`: while playing → write the reading (`repo.insert_reading`) → `publish(cycle)` → sleep
+- [x] Controls: `play()`, `pause()`, `step()`, `set_speed(s)`, `seek(cycle)`, `reset()` (seek/reset also clear later predictions so the timeline stays consistent)
+- [x] Start paused at cycle 1,665 (constant `DEFAULT_START`; moves into settings later); after a restart, resume after the last stored cycle
+- [x] Use `CycleNumber` as the time axis everywhere; `Timestamp` is only when it was replayed
 
 **API** — `backend/app/api/replay.py` and `backend/app/api/stream.py`
-- [ ] `GET /api/replay` → `{state, cycle, total: 2205, secondsPerCycle}`
-- [ ] `POST /api/replay/play | pause | step | reset`
-- [ ] `POST /api/replay/speed {secondsPerCycle}` · `POST /api/replay/seek {cycle}` (validate 1..2205)
-- [ ] `GET /api/stream` (SSE): subscribe → forward each event → unsubscribe on disconnect; send a `: ping` comment every 15 s so proxies keep the connection open
+- [x] `GET /api/replay` → `{state, cycle, total: 2205, secondsPerCycle}`
+- [x] `POST /api/replay/play | pause | step | reset`
+- [x] `POST /api/replay/speed {secondsPerCycle}` · `POST /api/replay/seek {cycle}` (validate 1..2205)
+- [x] `GET /api/stream` (SSE): subscribe → forward each event → unsubscribe on disconnect; send a `: ping` comment every 15 s so proxies keep the connection open
 - [ ] Optional stretch `POST /api/ingest` — CSV with the 68 `FEATURE_NAMES` columns + `CycleNumber`; validate the header; reject anything else
 
 **Tests**
-- [ ] `test_events.py`: two subscribers both receive a published event; a full queue drops the oldest, not the newest
-- [ ] `test_replay.py`: `step()` inserts exactly one reading and publishes one `cycle` event; `seek(100)` then `step()` writes cycle 100
+- [x] `test_events.py`: two subscribers both receive a published event; a full queue drops the oldest, not the newest; publishing from a worker thread works
+- [x] `test_replay.py`: step, seek back (erases the future) and forward, play/pause loop, auto-stop at the end, reset, invalid controls, resume point — 9 tests
 
 **Done when:** `POST /api/replay/play` makes `SELECT COUNT(*) FROM tbl_SensorReading` grow every 2 s, and `curl -N localhost:8000/api/stream` prints a `cycle` event each time.
+
+✅ **Done (2026-10-07)** — except the optional CSV-upload stretch. Checked live: at 0.5 s/cycle, 8 cycles streamed in 4 s through both the backend and the Vite proxy; pause stops writes; bad input → 400; reset leaves the DB empty. Documented in `docs/API.md` (Replay, Live stream) and `docs/ARCHITECTURE.md`.
 
 ---
 

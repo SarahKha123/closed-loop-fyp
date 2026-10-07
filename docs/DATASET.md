@@ -134,15 +134,14 @@ boundaries) capture each sensor's behaviour over a cycle compactly; range,
 skewness and kurtosis were considered and dropped as adding complexity
 without improving separation of the classes.
 
-**Verification.** The CSV was checked against the original UCI files: all 68
-features recomputed from the 531 MB of raw data match the CSV to within its
-4-decimal rounding (largest difference 0.00005 before rounding), and the five
-condition columns are identical to `profile.txt`. To repeat the check:
-
-```bash
-bash ml/get_data.sh                    # raw files → data/raw/ (optional, ~73 MB download)
-python -m ml.rebuild_summary           # recompute and compare
-```
+**Verification (done 2026-10-07).** The CSV was checked against the original
+UCI files: all 68 features recomputed from the 531 MB of raw data match the
+CSV to within its 4-decimal rounding (largest difference 0.00005 before
+rounding), the standard deviations are the population form, and the five
+condition columns are identical to `profile.txt`. Training on the CSV gives
+the same results as training on the unrounded raw-file features (within
+±0.002 macro-F1). The raw files aren't kept in the repo; they're available from
+the DOI above if the check ever needs repeating.
 
 ### Data quality notes
 

@@ -19,13 +19,6 @@ backend/.venv/bin/python -m ml.train                   # best model per componen
 backend/.venv/bin/python -m ml.dataset_report          # dataset statistics + the figures in docs/img/
 ```
 
-Optional — only to verify or regenerate the CSV from the original UCI files:
-
-```bash
-bash ml/get_data.sh                          # raw files → data/raw/ (~73 MB download, 531 MB unzipped)
-backend/.venv/bin/python -m ml.rebuild_summary   # recompute and compare (add --write to overwrite)
-```
-
 ## Files
 
 | File | What it does |
@@ -36,7 +29,6 @@ backend/.venv/bin/python -m ml.rebuild_summary   # recompute and compare (add --
 | `evaluate.py` | Repeated stratified 5-fold × 3 (15 folds), macro-F1, macro PR-AUC, paired t-test, Cohen's d, held-out confusion matrices |
 | `train.py` | Picks the best model per component, refits on all data, saves it, computes SHAP |
 | `dataset_report.py` | The statistics and figures quoted in `docs/DATASET.md` |
-| `rebuild_summary.py`, `get_data.sh` | Optional: rebuild / verify the CSV from the raw UCI files |
 | `models/` | `<component>.joblib` (gitignored — rebuild with `train`) + `manifest.json` (committed; records the library versions used) |
 | `results/` | `metrics.md` (the Table 4.2/4.3 equivalents), `metrics.csv`, `cv_scores.csv` (every fold), `shap_<component>.png` |
 

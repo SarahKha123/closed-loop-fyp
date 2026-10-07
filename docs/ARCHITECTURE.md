@@ -23,9 +23,23 @@ also serves the built frontend from `static/`, so there is one origin, no
 CORS and no separate web server. In development Vite serves the UI with hot
 reload and proxies `/api` to the backend (`frontend/vite.config.ts`).
 
-The dashboard data (cycles, work orders, sensor readings) is **demo data in
-the frontend** (`frontend/src/domain/demo-data.ts`), standing in for the ML
-pipeline's output. The backend only handles models and the Advisor.
+**The live pipeline (being built milestone by milestone, see TODO.md):**
+
+```
+data/hydraulic_condition_monitoring_summary.csv
+   │ loaded once at startup (services/ingest.py, via ml/features.py)
+   ▼
+replay (services/replay.py) ── every N s ──► tbl_SensorReading (SQLite, services/db.py + repo.py)
+   │ publishes "cycle"                       │
+   ▼                                         ▼
+event bus (services/events.py) ──► /api/stream (SSE) ──► browser
+   │
+   └──► predictor (M4) → monitor / work orders (M6) → insight engine (M7)
+```
+
+Built so far: the data layer (M2), the replay and the live stream (M3).
+Until M5, the dashboard pages still show **demo data in the frontend**
+(`frontend/src/domain/demo-data.ts`).
 
 ---
 
@@ -52,7 +66,14 @@ services never import from `api`.
 | `services/catalogue.py` | The short list of suggested local models |
 | `services/hardware.py` | CPU / RAM / GPU / disk probes, each independently guarded |
 | `services/jsonfile.py` | Safe read + atomic write for the config files |
-| `services/paths.py` | Where config lives (`CLOSED_LOOP_CONFIG_DIR`) |
+| `services/paths.py` | Where config and the database live (`CLOSED_LOOP_CONFIG_DIR`) |
+| `services/db.py` | The shared data layer: SQLite schema (5 tables), connections, the write lock |
+| `services/repo.py` | Every SQL query, in one place |
+| `services/ingest.py` | The dataset in memory, one record per cycle |
+| `services/replay.py` | Plays the cycles as a live feed; play / pause / step / speed / seek / reset |
+| `services/events.py` | In-process publish/subscribe between the live-pipeline parts |
+| `api/replay.py` | Replay controls |
+| `api/stream.py` | `GET /api/stream` — all live events to the browser (SSE) |
 
 ### Model selection
 

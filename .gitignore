@@ -41,9 +41,7 @@ backend/__pycache__
 config/cloud.json
 config/.cloud-*.tmp
 
-# Raw UCI files (optional, 531 MB — ml/get_data.sh) and the app database.
-# data/hydraulic_condition_monitoring_summary.csv (1 MB) IS committed: it's the project's dataset.
-data/raw/
+# The app database. (data/hydraulic_condition_monitoring_summary.csv IS committed: it is the dataset.)
 config/closed_loop.db*
 
 # Trained models: rebuilt by `python -m ml.train` (~1.5 min); the manifest and results are committed

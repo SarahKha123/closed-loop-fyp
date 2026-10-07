@@ -161,6 +161,66 @@ Under WSL, CPU and RAM are what WSL is allowed to use, not the whole PC.
 
 ---
 
+## Replay (live feed)
+
+The 2,205 recorded cycles are replayed one at a time as if arriving live
+(see [DATASET.md](DATASET.md) §6). Every control returns the new state and also
+publishes it on `/api/stream`. All return `503` if the dataset couldn't be
+loaded (the reason is in `detail`); invalid values return `400`.
+
+### `GET /api/replay`
+```json
+{
+  "state": "paused",          // "playing" | "paused" | "finished"
+  "cycle": 1673,              // last cycle written; null before the first
+  "nextCycle": 1674,          // null when finished
+  "first": 1,
+  "total": 2205,
+  "secondsPerCycle": 2.0
+}
+```
+Starts paused at **cycle 1,665** (the first all-Optimal cycle); after a
+restart it resumes after the last stored cycle.
+
+### `POST /api/replay/play` · `/pause` · `/step`
+`step` writes exactly one cycle (works while paused). `play` on a finished replay is a `400`.
+
+### `POST /api/replay/speed`
+Body `{"secondsPerCycle": 0.5}` — between 0.05 and 60.
+
+### `POST /api/replay/seek`
+Body `{"cycle": 600}` — between 1 and 2205. Seeking **back** deletes that cycle and
+everything after it (readings and their predictions); seeking forward skips ahead.
+
+### `POST /api/replay/reset`
+Body optional, `{"cycle": 1665}` by default. Pauses, empties the data layer
+(readings, predictions, work orders, insights — not equipment) and rewinds.
+
+---
+
+## Live stream
+
+### `GET /api/stream` (SSE)
+One long-lived connection per open dashboard; every live event as it happens.
+The first frame is always the current replay state. A `: ping` comment is
+sent after 15 s of silence to keep the connection open.
+
+| `type` | When | Payload | Since |
+|---|---|---|---|
+| `replay` | on connect, and after every control | the `GET /api/replay` object | M3 |
+| `cycle` | a cycle was written | `{"cycle": 1665, "readingId": 1}` | M3 |
+| `prediction` | a cycle was scored | per component: condition, failure probability, what it changed from | M4 |
+| `work_order` | a work order opened or closed | `{"action": "opened" \| "closed", "workOrder": {...}}` | M6 |
+| `insight` | the AI produced an insight | the insight | M7 |
+
+```
+data: {"type": "replay", "state": "playing", "cycle": 1665, "nextCycle": 1666, "first": 1, "total": 2205, "secondsPerCycle": 0.5}
+
+data: {"type": "cycle", "cycle": 1666, "readingId": 2}
+```
+
+---
+
 ## Chat
 
 ### `POST /api/chat` (SSE)

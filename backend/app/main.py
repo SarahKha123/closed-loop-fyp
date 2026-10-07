@@ -1,4 +1,4 @@
-"""Closed Loop backend — the model picker's and Advisor's API.
+"""Closed Loop backend — the live pipeline, the model picker's and the Advisor's API.
 
 Scoped-down sibling of Daedalus's `app/main.py`: one process serves the API,
 and in the built container it serves the Vite bundle too (same origin, no
@@ -8,6 +8,9 @@ exist, Vite owns the UI, and its dev-server proxy forwards `/api` here.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,15 +21,40 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, cloud, hardware, health, models
-from .services import db, paths
+from .api import chat, cloud, hardware, health, models, replay, stream
+from .services import db, events, ingest, paths
+from .services import replay as replay_service
+
+log = logging.getLogger(__name__)
 
 paths.ensure_dirs()
 
+
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db.init_db()  # create the shared data layer on first start; a no-op afterwards
+    events.bind(asyncio.get_running_loop())
+
+    # The live replay. If the dataset can't load, the rest of the API still runs
+    # and /api/replay answers 503 with the reason.
+    app.state.replay = None
+    app.state.dataset_error = None
+    task: asyncio.Task[None] | None = None
+    try:
+        dataset = await asyncio.to_thread(ingest.load)
+    except Exception as exc:  # noqa: BLE001 — any load failure is reported, not fatal
+        app.state.dataset_error = f"{exc.__class__.__name__}: {exc}"
+        log.warning("replay disabled — %s", app.state.dataset_error)
+    else:
+        app.state.replay = replay_service.Replay(dataset, start=replay_service.resume_point(dataset))
+        task = asyncio.create_task(app.state.replay.run(), name="replay")
+
     yield
+
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(
@@ -53,6 +81,8 @@ app.include_router(health.router)
 app.include_router(models.router)
 app.include_router(hardware.router)
 app.include_router(chat.router)
+app.include_router(replay.router)
+app.include_router(stream.router)
 app.include_router(cloud.router)
 
 
