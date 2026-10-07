@@ -30,6 +30,18 @@ class Target:
     cloud_provider: str | None = None
 
 
+# Small local models have short context windows; a long chat would eventually
+# overflow them. Keep system messages plus the most recent turns.
+MAX_TURNS = 10
+
+
+def trim_history(messages: list[dict[str, str]], max_turns: int = MAX_TURNS) -> list[dict[str, str]]:
+    """System messages, then the last `max_turns` user/assistant exchanges (2 messages each)."""
+    system = [m for m in messages if m.get("role") == "system"]
+    rest = [m for m in messages if m.get("role") != "system"]
+    return system + rest[-2 * max_turns:]
+
+
 def choose() -> Target:
     """The active model, as the Models page configured it. Raises NoModel if none can answer."""
     resolved = model_config.resolve_now()

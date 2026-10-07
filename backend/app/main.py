@@ -9,6 +9,8 @@ exist, Vite owns the UI, and its dev-server proxy forwards `/api` here.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -17,11 +19,18 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import chat, cloud, hardware, health, models
-from .services import paths
+from .services import db, paths
 
 paths.ensure_dirs()
 
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    db.init_db()  # create the shared data layer on first start; a no-op afterwards
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Closed Loop Backend",
     version="0.1.0",
     description="Local model picker + Advisor chat API for the Closed Loop dashboard.",

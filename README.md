@@ -41,7 +41,9 @@ container at <http://localhost:8000>.
 closed-loop-fyp/
 ├── frontend/          React + Vite dashboard (TypeScript, Tailwind, TanStack Router)
 ├── backend/           FastAPI service: model selection, Ollama, cloud APIs, Advisor chat
-├── config/            Runtime config written by the app (model choice; cloud keys, gitignored)
+├── ml/                FYP1 ML pipeline: features, labels, evaluation, training, SHAP
+├── data/              The dataset (hydraulic_condition_monitoring_summary.csv)
+├── config/            Runtime config and the SQLite database (cloud keys and DB gitignored)
 ├── docs/              Architecture, API reference, development guide
 ├── scripts/common.sh  Shell helpers for closed-loop.sh
 ├── closed-loop.sh     The one entry point for running anything
@@ -55,6 +57,7 @@ closed-loop-fyp/
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the pieces fit, request flows, design decisions
 - [docs/API.md](docs/API.md) — every backend endpoint, with request and response shapes
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, checks, and how to add a page, endpoint or provider
+- [docs/DATASET.md](docs/DATASET.md) — the hydraulic dataset: sensors, labels, structure, verification
 - [docs/FYP_NEW_SCOPE.md](docs/FYP_NEW_SCOPE.md) — the revised FYP topic, chapter by chapter
 - [TODO.md](TODO.md) — the full technical build plan, by milestone
 

@@ -1,0 +1,16 @@
+# The ML pipeline's dependencies. Deliberately unpinned so the project keeps
+# installing in the future. The trained models are rebuilt rather than
+# committed: after upgrading any of these, run `python -m ml.train` again.
+# ml/models/manifest.json records the versions the models were trained with.
+#
+# xgboost-cpu, not xgboost: the default wheel is CUDA-built and fails on older
+# GPU drivers (e.g. under WSL). The dataset is small; the CPU is plenty.
+numpy
+pandas
+scipy
+scikit-learn
+imbalanced-learn
+xgboost-cpu
+shap
+joblib
+matplotlib

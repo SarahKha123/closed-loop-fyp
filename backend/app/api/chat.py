@@ -36,6 +36,8 @@ def chat(messages: list[dict[str, str]] = Body(..., embed=True)) -> StreamingRes
     except advisor.NoModel as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
+    messages = advisor.trim_history(messages)
+
     def events() -> Iterator[dict[str, Any]]:
         try:
             for text in advisor.stream_reply(target, messages):

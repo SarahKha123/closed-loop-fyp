@@ -1,0 +1,206 @@
+{
+  "trained_at": "2026-10-07T12:08:29+00:00",
+  "classes": [
+    "Optimal",
+    "Degraded",
+    "Critical"
+  ],
+  "feature_names": [
+    "PS1_mean",
+    "PS1_std",
+    "PS1_min",
+    "PS1_max",
+    "PS2_mean",
+    "PS2_std",
+    "PS2_min",
+    "PS2_max",
+    "PS3_mean",
+    "PS3_std",
+    "PS3_min",
+    "PS3_max",
+    "PS4_mean",
+    "PS4_std",
+    "PS4_min",
+    "PS4_max",
+    "PS5_mean",
+    "PS5_std",
+    "PS5_min",
+    "PS5_max",
+    "PS6_mean",
+    "PS6_std",
+    "PS6_min",
+    "PS6_max",
+    "EPS1_mean",
+    "EPS1_std",
+    "EPS1_min",
+    "EPS1_max",
+    "FS1_mean",
+    "FS1_std",
+    "FS1_min",
+    "FS1_max",
+    "FS2_mean",
+    "FS2_std",
+    "FS2_min",
+    "FS2_max",
+    "TS1_mean",
+    "TS1_std",
+    "TS1_min",
+    "TS1_max",
+    "TS2_mean",
+    "TS2_std",
+    "TS2_min",
+    "TS2_max",
+    "TS3_mean",
+    "TS3_std",
+    "TS3_min",
+    "TS3_max",
+    "TS4_mean",
+    "TS4_std",
+    "TS4_min",
+    "TS4_max",
+    "VS1_mean",
+    "VS1_std",
+    "VS1_min",
+    "VS1_max",
+    "CE_mean",
+    "CE_std",
+    "CE_min",
+    "CE_max",
+    "CP_mean",
+    "CP_std",
+    "CP_min",
+    "CP_max",
+    "SE_mean",
+    "SE_std",
+    "SE_min",
+    "SE_max"
+  ],
+  "seed": 42,
+  "python": "3.14.7",
+  "libraries": {
+    "scikit-learn": "1.9.1",
+    "imbalanced-learn": "0.14.2",
+    "xgboost-cpu": "3.4.1",
+    "shap": "0.52.0",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6"
+  },
+  "components": {
+    "cooler": {
+      "model": "xgboost",
+      "file": "cooler.joblib",
+      "cv_macro_f1": 0.9988,
+      "cv_macro_f1_sd": 0.0017,
+      "cv_macro_pr_auc": 1.0,
+      "top_shap_features": [
+        {
+          "feature": "CP_min",
+          "mean_abs_shap": 1.1094
+        },
+        {
+          "feature": "CP_mean",
+          "mean_abs_shap": 0.8349
+        },
+        {
+          "feature": "CE_mean",
+          "mean_abs_shap": 0.8141
+        },
+        {
+          "feature": "PS2_mean",
+          "mean_abs_shap": 0.5073
+        },
+        {
+          "feature": "TS4_min",
+          "mean_abs_shap": 0.359
+        }
+      ]
+    },
+    "valve": {
+      "model": "random_forest",
+      "file": "valve.joblib",
+      "cv_macro_f1": 0.9841,
+      "cv_macro_f1_sd": 0.0057,
+      "cv_macro_pr_auc": 0.9971,
+      "top_shap_features": [
+        {
+          "feature": "PS2_std",
+          "mean_abs_shap": 0.0666
+        },
+        {
+          "feature": "FS1_mean",
+          "mean_abs_shap": 0.0383
+        },
+        {
+          "feature": "PS1_std",
+          "mean_abs_shap": 0.0379
+        },
+        {
+          "feature": "SE_mean",
+          "mean_abs_shap": 0.0371
+        },
+        {
+          "feature": "PS2_mean",
+          "mean_abs_shap": 0.0328
+        }
+      ]
+    },
+    "pump": {
+      "model": "random_forest",
+      "file": "pump.joblib",
+      "cv_macro_f1": 0.9952,
+      "cv_macro_f1_sd": 0.0028,
+      "cv_macro_pr_auc": 0.9999,
+      "top_shap_features": [
+        {
+          "feature": "FS1_mean",
+          "mean_abs_shap": 0.0968
+        },
+        {
+          "feature": "SE_mean",
+          "mean_abs_shap": 0.0888
+        },
+        {
+          "feature": "SE_std",
+          "mean_abs_shap": 0.0547
+        },
+        {
+          "feature": "FS1_std",
+          "mean_abs_shap": 0.0285
+        },
+        {
+          "feature": "SE_max",
+          "mean_abs_shap": 0.0274
+        }
+      ]
+    },
+    "accumulator": {
+      "model": "xgboost",
+      "file": "accumulator.joblib",
+      "cv_macro_f1": 0.9901,
+      "cv_macro_f1_sd": 0.0065,
+      "cv_macro_pr_auc": 0.9995,
+      "top_shap_features": [
+        {
+          "feature": "FS2_mean",
+          "mean_abs_shap": 0.6971
+        },
+        {
+          "feature": "SE_max",
+          "mean_abs_shap": 0.5199
+        },
+        {
+          "feature": "TS1_min",
+          "mean_abs_shap": 0.5113
+        },
+        {
+          "feature": "SE_mean",
+          "mean_abs_shap": 0.3637
+        },
+        {
+          "feature": "TS3_mean",
+          "mean_abs_shap": 0.3208
+        }
+      ]
+    }
+  }
+}

@@ -40,13 +40,36 @@ pnpm --dir frontend dev
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | where Ollama is; localhost is tried automatically too |
 | `CLOSED_LOOP_CONFIG_DIR` | `config` | where `model_config.json` and `cloud.json` live |
 
+## ML pipeline (once)
+
+The live system scores cycles with the FYP1 models. The dataset is committed
+(`data/hydraulic_condition_monitoring_summary.csv`, see [DATASET.md](DATASET.md));
+build the models once:
+
+```bash
+backend/.venv/bin/pip install -r ml/requirements.txt   # ML libraries (unpinned)
+backend/.venv/bin/python -m ml.evaluate                # cross-validation → ml/results/ (~1 min)
+backend/.venv/bin/python -m ml.train                   # final models + SHAP → ml/models/ (~20 s)
+```
+
+Re-run `ml.train` after upgrading any ML library — the saved models are
+version-sensitive, which is why they're rebuilt rather than committed. See
+[`ml/README.md`](../ml/README.md).
+
+## Database
+
+The backend creates `config/closed_loop.db` (SQLite, gitignored) on start.
+To start from empty: stop the backend, run `./closed-loop.sh reset-db`, start it again.
+
 ## Checks
 
 ```bash
 pnpm --dir frontend exec tsc -b          # type-check
 pnpm --dir frontend lint                 # oxlint
 pnpm --dir frontend build                # production build
-backend/.venv/bin/python backend/tests/check_models.py   # backend self-check
+backend/.venv/bin/pip install -r backend/requirements-dev.txt   # once: pytest
+backend/.venv/bin/pytest -q backend/tests                        # backend tests
+backend/.venv/bin/python backend/tests/check_models.py           # model-selection self-check
 ```
 
 `check_models.py` is a plain-assert script (no test framework). It covers
@@ -96,3 +119,6 @@ calls to a real endpoint and the pages don't change.
   patterns, but all changes go in this repo's own code.
 - **Secrets** go in `config/cloud.json` (gitignored), never in `.env.example`
   or the code.
+- **Requirements are unpinned.** `requirements*.txt` list package names only,
+  so the project keeps installing in future; anything version-sensitive (the
+  trained models) is rebuilt instead.

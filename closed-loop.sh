@@ -8,6 +8,7 @@
 #   ./closed-loop.sh logs       follow the stack's logs
 #   ./closed-loop.sh rebuild    force a clean image rebuild, then start
 #   ./closed-loop.sh status     what's running, and whether the API answers
+#   ./closed-loop.sh reset-db   delete the database (recreated empty on next start)
 #
 # Flags:
 #   --with-ollama            run Ollama as a container too (default: use the host)
@@ -36,7 +37,7 @@ PORT="${CLOSED_LOOP_PORT:-8000}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 
-usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # ── argument parsing ─────────────────────────────────────────────────────────
 CMD="${1:-start}"
@@ -244,6 +245,13 @@ cmd_stop()    { compose "${PROFILE_ARGS[@]}" down --remove-orphans; }
 cmd_logs()    { compose "${PROFILE_ARGS[@]}" logs -f; }
 cmd_rebuild() { ensure_dirs; cmd_start --build --force-recreate; }
 
+# The backend recreates the tables on its next start (db.init_db). Stop it
+# first: a running server keeps the old file open.
+cmd_reset_db() {
+  rm -f config/closed_loop.db config/closed_loop.db-wal config/closed_loop.db-shm
+  ok "database removed — restart the backend to recreate it empty"
+}
+
 cmd_status() {
   head_ "Containers"
   compose ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || say "  none running"
@@ -266,6 +274,7 @@ case "$CMD" in
   logs)         cmd_logs ;;
   rebuild)      cmd_rebuild ;;
   status)       cmd_status ;;
+  reset-db)     cmd_reset_db ;;
   -h|--help|help) usage ;;
   *) err "unknown command '$CMD'"; say ""; usage; exit 1 ;;
 esac

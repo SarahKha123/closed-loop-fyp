@@ -15,6 +15,8 @@ CONFIG_DIR = Path(os.environ.get("CLOSED_LOOP_CONFIG_DIR", "config"))
 MODEL_CONFIG = CONFIG_DIR / "model_config.json"
 # Cloud API keys. Gitignored — unlike model_config.json, never committed.
 CLOUD_CONFIG = CONFIG_DIR / "cloud.json"
+# The shared data layer (SQLite). Runtime data, gitignored.
+DB_PATH = CONFIG_DIR / "closed_loop.db"
 
 
 def ensure_dirs() -> None:
