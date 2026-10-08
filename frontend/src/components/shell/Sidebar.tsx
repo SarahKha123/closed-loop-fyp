@@ -1,87 +1,86 @@
-// Left navigation: brand, alerts, cycle selector, page links, data-layer stats, active model.
+// Left navigation: brand, pages, the four components with their live condition, and the active model.
 
 import { Link } from "@tanstack/react-router"
-import { dataLayer } from "../../domain/demo-data"
-import { CycleSelector } from "./CycleSelector"
+import { useLive } from "../../context/LiveContext"
+import { COMPONENTS } from "../../lib/api"
+import { ConditionDot } from "../ui/ConditionBadge"
+import { Icon, type IconName } from "../ui/Icon"
 import { ModelCard } from "./ModelCard"
-import { NotificationBell } from "./NotificationBell"
 
-const navItems = [
-  { to: "/", label: "The Loop" },
-  { to: "/work-orders", label: "Work Orders" },
-  { to: "/sensors", label: "Sensor Feed" },
-] as const
+const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models"; label: string; icon: IconName }[] = [
+  { to: "/", label: "Overview", icon: "overview" },
+  { to: "/work-orders", label: "Work orders", icon: "workorder" },
+  { to: "/sensors", label: "Sensors", icon: "sensor" },
+  { to: "/models", label: "AI models", icon: "models" },
+]
+
+const navItem = "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink"
+const navActive = "!bg-accent-bg !text-accent-text"
 
 export function Sidebar() {
+  const { overview } = useLive()
+  const byName = new Map(overview?.components.map((c) => [c.component, c]))
+  const openOrders = overview?.kpis.openWorkOrders ?? 0
+
   return (
-    <div className="flex h-full w-[310px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-ink/10 bg-surface px-6 py-6">
-      <div className="flex items-center gap-3">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#2A78D6"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-          <polyline points="21 3 21 9 15 9" />
-        </svg>
-        <div>
-          <div className="text-[22px] leading-tight font-bold">Closed Loop</div>
-          <div className="mt-0.5 text-[15.5px] tracking-wide text-ink-faint uppercase">
-            Predictive Maintenance
-          </div>
+    <aside className="flex h-full w-[232px] shrink-0 flex-col border-r border-line bg-surface">
+      <div className="flex h-14 items-center gap-2.5 border-b border-line px-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white">
+          <Icon name="logo" size={17} />
+        </div>
+        <div className="leading-tight">
+          <div className="text-[14px] font-semibold text-ink">Closed Loop</div>
+          <div className="text-[11px] text-ink-faint">Predictive maintenance</div>
         </div>
       </div>
 
-      <div className="text-[18px] text-ink-muted">Reading vitals, Operator.</div>
-
-      <NotificationBell />
-
-      <CycleSelector />
-
-      <div className="flex flex-col gap-1.5">
-        {navItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            activeOptions={{ exact: item.to === "/" }}
-            className="w-full rounded-lg px-3.5 py-3 text-left text-[19px] font-medium text-[#3F3E3A] transition-colors"
-            activeProps={{
-              className: "!bg-accent-bg !text-accent-text !font-semibold",
-            }}
-          >
-            {item.label}
+      <nav className="flex flex-col gap-0.5 p-3" aria-label="Main">
+        {NAV.map((item) => (
+          <Link key={item.to} to={item.to} activeOptions={{ exact: item.to === "/" }} className={navItem} activeProps={{ className: navActive }}>
+            <Icon name={item.icon} />
+            <span className="grow">{item.label}</span>
+            {item.to === "/work-orders" && openOrders > 0 && (
+              <span className="tabular rounded-full bg-critical-bg px-1.5 text-[11px] font-semibold text-critical-text">{openOrders}</span>
+            )}
           </Link>
         ))}
-      </div>
+      </nav>
 
-      <div className="h-px bg-ink/10" />
-
-      <div>
-        <div className="mb-2 text-[16px] font-semibold tracking-wide text-ink-faint uppercase">
-          Data Layer
-        </div>
-        <div className="flex flex-col">
-          {dataLayer.map((d) => (
-            <div key={d.label} className="flex justify-between py-1.5 text-[17.5px] text-[#3F3E3A]">
-              <span>{d.label}</span>
-              <span className="font-mono text-[16.5px] text-ink-faint">{d.value}</span>
-            </div>
-          ))}
+      <div className="px-3">
+        <div className="px-2.5 pt-2 pb-1.5 text-[11px] font-semibold tracking-wide text-ink-faint uppercase">Components</div>
+        <div className="flex flex-col gap-0.5">
+          {COMPONENTS.map((c) => {
+            const state = byName.get(c.name)
+            return (
+              <Link
+                key={c.key}
+                to="/components/$component"
+                params={{ component: c.key }}
+                className={navItem}
+                activeProps={{ className: navActive }}
+              >
+                <Icon name="component" />
+                <span className="grow">{c.name}</span>
+                {state ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-faint">
+                    <ConditionDot condition={state.condition} />
+                    {state.condition}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-ink-faint">—</span>
+                )}
+              </Link>
+            )
+          })}
         </div>
       </div>
 
       <div className="grow" />
 
-      <ModelCard />
-
-      <div className="border-t border-ink/10 pt-3.5 text-[16px] text-ink-faint">
-        FYP I · Universiti Teknologi PETRONAS
+      <div className="flex flex-col gap-3 border-t border-line p-3">
+        <ModelCard />
+        <div className="px-1 text-[11px] text-ink-faint">FYP · Universiti Teknologi PETRONAS</div>
       </div>
-    </div>
+    </aside>
   )
 }

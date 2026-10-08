@@ -34,12 +34,16 @@ replay (services/replay.py) ── every N s ──► tbl_SensorReading (SQLite
    ▼                                         ▼
 event bus (services/events.py) ──► /api/stream (SSE) ──► browser
    │
-   └──► predictor (M4) → monitor / work orders (M6) → insight engine (M7)
+   └──► predictor (services/predictor.py: 4 models + SHAP, ~60 ms/cycle)
+          │ tbl_Prediction, publishes "prediction"
+          ├──► /api/dashboard/* ──► dashboard
+          └──► monitor (services/monitor.py) ──► work orders (services/work_orders.py), publishes "work_order"
+                 Critical → open one (system:monitor, linked to the prediction); recovered → close it
 ```
 
-Built so far: the data layer (M2), the replay and the live stream (M3).
-Until M5, the dashboard pages still show **demo data in the frontend**
-(`frontend/src/domain/demo-data.ts`).
+Built so far: the data layer (M2), the replay and live stream (M3), the
+predictor (M4), the dashboard on real data (M5) and the monitor with
+automatic work orders (M6). Nothing on screen is demo data any more.
 
 ---
 
@@ -72,6 +76,11 @@ services never import from `api`.
 | `services/ingest.py` | The dataset in memory, one record per cycle |
 | `services/replay.py` | Plays the cycles as a live feed; play / pause / step / speed / seek / reset |
 | `services/events.py` | In-process publish/subscribe between the live-pipeline parts |
+| `services/predictor.py` | Loads the four trained models; scores each new reading with SHAP drivers; the scoring worker |
+| `api/dashboard.py` | Overview (KPIs + latest per component), trend, activity, sensors |
+| `services/monitor.py` | Reacts to each prediction: opens a work order on Critical, closes it on recovery |
+| `services/work_orders.py` | Opening and closing work orders, with who raised them and why |
+| `api/work_orders.py` | List, raise by hand, close |
 | `api/replay.py` | Replay controls |
 | `api/stream.py` | `GET /api/stream` — all live events to the browser (SSE) |
 
@@ -130,57 +139,71 @@ prompt, including the current readings, and the Cloud APIs tab says so.
 
 ## Frontend (`frontend/src/`)
 
+A professional monitoring layout: a left sidebar (pages + each component's
+live condition), a top bar (live status, replay controls, theme, Advisor
+toggle), the page column, and the Advisor on the right. Light and dark themes
+share one set of design tokens; charts follow the data-viz method (validated
+categorical colours per component in fixed order, reserved status colours
+with icon + label, legends, table views, hover tooltips).
+
 ```
 main.tsx              router setup + mount
-index.css             Tailwind theme tokens (colours, fonts)
+index.css             design tokens for light + dark (surfaces, ink, status, chart series)
 routes/               one file per page (TanStack file-based routing)
-  __root.tsx            the shell: providers, Sidebar, page column, AdvisorPanel, toasts
-  index.tsx             "/" — KPI tiles + component health cards
-  work-orders.tsx       "/work-orders"
-  sensors.tsx           "/sensors" (?component= highlights that component's sensors)
-  models.tsx            "/models" — page frame + tabs (?tab=download|cloud|hardware)
-components/           shared presentational pieces
-  PageHeader, StatusPill
-  shell/                pieces of the app frame: Sidebar, CycleSelector, NotificationBell,
-                        ModelCard, AdvisorPanel, ToastStack
-features/models/      everything only the Models page uses
-  ActiveModelBanner, LocalModelsTab (Installed + Download), CloudTab, HardwareTab, types.ts
+  __root.tsx            the shell: providers, Sidebar, TopBar, page column (@container), Advisor, toasts
+  index.tsx             "/" — KPIs, the four component cards, risk trend, activity feed
+  components.$component.tsx  "/components/cooler" … — state, class probabilities, SHAP drivers,
+                        related sensors, risk history, condition changes
+  work-orders.tsx       "/work-orders" — the maintenance queue
+  sensors.tsx           "/sensors" — all 17 channels for the current cycle (?component= highlights)
+  models.tsx            "/models" — AI model management (?tab=download|cloud|hardware)
+components/
+  ui/                   primitives: Card, Button, ConditionBadge, Meter, EmptyState, Icon
+  charts/               LineChart (multi-series, crosshair tooltip, legend, end labels), Sparkline
+  shell/                Sidebar, TopBar (replay controls), AdvisorPanel, ModelCard, ToastStack
+  PageHeader.tsx
+features/
+  dashboard/            KpiTiles, ComponentCard, TrendPanel (chart + table), ActivityFeed, StatusBanner
+  models/               ActiveModelBanner, LocalModelsTab, CloudTab, HardwareTab, types.ts
 context/              React state shared across pages
-  AppState.tsx          cycle, work orders, KPIs, toasts, Advisor transcript + chat streaming
-  appReducer.ts         every AppState change, as one pure reducer
-  ModelsContext.tsx     installed models + the active model (cached from the backend)
-domain/               plain TypeScript, no React
-  types.ts              Cycle, ComponentReading, WorkOrder, ChatMessage, …
-  demo-data.ts          the demo cycles and work-order history
-  maintenance.ts        getCycle, getWorkOrders (derived as of a cycle), getKpiTiles
-  advisor.ts            canned explanations, welcome messages, the chat system prompt
-lib/                  small utilities
-  http.ts               request() for JSON, streamEvents() for SSE — the only fetch code
-  format.ts, status.ts, ui.ts (shared Tailwind class strings)
+  LiveContext.tsx       replay state, overview, trend, activity; refreshed from /api/stream; toasts; replay controls
+  ChatContext.tsx       the Advisor conversation (prompt built from the live overview); panel open/closed
+  ModelsContext.tsx     installed models + the active model
+lib/
+  api.ts                typed calls + response types for the dashboard endpoints
+  stream.ts             the one shared EventSource to /api/stream
+  http.ts               request() for JSON, streamEvents() for SSE POSTs
+  format.ts, status.ts, theme.ts, ui.ts
 ```
 
 **Rules of thumb that keep it understandable:**
 
 - **Routes are thin.** A route file picks data from context and lays it out;
   anything bigger lives in `features/<page>/`.
-- **`domain/` has no React.** It's the logic you could unit-test or move to
-  the backend unchanged.
-- **One place per concern.** Every network call goes through `lib/http.ts`,
-  every dashboard state change through `appReducer.ts`, and every model
-  choice is decided by the backend's `resolve_now()`. The frontend never
-  decides which model runs.
+- **The backend is the source of truth.** No dashboard numbers are computed
+  or stored in the browser; `LiveContext` mirrors `/api/dashboard/*` and
+  re-fetches when the stream says something changed (throttled to ~2.5/s).
+- **One place per concern.** JSON calls go through `lib/api.ts` → `lib/http.ts`,
+  live events through `lib/stream.ts`, and every model choice is decided by
+  the backend's `resolve_now()`.
+- **Tokens, not colours.** Components use `bg-surface`, `text-ink-muted`,
+  `text-critical-text`…, never hex, so dark mode needs no per-component work.
 - **The layout is fixed to the viewport.** The page never scrolls; a tall
-  view scrolls inside its own column (`routes/__root.tsx`).
+  view scrolls inside its own column. Page grids use container queries, so
+  they reflow when the Advisor narrows the column.
 
 ### State
 
-- `AppState` holds what the dashboard is showing: the selected cycle (the
-  sidebar's CycleSelector), the work orders and KPIs derived from it, toasts,
-  and the Advisor transcript. Switching cycles announces newly opened or
-  resolved work orders in the chat and as toasts.
+- `LiveContext` holds what the dashboard shows. It loads overview, trend and
+  activity on start, then refreshes on `prediction`, `replay` and
+  `work_order` stream events, and after a reconnect. Condition changes become
+  toasts (worse = warning/critical, better = good).
+- `ChatContext` keeps the transcript. Each request carries a system prompt
+  built from the current overview (every component's condition, probability,
+  since-cycle and SHAP drivers with units), so answers are grounded in what's
+  on screen. M9 moves this prompt to the backend.
 - `ModelsContext` caches `/api/models` and `/api/models/active` so the
-  sidebar card and the Models page agree. After anything that changes them
-  (select, download, delete), call `refresh()`.
+  sidebar card and the AI models page agree.
 
 ---
 

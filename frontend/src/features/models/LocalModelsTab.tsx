@@ -78,7 +78,7 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
       {view === "installed" && (
         <section className="flex min-w-0 flex-col gap-3">
           {chatModels.length === 0 ? (
-            <div className={`${card} flex items-center justify-between border-dashed p-6 text-[17px] text-ink-faint`}>
+            <div className={`${card} flex items-center justify-between border-dashed p-6 text-[13px] text-ink-faint`}>
               {modelsError ?? "No chat models downloaded yet."}
               {!modelsError && (
                 <button type="button" className={btnPrimary} onClick={onDownloadTab}>
@@ -87,7 +87,7 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
               )}
             </div>
           ) : (
-            <div className={`${card} divide-y divide-ink/10`}>
+            <div className={`${card} divide-y divide-line`}>
               {chatModels.map((m) => (
                 <InstalledRow
                   key={m.name}
@@ -101,7 +101,7 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
             </div>
           )}
           {hiddenCount > 0 && (
-            <div className="text-[14.5px] text-ink-faint">
+            <div className="text-[12px] text-ink-faint">
               {hiddenCount} embedding model{hiddenCount > 1 ? "s" : ""} hidden — they can't chat.
             </div>
           )}
@@ -110,7 +110,7 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
 
       {pull && (
         <div className={`${card} flex flex-col gap-2 p-4`}>
-          <div className="flex items-center justify-between text-[16.5px]">
+          <div className="flex items-center justify-between text-[13px]">
             <span className="font-mono font-medium">{pull.tag}</span>
             {pulling && (
               <button type="button" className={btn} onClick={() => streamRef.current?.cancel()}>
@@ -124,7 +124,7 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
             )}
           </div>
           {pull.error ? (
-            <div className="text-[16px] text-critical-text">{pull.error}</div>
+            <div className="text-[12.5px] text-critical-text">{pull.error}</div>
           ) : (
             <>
               <div className="h-2 overflow-hidden rounded-full bg-track">
@@ -133,7 +133,7 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
                   style={{ width: `${pull.percent ?? 0}%` }}
                 />
               </div>
-              <div className="text-[15px] text-ink-faint">
+              <div className="text-[12px] text-ink-faint">
                 {pull.status}
                 {pull.percent != null && ` · ${pull.percent}%`}
               </div>
@@ -168,12 +168,12 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
               <div key={m.tag} className={`${card} flex flex-col gap-1.5 p-3.5`}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="text-[17.5px] font-semibold">{m.label}</div>
-                    <div className="font-mono text-[14.5px] text-ink-faint">{m.tag}</div>
+                    <div className="text-[13.5px] font-semibold">{m.label}</div>
+                    <div className="font-mono text-[12px] text-ink-faint">{m.tag}</div>
                   </div>
                   {m.fits != null && (
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[13.5px] font-semibold ${
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
                         m.fits ? "bg-good-bg text-good-text" : "bg-warning-bg text-warning-text"
                       }`}
                     >
@@ -181,13 +181,13 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
                     </span>
                   )}
                 </div>
-                <div className="text-[15px] text-ink-muted">{m.note}</div>
+                <div className="text-[12px] text-ink-muted">{m.note}</div>
                 <div className="mt-auto flex items-center justify-between pt-1">
-                  <span className="text-[15px] text-ink-faint">
+                  <span className="text-[12px] text-ink-faint">
                     {m.vendor} · ≈{formatSize(m.est_size_bytes)}
                   </span>
                   {m.installed ? (
-                    <span className="text-[15px] font-medium text-good-text">Installed</span>
+                    <span className="text-[12px] font-medium text-good-text">Installed</span>
                   ) : (
                     <button type="button" className={btn} disabled={pulling} onClick={() => startPull(m.tag)}>
                       {pull?.tag === m.tag && pulling ? "Downloading…" : "Download"}
@@ -215,14 +215,14 @@ function InstalledRow(props: {
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="min-w-0 grow">
         <div className="flex items-center gap-2">
-          <span className="truncate font-mono text-[17px] font-medium">{m.name}</span>
+          <span className="truncate font-mono text-[13px] font-medium">{m.name}</span>
           {inUse && (
-            <span className="rounded-full bg-accent-bg px-2 py-0.5 text-[13px] font-semibold text-accent-text">
+            <span className="rounded-full bg-accent-bg px-2 py-0.5 text-[11px] font-semibold text-accent-text">
               in use
             </span>
           )}
         </div>
-        <div className="text-[15px] text-ink-faint">
+        <div className="text-[12px] text-ink-faint">
           {[m.parameter_size, m.quantization_level, formatSize(m.size_bytes)].filter(Boolean).join(" · ")}
         </div>
       </div>

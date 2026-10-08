@@ -50,6 +50,7 @@ the ML libraries come with `backend/requirements.txt`. Build the models once:
 cd backend
 .venv/bin/python -m ml.evaluate     # cross-validation → ml/results/ (~1 min)
 .venv/bin/python -m ml.train        # final models + SHAP → ml/models/ (~20 s)
+.venv/bin/python -m ml.replay_check # optional: all 2,205 cycles through the live predictor (~2 min)
 ```
 
 Re-run `ml.train` after upgrading any ML library — the saved models are

@@ -19,18 +19,18 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 |---|---|---|---|
 | Model management (local + cloud + hardware) | ✅ all | | |
 | App shell and UI layout | ✅ all | | |
-| Dashboard pages | | 🟡 UI exists, runs on demo data | real data, trend chart, SHAP bars |
+| Dashboard (M5) | ✅ real data, live, redesigned (light/dark), trend chart, SHAP bars, component pages | | |
 | ML pipeline (M1) | ✅ rebuilt, matches FYP1 | | |
 | Data layer (M2) | ✅ schema, queries, tests | | |
 | Replay + live stream (M3) | ✅ | | |
-| Prediction (M4) | | | ⬜ next |
-| Work orders (M6) | | 🟡 simulated by the demo data | real automation |
+| Prediction (M4) | ✅ 4 models + SHAP, ~60 ms/cycle | | |
+| Work orders (M6) | ✅ automatic open/close, manual raise/close, audit trail | | |
 | AI chat | ✅ streaming, local/cloud, history cap | 🟡 grounded only in demo values | tools, actions |
 | AI live insights + validator (M7–M8) | | 🟡 canned demo announcements only | ⬜ the real engine |
 | Evaluation + study mode (M10–M11) | | | ⬜ |
 | Tests, packaging, docs (M12) | ✅ docs for what exists; pytest (23 tests) | 🟡 Docker untested since the move | settings, fresh-clone setup |
 
-**Milestones:** 3 of 12 complete (M1, M2, M3). Next: M4 → M5.
+**Milestones:** 6 of 12 complete (M1–M6). Next: M7 (insight engine — the AI speaks first).
 
 ## Feature map
 
@@ -170,7 +170,7 @@ Each one changes code. Decide before starting the milestone it's tagged with.
 
 - [x] **Granularity of `tbl_SensorReading`** — **decided: one row per cycle** (the 17 sensors are shared by all components) *(M2)*
 - [x] **Definition of `FailureProbability`** — **decided: `P(Degraded) + P(Critical)`**, the chance the component is not optimal *(M4; drives the KPIs, trend chart and monitor)*
-- [ ] **Work order on recovery** — auto-close when the component returns to Optimal, or leave it open for a person *(M6)*
+- [x] **Work order on recovery** — **decided: auto-close** when the component returns to Optimal (`monitor.AUTO_CLOSE_ON_RECOVERY`, one line to turn off); user-raised orders are never auto-closed *(M6)*
 - [ ] **Insight frequency** — only on events (recommended for small local models), or also a periodic summary every N cycles *(M7)*
 - [ ] **Validator v1 or v2** — v1: every number must exist somewhere in the snapshot; v2: each number must match the component named in the same sentence *(M8; start with v1, add v2 if time allows)*
 - [ ] **Models for evaluation** — which 2 local tags fit the GPU (e.g. `qwen3:1.7b`, `qwen3:4b`) and which 1–2 cloud models *(M10)*
@@ -392,33 +392,35 @@ CREATE TABLE tbl_Insight (
 **Goal:** each new cycle is scored by the four FYP1 models, with SHAP explanations, in well under a second.
 
 **Predictor** — `backend/app/services/predictor.py`
-- [ ] Load `backend/ml/models/manifest.json` and the four `.joblib` files once at startup; fail clearly if missing ("run `cd backend && python -m ml.train`")
-- [ ] Check that the manifest's `FEATURE_NAMES` equals `ml.features.FEATURE_NAMES` (catches a stale model)
-- [ ] `predict(features: dict) -> list[Prediction]` per component:
+- [x] Load `backend/ml/models/manifest.json` and the four `.joblib` files once at startup; fail clearly if missing ("run `cd backend && python -m ml.train`")
+- [x] Check that the manifest's `FEATURE_NAMES` equals `ml.features.FEATURE_NAMES` (catches a stale model)
+- [x] `predict(features: dict) -> list[Prediction]` per component:
   - `predict_proba` → `ClassProbabilities`; `PredictedCondition` = argmax
   - `FailureProbability` as decided above
   - `ConfidenceBand`: max probability ≥ 0.9 High, ≥ 0.7 Medium, else Low
   - SHAP: one `TreeExplainer` per model, created at load; values for the predicted class; top 3 by |contribution| → `ShapTopFeatures` with the **feature's actual value** (e.g. `CP_max = 1.62`)
   - `TopContributingFeature` = the first of those
   - `ModelVersion` = manifest's trained-at + model type
-- [ ] The pipeline's scaler means SHAP should explain the classifier on scaled input; map back to feature names (document this)
-- [ ] Copy `TrueCondition` from the profile labels (evaluation only)
+- [x] The pipeline's scaler means SHAP should explain the classifier on scaled input; map back to feature names (document this)
+- [x] Copy `TrueCondition` from the profile labels (evaluation only)
 
 **Wiring**
-- [ ] Subscribe to `cycle` events; run `predict` in `asyncio.to_thread` (CPU-bound; don't block the event loop)
-- [ ] `repo.insert_predictions` → compute `changedFrom` against the previous prediction per equipment → `publish(prediction)`
+- [x] Subscribe to `cycle` events; run `predict` in `asyncio.to_thread` (CPU-bound; don't block the event loop)
+- [x] `repo.insert_predictions` → compute `changedFrom` against the previous prediction per equipment → `publish(prediction)`
 
 **Dependencies**
 - [x] Add the ML packages to `backend/requirements.txt` (unpinned) — done when `backend/ml/` moved into the backend
-- [ ] At load, compare the installed library versions with `manifest.json["libraries"]`; on a mismatch log a warning: "models were trained with scikit-learn X; installed Y — run `python -m ml.train`"
+- [x] At load, compare the installed library versions with `manifest.json["libraries"]`; on a mismatch log a warning: "models were trained with scikit-learn X; installed Y — run `python -m ml.train`"
 
 **Checks**
-- [ ] Time `predict` per cycle (target < 200 ms for all four + SHAP); log it; save the number for Part D
-- [ ] `backend/ml/replay_check.py`: score all 2,205 cycles through `predictor.predict` and compare with `TrueCondition` → accuracy and macro-F1 per component → `backend/ml/results/replay_check.md`. Expect it to be **higher** than CV (the final models saw all data) — note that honestly
-- [ ] `test_predictor.py`: a known cycle (pick one per class from the CSV's condition columns) gets the expected condition; output has 3 SHAP features with numeric values
+- [x] Time `predict` per cycle (target < 200 ms for all four + SHAP); log it; save the number for Part D
+- [x] `backend/ml/replay_check.py`: score all 2,205 cycles through `predictor.predict` and compare with `TrueCondition` → accuracy and macro-F1 per component → `backend/ml/results/replay_check.md`. Expect it to be **higher** than CV (the final models saw all data) — note that honestly
+- [x] `test_predictor.py`: a known cycle (pick one per class from the CSV's condition columns) gets the expected condition; output has 3 SHAP features with numeric values
 
 **Done when:** with replay running, each cycle adds 4 rows to `tbl_Prediction` with SHAP drivers, and `backend/ml/results/replay_check.md` exists.
 
+
+✅ **Done (2026-10-07).** `services/predictor.py` + scoring worker (catches up on unscored readings); `ml/replay_check.py`: 2,205/2,205 correct through the live path (training-set check), 59 ms/cycle; 5 new tests.
 ---
 
 ## M5 — Dashboard on real data · O2
@@ -426,7 +428,7 @@ CREATE TABLE tbl_Insight (
 **Goal:** every number on screen comes from the database and updates live; the demo data is deleted.
 
 **API** — `backend/app/api/dashboard.py`
-- [ ] `GET /api/dashboard/overview` →
+- [x] `GET /api/dashboard/overview` →
   ```json
   {"cycle": 1465, "total": 2205,
    "kpis": {"critical": 1, "degraded": 0, "optimal": 3, "openWorkOrders": 1, "avgFailureProbability": 0.25},
@@ -435,27 +437,29 @@ CREATE TABLE tbl_Insight (
                    "shap": [{"feature": "PS2_mean", "value": 107.9, "contribution": 0.41}], "predictionId": 5860}]}
   ```
   KPIs count the **latest prediction per equipment** only (FYP1 Critical Asset Count rule)
-- [ ] `GET /api/dashboard/trend?last=200` → `{cycles: [...], series: {Cooler: [...], Valve: [...], Pump: [...], Accumulator: [...]}}` (failure probability)
-- [ ] `GET /api/dashboard/sensors?cycle=1465` → 17 sensor means with units and which components each relates to
-- [ ] Document all three in `docs/API.md`
+- [x] `GET /api/dashboard/trend?last=200` → `{cycles: [...], series: {Cooler: [...], Valve: [...], Pump: [...], Accumulator: [...]}}` (failure probability)
+- [x] `GET /api/dashboard/sensors?cycle=1465` → 17 sensor means with units and which components each relates to
+- [x] Document all three in `docs/API.md`
 
 **Frontend plumbing**
-- [ ] `frontend/src/lib/stream.ts`: one shared `EventSource('/api/stream')`, typed events, `subscribe(type, handler)`, auto-reconnect with backoff; on reconnect, refetch the overview (events may have been missed)
-- [ ] Replace `AppState`'s demo-driven state with: `overview`, `trend`, `replay` loaded on start and refreshed on `prediction` / `work_order` / `replay` events (throttle to at most ~4 refreshes per second at fast replay speeds)
-- [ ] Delete `domain/demo-data.ts`, the demo parts of `domain/maintenance.ts`, the canned `explanationFor` in `domain/advisor.ts`, and the cycle-based reducer actions that only existed for the demo
+- [x] `frontend/src/lib/stream.ts`: one shared `EventSource('/api/stream')`, typed events, `subscribe(type, handler)`, auto-reconnect with backoff; on reconnect, refetch the overview (events may have been missed)
+- [x] Replace `AppState`'s demo-driven state with: `overview`, `trend`, `replay` loaded on start and refreshed on `prediction` / `work_order` / `replay` events (throttle to at most ~4 refreshes per second at fast replay speeds)
+- [x] Delete `domain/demo-data.ts`, the demo parts of `domain/maintenance.ts`, the canned `explanationFor` in `domain/advisor.ts`, and the cycle-based reducer actions that only existed for the demo
 
 **UI**
-- [ ] `features/dashboard/ReplayControls.tsx` (replaces `CycleSelector` in the sidebar): play/pause, step, speed (0.5 s / 1 s / 2 s / 5 s), "cycle 1,465 / 2,205", seek input
-- [ ] Overview (`routes/index.tsx`): KPI tiles (Critical, Degraded, Optimal, Open work orders, Avg failure probability — the FYP1 Power BI tiles); component cards with condition pill, failure probability gauge, "changed from" marker
-- [ ] `features/dashboard/TrendChart.tsx`: failure probability per component over the last N cycles, Critical threshold line. Use Recharts (one dependency) or inline SVG; colours per the `dataviz` skill; works at the fixed viewport height
-- [ ] `features/dashboard/ShapBars.tsx`: top 3 drivers as small horizontal bars with feature name and value — on each component card or a component detail view
-- [ ] Sensor Feed (`routes/sensors.tsx`): real means for the current cycle; `?component=` highlighting kept
-- [ ] Notification banner and toasts driven by real conditions and `work_order` events
-- [ ] Empty state before the first cycle: "Press play to start the replay"
+- [x] `features/dashboard/ReplayControls.tsx` (replaces `CycleSelector` in the sidebar): play/pause, step, speed (0.5 s / 1 s / 2 s / 5 s), "cycle 1,465 / 2,205", seek input
+- [x] Overview (`routes/index.tsx`): KPI tiles (Critical, Degraded, Optimal, Open work orders, Avg failure probability — the FYP1 Power BI tiles); component cards with condition pill, failure probability gauge, "changed from" marker
+- [x] `features/dashboard/TrendChart.tsx`: failure probability per component over the last N cycles, Critical threshold line. Use Recharts (one dependency) or inline SVG; colours per the `dataviz` skill; works at the fixed viewport height
+- [x] `features/dashboard/ShapBars.tsx`: top 3 drivers as small horizontal bars with feature name and value — on each component card or a component detail view
+- [x] Sensor Feed (`routes/sensors.tsx`): real means for the current cycle; `?component=` highlighting kept
+- [x] Notification banner and toasts driven by real conditions and `work_order` events
+- [x] Empty state before the first cycle: "Press play to start the replay"
 - [~] Keep the no-page-scroll rule (holds at 1916×994 today); re-check at 1366×768 once real data is in
 
 **Done when:** pressing play updates the overview, trend and sensor feed with no page refresh, and `frontend/src/domain/demo-data.ts` no longer exists.
 
+
+✅ **Done (2026-10-07), with a full professional redesign:** sidebar + top bar with replay controls, KPI tiles, component cards (meter, sparkline, top SHAP driver), risk-trend chart with legend/end labels/hover/table view, activity feed, component detail pages, sensors table, work-orders table, light/dark themes, container-query layouts. Demo data deleted. Recharts not used — charts are plain SVG.
 ---
 
 ## M6 — Monitor and work orders · O2
@@ -463,34 +467,36 @@ CREATE TABLE tbl_Insight (
 **Goal:** the autonomous half of the closed loop — a Critical prediction becomes a work order with no human action, with an audit trail.
 
 **Service** — `backend/app/services/work_orders.py`
-- [ ] `open_for_prediction(prediction, created_by)`, `open_manual(equipment, note, created_by="user")`, `close(id, note)`, `list(status)`
-- [ ] Priority from the component's `CriticalityLevel` and condition (e.g. Critical + High → High)
-- [ ] Every create records `CreatedBy` and, if automatic, `TriggeredByPredictionID`; publishes `work_order` events
+- [x] `open_for_prediction(prediction, created_by)`, `open_manual(equipment, note, created_by="user")`, `close(id, note)`, `list(status)`
+- [x] Priority from the component's `CriticalityLevel` and condition (e.g. Critical + High → High)
+- [x] Every create records `CreatedBy` and, if automatic, `TriggeredByPredictionID`; publishes `work_order` events
 
 **Monitor** — `backend/app/services/monitor.py`
-- [ ] Subscribes to `prediction` events
-- [ ] Rule: condition is Critical **and** no open work order for that equipment → open one (`CreatedBy = "system:monitor"`), set `AlertRaised = 1` on the prediction
-- [ ] Optional hysteresis: require Critical for K consecutive cycles (`settings.monitor.confirm_cycles`, default 1) to avoid flapping
-- [ ] Recovery behaviour as decided above (auto-close with `ClosedNote = "condition recovered"`, or leave open)
-- [ ] Thresholds in `config/settings.json` (see Cross-cutting), not in code
+- [x] Subscribes to `prediction` events
+- [x] Rule: condition is Critical **and** no open work order for that equipment → open one (`CreatedBy = "system:monitor"`), set `AlertRaised = 1` on the prediction
+- [x] Optional hysteresis: require Critical for K consecutive cycles (`settings.monitor.confirm_cycles`, default 1) to avoid flapping
+- [x] Recovery behaviour as decided above (auto-close with `ClosedNote = "condition recovered"`, or leave open)
+- [x] Thresholds in `config/settings.json` (see Cross-cutting), not in code
 
 **API** — `backend/app/api/work_orders.py`
-- [ ] `GET /api/work-orders?status=Open|Closed` (with the triggering prediction's cycle and condition joined in)
-- [ ] `POST /api/work-orders {equipment, note}` → `CreatedBy = user`
-- [ ] `POST /api/work-orders/{id}/close {note}`
+- [x] `GET /api/work-orders?status=Open|Closed` (with the triggering prediction's cycle and condition joined in)
+- [x] `POST /api/work-orders {equipment, note}` → `CreatedBy = user`
+- [x] `POST /api/work-orders/{id}/close {note}`
 
 **UI** — `features/work-orders/` + `routes/work-orders.tsx`
-- [ ] Real list, Open/Closed filter, close button with a note
-- [ ] Badge: **System** vs **User** (`CreatedBy`); link "triggered by cycle 1,465 prediction" (the audit trail)
-- [ ] Manual "New work order" form
-- [ ] Toasts on `work_order` events
+- [x] Real list, Open/Closed filter, close button with a note
+- [x] Badge: **System** vs **User** (`CreatedBy`); link "triggered by cycle 1,465 prediction" (the audit trail)
+- [x] Manual "New work order" form
+- [x] Toasts on `work_order` events
 
 **Tests** — `test_monitor.py`
-- [ ] Critical with no open order → exactly one order; a second Critical cycle → still one (no duplicates)
-- [ ] Optimal → no order; recovery behaviour matches the decision
+- [x] Critical with no open order → exactly one order; a second Critical cycle → still one (no duplicates)
+- [x] Optimal → no order; recovery behaviour matches the decision
 
 **Done when:** replaying into a known accumulator fault opens a work order automatically, shown in the UI with a System badge and its triggering cycle, and the monitor tests pass.
 
+
+✅ **Done (2026-10-07).** `services/monitor.py` + `services/work_orders.py`; POST create/close endpoints; Work orders page with New / Close, System/User badges, trigger cycle, closure notes; "Raise work order" on component pages. Live check: replaying cycles 420–567 opened 7 automatic work orders and auto-closed 4 on recovery. 8 new tests (36 total). Thresholds are constants in `monitor.py` until the settings file (Cross-cutting).
 ---
 
 ## M7 — Insight engine · O2

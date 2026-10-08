@@ -21,8 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, cloud, hardware, health, models, replay, stream
-from .services import db, events, ingest, paths
+from .api import chat, cloud, dashboard, hardware, health, models, replay, stream, work_orders
+from .services import db, events, ingest, monitor, paths
 from .services import replay as replay_service
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # and /api/replay answers 503 with the reason.
     app.state.replay = None
     app.state.dataset_error = None
-    task: asyncio.Task[None] | None = None
+    tasks: list[asyncio.Task[None]] = []
+    dataset: ingest.Dataset | None = None
     try:
         dataset = await asyncio.to_thread(ingest.load)
     except Exception as exc:  # noqa: BLE001 — any load failure is reported, not fatal
@@ -47,14 +48,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.warning("replay disabled — %s", app.state.dataset_error)
     else:
         app.state.replay = replay_service.Replay(dataset, start=replay_service.resume_point(dataset))
-        task = asyncio.create_task(app.state.replay.run(), name="replay")
+        tasks.append(asyncio.create_task(app.state.replay.run(), name="replay"))
+
+    # The predictor scores each replayed cycle. Imported lazily: the ML libraries
+    # are heavy, and without trained models the rest of the app still works.
+    app.state.predictor = None
+    app.state.predictor_error = None
+    if dataset is not None:
+        try:
+            from .services import predictor as predictor_service  # noqa: PLC0415
+
+            model = await asyncio.to_thread(predictor_service.Predictor)
+        except Exception as exc:  # noqa: BLE001 — reported in /api/dashboard/overview, not fatal
+            app.state.predictor_error = f"{exc.__class__.__name__}: {exc}"
+            log.warning("predictions disabled — %s", app.state.predictor_error)
+        else:
+            app.state.predictor = model
+            truth = {c: dataset.get(c).true_conditions for c in range(dataset.first, dataset.last + 1) if c in dataset}
+            tasks.append(asyncio.create_task(predictor_service.run_worker(model, truth), name="predictor"))
+            tasks.append(asyncio.create_task(monitor.run(), name="monitor"))
 
     yield
 
-    if task is not None:
+    for task in tasks:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+    events.bind(None)
 
 
 app = FastAPI(
@@ -83,6 +103,8 @@ app.include_router(hardware.router)
 app.include_router(chat.router)
 app.include_router(replay.router)
 app.include_router(stream.router)
+app.include_router(dashboard.router)
+app.include_router(work_orders.router)
 app.include_router(cloud.router)
 
 

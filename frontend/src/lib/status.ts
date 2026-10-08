@@ -1,10 +1,16 @@
-// Tailwind classes for each status kind (good / warning / serious / critical), shared by pills, dots and gauges.
+// How each condition looks: reserved status colours, always with an icon and a label.
 
-import type { StatusKind } from "../domain/types"
+import type { Condition } from "./api"
 
-export const statusClasses: Record<StatusKind, { text: string; bg: string; dot: string }> = {
-  good: { text: "text-good-text", bg: "bg-good-bg", dot: "bg-good" },
-  warning: { text: "text-warning-text", bg: "bg-warning-bg", dot: "bg-warning" },
-  serious: { text: "text-serious-text", bg: "bg-serious-bg", dot: "bg-serious" },
-  critical: { text: "text-critical-text", bg: "bg-critical-bg", dot: "bg-critical" },
+export const conditionStyle: Record<Condition, { text: string; bg: string; dot: string; border: string; icon: "check" | "alert" | "octagon" }> = {
+  Optimal: { text: "text-good-text", bg: "bg-good-bg", dot: "bg-good", border: "border-good/30", icon: "check" },
+  Degraded: { text: "text-warning-text", bg: "bg-warning-bg", dot: "bg-warning", border: "border-warning/40", icon: "alert" },
+  Critical: { text: "text-critical-text", bg: "bg-critical-bg", dot: "bg-critical", border: "border-critical/40", icon: "octagon" },
 }
+
+/** Meter fill by severity (accent → warning → critical), per the data-viz method. */
+export function severityFill(p: number): string {
+  return p >= 0.7 ? "var(--critical)" : p >= 0.3 ? "var(--warning)" : "var(--accent)"
+}
+
+export const conditionRank: Record<Condition, number> = { Optimal: 0, Degraded: 1, Critical: 2 }

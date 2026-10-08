@@ -90,7 +90,11 @@ def test_play_runs_the_loop_until_paused(fresh_db):
         written = repo.latest_cycle()
         await asyncio.sleep(0.15)
         assert written is not None and written >= 3
-        assert repo.latest_cycle() == written  # paused: nothing more written
+        # A cycle already being written when pause arrives may still land; nothing after that.
+        settled = repo.latest_cycle()
+        assert settled - written <= 1
+        await asyncio.sleep(0.15)
+        assert repo.latest_cycle() == settled
         task.cancel()
 
     asyncio.run(main())

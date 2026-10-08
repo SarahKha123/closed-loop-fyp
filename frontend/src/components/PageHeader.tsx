@@ -1,10 +1,15 @@
-// Page title + subtitle, used at the top of every route.
+// Page title + one-line description, with optional actions on the right.
 
-export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
+import type { ReactNode } from "react"
+
+export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
-    <div>
-      <div className="text-[28px] font-bold">{title}</div>
-      <div className="mt-1 text-[18px] text-ink-muted">{subtitle}</div>
+    <div className="flex items-end justify-between gap-4">
+      <div className="min-w-0">
+        <h1 className="text-[20px] leading-tight font-semibold tracking-tight text-ink">{title}</h1>
+        {subtitle && <p className="mt-1 text-[13px] text-ink-muted">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   )
 }

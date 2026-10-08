@@ -64,6 +64,17 @@ def latest_cycle() -> int | None:
     return row["c"]
 
 
+def unscored_readings() -> list[tuple[int, int]]:
+    """(ReadingID, CycleNumber) of readings with no predictions yet, oldest first."""
+    with db.read() as conn:
+        rows = conn.execute(
+            "SELECT r.ReadingID, r.CycleNumber FROM tbl_SensorReading r"
+            " WHERE NOT EXISTS (SELECT 1 FROM tbl_Prediction p WHERE p.ReadingID = r.ReadingID)"
+            " ORDER BY r.ReadingID"
+        ).fetchall()
+    return [(r["ReadingID"], r["CycleNumber"]) for r in rows]
+
+
 def delete_from_cycle(cycle: int) -> None:
     """Drop this cycle and everything after it (predictions cascade). Used when the replay seeks back."""
     with db.write() as conn:
@@ -164,6 +175,61 @@ def trend(last_n: int = 200) -> list[dict[str, Any]]:
             (last_n,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def condition_since(equipment_id: str) -> int | None:
+    """The first cycle of the equipment's current run of the same condition (e.g. 'Critical since cycle 600')."""
+    with db.read() as conn:
+        row = conn.execute(
+            """
+            WITH ordered AS (
+              SELECT r.CycleNumber AS cycle, p.PredictedCondition AS cond
+              FROM tbl_Prediction p JOIN tbl_SensorReading r ON r.ReadingID = p.ReadingID
+              WHERE p.EquipmentID = ?
+            ),
+            latest AS (SELECT cond FROM ordered ORDER BY cycle DESC LIMIT 1),
+            last_other AS (
+              SELECT MAX(cycle) AS c FROM ordered WHERE cond != (SELECT cond FROM latest)
+            )
+            SELECT MIN(cycle) AS since FROM ordered
+            WHERE cycle > COALESCE((SELECT c FROM last_other), -1)
+            """,
+            (equipment_id,),
+        ).fetchone()
+    return row["since"]
+
+
+def condition_changes(limit: int = 30) -> list[dict[str, Any]]:
+    """The most recent condition changes across all equipment, newest first."""
+    with db.read() as conn:
+        rows = conn.execute(
+            """
+            SELECT cycle, component, prev AS fromCondition, cond AS toCondition, failureProbability
+            FROM (
+              SELECT r.CycleNumber AS cycle, e.ComponentType AS component, p.PredictedCondition AS cond,
+                     p.FailureProbability AS failureProbability,
+                     LAG(p.PredictedCondition) OVER (PARTITION BY p.EquipmentID ORDER BY r.CycleNumber) AS prev
+              FROM tbl_Prediction p
+              JOIN tbl_SensorReading r ON r.ReadingID = p.ReadingID
+              JOIN tbl_Equipment e ON e.EquipmentID = p.EquipmentID
+            )
+            WHERE prev IS NOT NULL AND prev != cond
+            ORDER BY cycle DESC, component
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def recent_conditions(equipment_id: str, n: int) -> list[str]:
+    """The equipment's last `n` predicted conditions, newest first."""
+    with db.read() as conn:
+        rows = conn.execute(
+            "SELECT PredictedCondition FROM tbl_Prediction WHERE EquipmentID = ? ORDER BY PredictionID DESC LIMIT ?",
+            (equipment_id, n),
+        ).fetchall()
+    return [r[0] for r in rows]
 
 
 def mark_alert_raised(prediction_id: int) -> None:

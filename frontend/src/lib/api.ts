@@ -1,0 +1,141 @@
+// Types and calls for the live dashboard endpoints (docs/API.md: Replay,
+// Live stream, Dashboard, Work orders). Field names match the JSON exactly.
+
+import { request } from "./http"
+
+export type Condition = "Optimal" | "Degraded" | "Critical"
+export type ComponentName = "Cooler" | "Valve" | "Pump" | "Accumulator"
+export type ComponentKey = "cooler" | "valve" | "pump" | "accumulator"
+
+export interface ReplayState {
+  state: "playing" | "paused" | "finished"
+  cycle: number | null
+  nextCycle: number | null
+  first: number
+  total: number
+  secondsPerCycle: number
+}
+
+export interface Driver {
+  feature: string
+  label: string
+  unit: string
+  value: number
+  contribution: number
+}
+
+export interface ComponentState {
+  key: ComponentKey
+  component: ComponentName
+  equipmentId: string
+  predictionId: number
+  cycle: number
+  condition: Condition
+  classProbabilities: Record<Condition, number>
+  failureProbability: number
+  previousFailureProbability: number | null
+  confidence: "High" | "Medium" | "Low"
+  shap: Driver[]
+  modelVersion: string
+  changedFrom: Condition | null
+  since: number | null
+  openWorkOrder: string | null
+}
+
+export interface Overview {
+  replay: ReplayState | null
+  replayError: string | null
+  predictor: { trainedAt: string; models: Record<ComponentKey, string>; versionWarnings: string[] } | null
+  predictorError: string | null
+  cycle: number | null
+  kpis: {
+    critical: number
+    degraded: number
+    optimal: number
+    monitored: number
+    openWorkOrders: number
+    avgFailureProbability: number | null
+  }
+  components: ComponentState[]
+}
+
+export interface Trend {
+  cycles: number[]
+  series: Record<ComponentName, { failureProbability: (number | null)[]; condition: (Condition | null)[] }>
+}
+
+export interface ConditionEvent {
+  cycle: number
+  component: ComponentName
+  fromCondition: Condition
+  toCondition: Condition
+  failureProbability: number
+}
+
+export interface SensorRow {
+  sensor: string
+  name: string
+  quantity: string
+  unit: string
+  rateHz: number
+  mean: number
+  std: number
+  min: number
+  max: number
+  relatedComponents: ComponentName[]
+}
+
+export interface Sensors {
+  cycle: number
+  stable: number
+  sensors: SensorRow[]
+}
+
+export interface WorkOrder {
+  id: string
+  equipmentId: string
+  component: ComponentName
+  triggeredByPredictionId: number | null
+  triggeredByCycle: number | null
+  priority: "High" | "Medium" | "Low"
+  status: "Open" | "Closed"
+  createdBy: string
+  assignedTo: string | null
+  note: string | null
+  createdAt: string
+  closedAt: string | null
+  closedNote: string | null
+}
+
+export const COMPONENTS: { key: ComponentKey; name: ComponentName; series: string }[] = [
+  { key: "cooler", name: "Cooler", series: "var(--series-1)" },
+  { key: "valve", name: "Valve", series: "var(--series-2)" },
+  { key: "pump", name: "Pump", series: "var(--series-3)" },
+  { key: "accumulator", name: "Accumulator", series: "var(--series-4)" },
+]
+
+export const componentByKey = (key: string) => COMPONENTS.find((c) => c.key === key)
+export const componentByName = (name: string) => COMPONENTS.find((c) => c.name === name)
+
+export const api = {
+  overview: () => request<Overview>("/api/dashboard/overview"),
+  trend: (last = 200) => request<Trend>(`/api/dashboard/trend?last=${last}`),
+  events: (limit = 30) => request<{ events: ConditionEvent[] }>(`/api/dashboard/events?limit=${limit}`),
+  sensors: (cycle?: number) => request<Sensors>(`/api/dashboard/sensors${cycle ? `?cycle=${cycle}` : ""}`),
+  workOrders: (status?: "Open" | "Closed") =>
+    request<{ workOrders: WorkOrder[] }>(`/api/work-orders${status ? `?status=${status}` : ""}`),
+  createWorkOrder: (component: ComponentKey, note: string) =>
+    request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
+  closeWorkOrder: (id: string, note: string) =>
+    request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify({ note }) }),
+  replay: {
+    play: () => request<ReplayState>("/api/replay/play", { method: "POST" }),
+    pause: () => request<ReplayState>("/api/replay/pause", { method: "POST" }),
+    step: () => request<ReplayState>("/api/replay/step", { method: "POST" }),
+    reset: (cycle?: number) =>
+      request<ReplayState>("/api/replay/reset", { method: "POST", body: JSON.stringify(cycle ? { cycle } : {}) }),
+    speed: (secondsPerCycle: number) =>
+      request<ReplayState>("/api/replay/speed", { method: "POST", body: JSON.stringify({ secondsPerCycle }) }),
+    seek: (cycle: number) => request<ReplayState>("/api/replay/seek", { method: "POST", body: JSON.stringify({ cycle }) }),
+  },
+}

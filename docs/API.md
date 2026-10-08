@@ -209,7 +209,7 @@ sent after 15 s of silence to keep the connection open.
 |---|---|---|---|
 | `replay` | on connect, and after every control | the `GET /api/replay` object | M3 |
 | `cycle` | a cycle was written | `{"cycle": 1665, "readingId": 1}` | M3 |
-| `prediction` | a cycle was scored | per component: condition, failure probability, what it changed from | M4 |
+| `prediction` | a cycle was scored | `{"cycle": 733, "predictions": [{"component": "Cooler", "condition": "Degraded", "failureProbability": 0.98, "changedFrom": "Critical", "predictionId": 2917, "equipmentId": "COOLER-1"}, …]}` | M4 |
 | `work_order` | a work order opened or closed | `{"action": "opened" \| "closed", "workOrder": {...}}` | M6 |
 | `insight` | the AI produced an insight | the insight | M7 |
 
@@ -218,6 +218,78 @@ data: {"type": "replay", "state": "playing", "cycle": 1665, "nextCycle": 1666, "
 
 data: {"type": "cycle", "cycle": 1666, "readingId": 2}
 ```
+
+---
+
+## Dashboard
+
+All read from the shared data layer. KPIs count only each component's
+**latest** prediction (the FYP1 "Critical Asset Count" rule).
+
+### `GET /api/dashboard/overview`
+```json
+{
+  "replay": { "state": "paused", "cycle": 601, … },      // as GET /api/replay
+  "replayError": null,
+  "predictor": { "trainedAt": "…", "models": { "cooler": "xgboost", "valve": "random_forest", … }, "versionWarnings": [] },
+  "predictorError": null,                                 // e.g. "no trained models — run …"
+  "cycle": 601,                                           // null before the first scored cycle
+  "kpis": { "critical": 2, "degraded": 0, "optimal": 2, "monitored": 4, "openWorkOrders": 0, "avgFailureProbability": 0.5241 },
+  "components": [
+    {
+      "key": "accumulator", "component": "Accumulator", "equipmentId": "ACCUM-1",
+      "predictionId": 24, "cycle": 601,
+      "condition": "Critical",
+      "classProbabilities": { "Optimal": 0.0, "Degraded": 0.001, "Critical": 0.999 },
+      "failureProbability": 1.0,                          // P(Degraded) + P(Critical)
+      "previousFailureProbability": 1.0,
+      "confidence": "High",                               // top class ≥ 0.9 High, ≥ 0.7 Medium
+      "shap": [ { "feature": "FS2_mean", "label": "Volume flow 2 (mean)", "unit": "l/min", "value": 8.9509, "contribution": 2.31 }, … ],
+      "modelVersion": "xgboost@…",
+      "changedFrom": null,                                // previous condition if it just changed
+      "since": 595,                                       // first cycle of the current condition run
+      "openWorkOrder": null
+    }
+  ]
+}
+```
+`shap` lists the top 3 features pushing the model *toward the predicted
+condition*, with this cycle's actual value. `TrueCondition` (the dataset
+label) is never returned.
+
+### `GET /api/dashboard/trend?last=200`
+`{"cycles": [402, 403, …], "series": {"Cooler": {"failureProbability": [...], "condition": [...]}, …}}` — aligned arrays, oldest first.
+
+### `GET /api/dashboard/events?limit=30`
+Recent condition changes, newest first:
+`{"events": [{"cycle": 733, "component": "Cooler", "fromCondition": "Critical", "toCondition": "Degraded", "failureProbability": 0.98}]}`
+
+### `GET /api/dashboard/sensors?cycle=601`
+The 17 channels for one cycle (default: latest); `404` before any reading.
+```json
+{ "cycle": 601, "stable": 0,
+  "sensors": [ { "sensor": "CP", "name": "Cooling power", "quantity": "power", "unit": "kW", "rateHz": 1,
+                 "mean": 1.49, "std": 0.026, "min": 1.44, "max": 1.53, "relatedComponents": ["Cooler"] }, … ] }
+```
+
+---
+
+## Work orders
+
+### `GET /api/work-orders?status=Open|Closed`
+`{"workOrders": [{"id": "WO-0001", "component": "Accumulator", "priority": "High", "status": "Open", "createdBy": "system:monitor", "triggeredByPredictionId": 24, "triggeredByCycle": 601, "note": "…", "createdAt": "…", "closedAt": null, …}]}` — newest first.
+Automatic work orders come from the monitor (see ARCHITECTURE.md): one when a
+component's prediction turns Critical (none if one is already open), closed
+again with `closedNote: "Condition recovered: …"` when it returns to Optimal.
+Priority is High for high-criticality assets (valve, pump), else Medium.
+
+### `POST /api/work-orders`
+Body `{"component": "pump", "note": "check seals"}` (`component` may be the key, name or equipment ID).
+Raised by a user: `createdBy: "user"`, no triggering prediction. `400` for an unknown component.
+
+### `POST /api/work-orders/{id}/close`
+Body `{"note": "seals replaced"}` (optional). `404` if it doesn't exist or is already closed.
+Users can close any work order; the monitor only ever auto-closes its own.
 
 ---
 

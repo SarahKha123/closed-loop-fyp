@@ -1,9 +1,8 @@
-// Sidebar summary of the active model; links to the Models page (or opens it in a new tab).
+// Sidebar summary of the model the Advisor uses; opens the AI models page (or a new tab).
 
 import { Link } from "@tanstack/react-router"
 import { useModels } from "../../context/ModelsContext"
 
-/** The sidebar's view of the active model — a way into the Models page, not a picker. */
 export function ModelCard() {
   const { modelsLoading, modelsError, models, active } = useModels()
 
@@ -16,39 +15,21 @@ export function ModelCard() {
   const where = active?.mode === "cloud" ? (active.provider ?? "cloud") : "local"
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-[16px] font-semibold tracking-wide text-ink-faint uppercase">Model</div>
-        <a
-          href="/models"
-          target="_blank"
-          rel="noreferrer"
-          title="Open the Models page in a new tab"
-          className="text-[14px] text-ink-faint hover:text-accent"
-        >
-          new tab ↗
-        </a>
+    <Link
+      to="/models"
+      className="group block rounded-lg border border-line bg-surface-2 px-3 py-2 transition-colors hover:border-accent-border"
+      activeProps={{ className: "!border-accent-border !bg-accent-bg" }}
+    >
+      <div className="flex items-center justify-between text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+        Advisor model
+        <span className="font-normal normal-case">{active ? `${active.mode} · ${where}` : ""}</span>
       </div>
-      <Link
-        to="/models"
-        className="flex w-full flex-col gap-1 rounded-lg border border-ink/15 bg-white px-3 py-2.5 transition-colors hover:border-accent-border"
-        activeProps={{ className: "!border-accent-border !bg-accent-bg" }}
-      >
-        <span className="flex min-w-0 items-center gap-2 text-[17.5px] font-medium text-[#3F3E3A]">
-          <span
-            className={`h-[7px] w-[7px] shrink-0 rounded-full ${
-              modelsLoading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"
-            }`}
-          />
-          <span className="truncate">{label}</span>
-        </span>
-        <span className="flex justify-between text-[14px] text-ink-faint">
-          <span className="uppercase tracking-wide">
-            {active?.mode ?? "—"} · {where}
-          </span>
-          <span className="text-accent">Manage →</span>
-        </span>
-      </Link>
-    </div>
+      <div className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-medium text-ink">
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${modelsLoading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"}`}
+        />
+        <span className="truncate font-mono text-[12.5px]">{label}</span>
+      </div>
+    </Link>
   )
 }

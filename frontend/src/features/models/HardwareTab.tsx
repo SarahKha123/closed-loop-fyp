@@ -41,11 +41,11 @@ function Meter({ pct, tone = "bg-accent" }: { pct: number | null | undefined; to
 function Stat({ label, value, sub, children }: { label: string; value: string; sub?: string; children?: React.ReactNode }) {
   return (
     <div className={`${card} p-4 flex min-w-0 flex-col gap-1.5`}>
-      <div className="text-[15px] tracking-wide text-ink-faint uppercase">{label}</div>
-      <div className="truncate text-[22px] font-bold" title={value}>
+      <div className="text-[12px] tracking-wide text-ink-faint uppercase">{label}</div>
+      <div className="truncate text-[18px] font-bold" title={value}>
         {value}
       </div>
-      {sub && <div className="truncate text-[15px] text-ink-muted" title={sub}>{sub}</div>}
+      {sub && <div className="truncate text-[12px] text-ink-muted" title={sub}>{sub}</div>}
       {children}
     </div>
   )
@@ -78,7 +78,7 @@ export function HardwareTab() {
     void load()
   }, [load])
 
-  if (!hw) return <div className="text-[17px] text-ink-faint">{error ?? "Reading hardware…"}</div>
+  if (!hw) return <div className="text-[13px] text-ink-faint">{error ?? "Reading hardware…"}</div>
 
   const ramTotal = hw.ram.total_bytes
   const ramUsed = ramTotal != null && hw.ram.available_bytes != null ? ramTotal - hw.ram.available_bytes : null
@@ -99,7 +99,7 @@ export function HardwareTab() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <div className="text-[16px] text-ink-faint">
+        <div className="text-[12.5px] text-ink-faint">
           {hw.host.os} {hw.host.release}
           {hw.host.container && " · in a container"}
           {" · "}Ollama {hw.ollama.reachable ? `${hw.ollama.version ?? ""} running` : "not reachable"}
@@ -115,7 +115,7 @@ export function HardwareTab() {
       </div>
 
       {hw.host.wsl && (
-        <div className="rounded-xl border border-warning/40 bg-warning-bg px-4 py-3 text-[16px] text-warning-text">
+        <div className="rounded-xl border border-warning/40 bg-warning-bg px-4 py-3 text-[12.5px] text-warning-text">
           Running inside WSL: the CPU threads and RAM below are what WSL is allowed to use, not your whole PC. To give it
           more, set <code className="font-mono">memory=</code> and <code className="font-mono">processors=</code> in{" "}
           <code className="font-mono">%UserProfile%\.wslconfig</code>, then run{" "}
@@ -130,11 +130,11 @@ export function HardwareTab() {
           sub={`${hw.cpu.model ?? "unknown CPU"}${hw.cpu.cores_physical ? ` · ${hw.cpu.cores_physical} cores` : ""}`}
         >
           <Meter pct={hw.cpu.load_percent} />
-          <div className="text-[14.5px] text-ink-faint">load {hw.cpu.load_percent?.toFixed(0) ?? "?"}%</div>
+          <div className="text-[12px] text-ink-faint">load {hw.cpu.load_percent?.toFixed(0) ?? "?"}%</div>
         </Stat>
         <Stat label="Memory" value={formatSize(ramTotal)} sub={`${formatSize(hw.ram.available_bytes)} free right now`}>
           <Meter pct={pct(ramUsed, ramTotal)} />
-          <div className="text-[14.5px] text-ink-faint">{pct(ramUsed, ramTotal)?.toFixed(0) ?? "?"}% in use</div>
+          <div className="text-[12px] text-ink-faint">{pct(ramUsed, ramTotal)?.toFixed(0) ?? "?"}% in use</div>
         </Stat>
         {hw.gpu ? (
           <Stat
@@ -143,7 +143,7 @@ export function HardwareTab() {
             sub={`${hw.gpu.name}${hw.gpu.driver_version ? ` · driver ${hw.gpu.driver_version}` : ""}`}
           >
             <Meter pct={pct(hw.gpu.vram_used_bytes, hw.gpu.vram_bytes)} />
-            <div className="text-[14.5px] text-ink-faint">
+            <div className="text-[12px] text-ink-faint">
               {formatSize(hw.gpu.vram_used_bytes)} used · load {hw.gpu.load_percent?.toFixed(0) ?? "?"}%
             </div>
           </Stat>
@@ -152,41 +152,41 @@ export function HardwareTab() {
         )}
         <Stat label="Disk (models)" value={`${formatSize(hw.disk.free_bytes)} free`} sub={hw.disk.path}>
           <Meter pct={pct(diskUsed, hw.disk.total_bytes)} />
-          <div className="text-[14.5px] text-ink-faint">of {formatSize(hw.disk.total_bytes)}</div>
+          <div className="text-[12px] text-ink-faint">of {formatSize(hw.disk.total_bytes)}</div>
         </Stat>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className={`${card} p-4 flex flex-col gap-1`}>
-          <div className="text-[18px] font-semibold">Fully on the GPU</div>
+          <div className="text-[14px] font-semibold">Fully on the GPU</div>
           {vramBudget ? (
-            <div className="text-[16.5px] text-ink-muted">
+            <div className="text-[13px] text-ink-muted">
               Models up to <b>{formatSize(vramBudget)}</b> ({paramsAtQ4(vramBudget)} at Q4) fit in VRAM and answer fastest.
             </div>
           ) : (
-            <div className="text-[16.5px] text-ink-muted">No GPU detected, so everything runs on the CPU.</div>
+            <div className="text-[13px] text-ink-muted">No GPU detected, so everything runs on the CPU.</div>
           )}
         </div>
         <div className={`${card} p-4 flex flex-col gap-1`}>
-          <div className="text-[18px] font-semibold">Comfortably in RAM</div>
+          <div className="text-[14px] font-semibold">Comfortably in RAM</div>
           {ramBudget ? (
-            <div className="text-[16.5px] text-ink-muted">
+            <div className="text-[13px] text-ink-muted">
               Models up to <b>{formatSize(ramBudget)}</b> ({paramsAtQ4(ramBudget)} at Q4) —{" "}
               {Math.round(hw.safe_ram_fraction * 100)}% of RAM, leaving room for everything else. This is the limit
               Auto picks within.
             </div>
           ) : (
-            <div className="text-[16.5px] text-ink-muted">RAM size unavailable.</div>
+            <div className="text-[13px] text-ink-muted">RAM size unavailable.</div>
           )}
         </div>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-[20px] font-semibold">Your chat models on this hardware</h2>
+        <h2 className="text-[15px] font-semibold">Your chat models on this hardware</h2>
         {models.length === 0 ? (
-          <div className={`${card} p-4 border-dashed text-[17px] text-ink-faint`}>No chat models installed.</div>
+          <div className={`${card} p-4 border-dashed text-[13px] text-ink-faint`}>No chat models installed.</div>
         ) : (
-          <div className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-surface">
+          <div className="divide-y divide-line rounded-xl border border-line bg-surface">
             {models.map((m) => {
               // Ollama's "-cloud" tags run on Ollama's servers; local hardware doesn't matter.
               const where = m.name.endsWith("-cloud")
@@ -194,9 +194,9 @@ export function HardwareTab() {
                 : runsOn(m.size_bytes)
               return (
                 <div key={m.name} className="flex items-center gap-3 px-4 py-3">
-                  <span className="min-w-0 grow truncate font-mono text-[17px] font-medium">{m.name}</span>
-                  <span className="text-[15px] text-ink-faint">{formatSize(m.size_bytes)}</span>
-                  <span className={`w-[220px] rounded-full px-2.5 py-0.5 text-center text-[14px] font-semibold ${where.cls}`}>
+                  <span className="min-w-0 grow truncate font-mono text-[13px] font-medium">{m.name}</span>
+                  <span className="text-[12px] text-ink-faint">{formatSize(m.size_bytes)}</span>
+                  <span className={`w-[220px] rounded-full px-2.5 py-0.5 text-center text-[11.5px] font-semibold ${where.cls}`}>
                     {where.label}
                   </span>
                 </div>
@@ -204,7 +204,7 @@ export function HardwareTab() {
             })}
           </div>
         )}
-        <div className="text-[14.5px] text-ink-faint">
+        <div className="text-[12px] text-ink-faint">
           Estimates from file size: longer conversations need extra memory on top, so a model right at the limit may
           spill from GPU to CPU.
         </div>

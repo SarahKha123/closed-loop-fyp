@@ -62,3 +62,46 @@ def load_features(path: Path = SUMMARY_CSV) -> pd.DataFrame:
     """The 2,205 × 68 feature matrix, columns in FEATURE_NAMES order, index = cycle."""
     return load_summary(path)[list(FEATURE_NAMES)]
 
+
+
+# ── human-readable sensor information (for the dashboard and the AI) ─────────
+
+# sensor → (name, quantity, unit, sampling rate in Hz)
+SENSOR_INFO: dict[str, tuple[str, str, str, int]] = {
+    "PS1": ("Pressure 1", "pressure", "bar", 100),
+    "PS2": ("Pressure 2", "pressure", "bar", 100),
+    "PS3": ("Pressure 3", "pressure", "bar", 100),
+    "PS4": ("Pressure 4", "pressure", "bar", 100),
+    "PS5": ("Pressure 5", "pressure", "bar", 100),
+    "PS6": ("Pressure 6", "pressure", "bar", 100),
+    "EPS1": ("Motor power", "power", "W", 100),
+    "FS1": ("Volume flow 1", "flow", "l/min", 10),
+    "FS2": ("Volume flow 2", "flow", "l/min", 10),
+    "TS1": ("Temperature 1", "temperature", "°C", 1),
+    "TS2": ("Temperature 2", "temperature", "°C", 1),
+    "TS3": ("Temperature 3", "temperature", "°C", 1),
+    "TS4": ("Temperature 4", "temperature", "°C", 1),
+    "VS1": ("Vibration", "vibration", "mm/s", 1),
+    "CE": ("Cooling efficiency", "efficiency", "%", 1),
+    "CP": ("Cooling power", "power", "kW", 1),
+    "SE": ("Efficiency factor", "efficiency", "%", 1),
+}
+
+# Which sensors are most associated with each component's condition, from the
+# dataset's rank correlations and the models' SHAP rankings (docs/DATASET.md §7).
+# Used to highlight relevant sensors; not used by the models.
+COMPONENT_SENSORS: dict[str, tuple[str, ...]] = {
+    "cooler": ("CP", "CE", "TS1", "TS2", "TS3", "TS4"),
+    "valve": ("SE", "FS1", "PS1", "PS2"),
+    "pump": ("SE", "FS1", "EPS1", "PS1"),
+    "accumulator": ("FS1", "FS2", "PS1", "PS2", "PS3"),
+}
+
+_STAT_NAMES = {"mean": "mean", "std": "variability", "min": "minimum", "max": "maximum"}
+
+
+def describe_feature(feature: str) -> dict[str, str]:
+    """'CP_min' → {'sensor': 'CP', 'stat': 'min', 'label': 'Cooling power (minimum)', 'unit': 'kW'}."""
+    sensor, stat = feature.rsplit("_", 1)
+    name, _, unit, _ = SENSOR_INFO[sensor]
+    return {"sensor": sensor, "stat": stat, "label": f"{name} ({_STAT_NAMES[stat]})", "unit": unit}

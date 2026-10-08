@@ -33,13 +33,13 @@ function ModelsView() {
 
       <ActiveModelBanner />
 
-      <div className="flex items-center gap-1 border-b border-ink/10">
+      <div className="flex items-center gap-1 border-b border-line">
         {(["installed", "download", "cloud", "hardware"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => navigate({ search: { tab: t === "installed" ? undefined : t } })}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-[18px] font-medium transition-colors ${
+            className={`-mb-px border-b-2 px-4 py-2.5 text-[14px] font-medium transition-colors ${
               tab === t ? "border-accent text-accent-text" : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >

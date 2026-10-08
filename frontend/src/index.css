@@ -1,55 +1,205 @@
 @import "tailwindcss";
 
-@theme {
+/*
+ * Design tokens. Components use only these names (bg-surface, text-ink-muted,
+ * text-critical-text, …), never raw hex, so light and dark swap in one place.
+ *
+ * Chart colours follow the data-viz method: the categorical slots are the
+ * validated default palette in fixed order (one per component, never cycled);
+ * the status colours (good / warning / critical) are reserved for condition
+ * and always appear with an icon and a label.
+ */
+:root {
+  color-scheme: light;
+  --canvas: #f4f4f1;
+  --surface: #ffffff;
+  --surface-2: #f9f9f7;
+  --surface-3: #f0efec;
+  --border: rgba(11, 11, 11, 0.09);
+  --border-strong: rgba(11, 11, 11, 0.16);
+  --ink: #0b0b0b;
+  --ink-muted: #52514e;
+  --ink-faint: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+
+  --accent: #2a78d6;
+  --accent-hover: #256abf;
+  --accent-bg: #eaf2fc;
+  --accent-text: #184f95;
+  --accent-border: #b7d3f6;
+
+  --good: #0ca30c;
+  --good-text: #006300;
+  --good-bg: #e7f5e7;
+  --warning: #fab219;
+  --warning-text: #7a4f00;
+  --warning-bg: #fff3d9;
+  --serious: #ec835a;
+  --serious-text: #a8431f;
+  --serious-bg: #fce9e1;
+  --critical: #d03b3b;
+  --critical-text: #a82424;
+  --critical-bg: #fbe8e8;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 1px 1px rgba(11, 11, 11, 0.02);
+  --shadow-pop: 0 8px 24px rgba(11, 11, 11, 0.12), 0 2px 6px rgba(11, 11, 11, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --canvas: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #20201f;
+    --surface-3: #2a2a28;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --ink: #ffffff;
+    --ink-muted: #c3c2b7;
+    --ink-faint: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --accent: #3987e5;
+    --accent-hover: #5598e7;
+    --accent-bg: #13243a;
+    --accent-text: #9ec5f4;
+    --accent-border: #1c5cab;
+    --good-text: #0ca30c;
+    --good-bg: #0f2a10;
+    --warning-text: #fab219;
+    --warning-bg: #2e2208;
+    --serious-text: #ec835a;
+    --serious-bg: #2f1a11;
+    --critical-text: #e66767;
+    --critical-bg: #2e1414;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #20201f;
+  --surface-3: #2a2a28;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --ink: #ffffff;
+  --ink-muted: #c3c2b7;
+  --ink-faint: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --accent: #3987e5;
+  --accent-hover: #5598e7;
+  --accent-bg: #13243a;
+  --accent-text: #9ec5f4;
+  --accent-border: #1c5cab;
+  --good-text: #0ca30c;
+  --good-bg: #0f2a10;
+  --warning-text: #fab219;
+  --warning-bg: #2e2208;
+  --serious-text: #ec835a;
+  --serious-bg: #2f1a11;
+  --critical-text: #e66767;
+  --critical-bg: #2e1414;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+@theme inline {
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --color-ink: #0b0b0b;
-  --color-ink-muted: #52514e;
-  --color-ink-faint: #898781;
-  --color-paper: #f9f9f7;
-  --color-surface: #ffffff;
-  --color-track: #efeee9;
+  --color-canvas: var(--canvas);
+  --color-paper: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-track: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-grid: var(--grid);
+  --color-baseline: var(--baseline);
 
-  --color-accent: #2a78d6;
-  --color-accent-bg: #eaf2fc;
-  --color-accent-text: #184f95;
-  --color-accent-border: #c7def7;
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-text: var(--accent-text);
+  --color-accent-border: var(--accent-border);
 
-  --color-good: #0ca30c;
-  --color-good-text: #0a7a0a;
-  --color-good-bg: #e6f6e6;
+  --color-good: var(--good);
+  --color-good-text: var(--good-text);
+  --color-good-bg: var(--good-bg);
+  --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
+  --color-warning-bg: var(--warning-bg);
+  --color-serious: var(--serious);
+  --color-serious-text: var(--serious-text);
+  --color-serious-bg: var(--serious-bg);
+  --color-critical: var(--critical);
+  --color-critical-text: var(--critical-text);
+  --color-critical-bg: var(--critical-bg);
 
-  --color-warning: #fab219;
-  --color-warning-text: #8a5a00;
-  --color-warning-bg: #fff3d9;
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
 
-  --color-serious: #ec835a;
-  --color-serious-text: #a8431f;
-  --color-serious-bg: #fce9e1;
-
-  --color-critical: #d03b3b;
-  --color-critical-text: #a82424;
-  --color-critical-bg: #fbe4e4;
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-pop);
 }
 
-body {
-  background: var(--color-paper);
-  color: var(--color-ink);
+/* In the base layer so utility classes (text-ink-muted on a link, …) always win over these defaults. */
+@layer base {
+  html,
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::placeholder {
+    color: var(--ink-faint);
+  }
+
+  a {
+    color: var(--accent);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
 }
 
-::placeholder {
-  color: var(--color-ink-faint);
-}
-
-a {
-  color: var(--color-accent);
+/* Columns of numbers line up. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -58,5 +208,19 @@ a {
 }
 
 .animate-toast-in {
-  animation: toast-in 0.25s ease-out;
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-live {
+  animation: live-pulse 1.6s ease-in-out infinite;
 }

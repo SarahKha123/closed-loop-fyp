@@ -1,67 +1,120 @@
-// /sensors — the selected cycle's sensor means; ?component=Valve highlights that component's sensors.
+// /sensors — all 17 channels for the current cycle: mean, variability, min, max, and which components they relate to.
+// ?component=valve highlights that component's sensors.
 
 import { Link, createFileRoute } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 import { PageHeader } from "../components/PageHeader"
-import { componentSensorCodes } from "../domain/demo-data"
-import { useAppState } from "../context/AppState"
-
-interface SensorsSearch {
-  component?: string
-}
+import { Card } from "../components/ui/Card"
+import { EmptyState } from "../components/ui/EmptyState"
+import { useLive } from "../context/LiveContext"
+import { COMPONENTS, api, componentByKey, componentByName } from "../lib/api"
+import type { Sensors } from "../lib/api"
+import { num, reading } from "../lib/format"
 
 export const Route = createFileRoute("/sensors")({
-  validateSearch: (search: Record<string, unknown>): SensorsSearch => ({
-    component: typeof search.component === "string" ? search.component : undefined,
+  validateSearch: (search: Record<string, unknown>): { component?: string } => ({
+    component: typeof search.component === "string" && componentByKey(search.component) ? search.component : undefined,
   }),
-  component: SensorsView,
+  component: SensorsPage,
 })
 
-function SensorsView() {
-  const { component } = Route.useSearch()
-  const { cycle } = useAppState()
+const chip = "rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors"
 
-  const codes = component ? componentSensorCodes[component] : undefined
-  const isRelevant = (sensor: string) => !codes || codes.some((code) => sensor.startsWith(code))
+function SensorsPage() {
+  const { component } = Route.useSearch()
+  const focus = component ? componentByKey(component)! : null
+  const { overview } = useLive()
+  const [data, setData] = useState<Sensors | null>(null)
+
+  useEffect(() => {
+    if (!overview?.cycle) return
+    api.sensors(overview.cycle).then(setData).catch(() => setData(null))
+  }, [overview?.cycle])
 
   return (
-    <div className="flex flex-col gap-[22px]">
-      <PageHeader title="Sensor Feed" subtitle={`Cycle ${cycle.id.toLocaleString()} sensor summary · 17 channels`} />
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Sensors"
+        subtitle={
+          data
+            ? `Cycle ${num(data.cycle)} · 17 channels · ${data.stable ? "rig may not have settled yet (stable flag 1)" : "stable conditions"}`
+            : "17 channels: pressure, motor power, flow, temperature, vibration, and three derived efficiency values"
+        }
+      />
 
-      {component && (
-        <div className="flex w-fit items-center gap-2 rounded-full bg-accent-bg px-3.5 py-1.5 text-[17.5px] font-medium text-accent-text">
-          Filtered to {component}
-          <Link to="/sensors" className="font-semibold underline">
-            Clear
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Link to="/sensors" search={{}} className={`${chip} ${!focus ? "border-accent-border bg-accent-bg text-accent-text" : "border-line text-ink-muted hover:bg-surface-3"}`}>
+          All
+        </Link>
+        {COMPONENTS.map((c) => (
+          <Link
+            key={c.key}
+            to="/sensors"
+            search={{ component: c.key }}
+            className={`${chip} inline-flex items-center gap-1.5 ${
+              focus?.key === c.key ? "border-accent-border bg-accent-bg text-accent-text" : "border-line text-ink-muted hover:bg-surface-3"
+            }`}
+          >
+            <span className="inline-block h-2 w-2 rounded-sm" style={{ background: c.series }} />
+            {c.name}
           </Link>
-        </div>
-      )}
+        ))}
+      </div>
 
-      <table className="w-full overflow-hidden rounded-xl border border-ink/10 bg-surface [border-collapse:separate] [border-spacing:0]">
-        <thead>
-          <tr className="bg-[#F3F2EE]">
-            <th className="px-3.5 py-2.5 text-left text-[17px] font-semibold text-ink-muted">Sensor</th>
-            <th className="px-3.5 py-2.5 text-left text-[17px] font-semibold text-ink-muted">
-              Cycle mean
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {cycle.sensorRows.map((s) => {
-            const relevant = isRelevant(s.sensor)
-            return (
-              <tr
-                key={s.sensor}
-                className={`border-t border-ink/10 ${!relevant ? "opacity-40" : ""} ${
-                  relevant && component ? "bg-accent-bg/40" : ""
-                }`}
-              >
-                <td className="px-3.5 py-2.5 font-mono text-[18px]">{s.sensor}</td>
-                <td className="px-3.5 py-2.5 font-mono text-[18px]">{s.mean}</td>
+      <Card>
+        {!data ? (
+          <EmptyState icon="sensor" title="No readings yet">
+            Start the replay from the top bar to see each cycle's sensor values.
+          </EmptyState>
+        ) : (
+          <table className="tabular w-full text-[12.5px]">
+            <thead className="border-b border-line bg-surface-2 text-[11.5px] text-ink-muted">
+              <tr>
+                <th className="py-2 pl-4 text-left font-medium">Sensor</th>
+                <th className="py-2 text-left font-medium">Measures</th>
+                <th className="py-2 text-right font-medium">Rate</th>
+                <th className="py-2 text-right font-medium">Mean</th>
+                <th className="py-2 text-right font-medium">Std dev</th>
+                <th className="py-2 text-right font-medium">Min</th>
+                <th className="py-2 text-right font-medium">Max</th>
+                <th className="py-2 pr-4 pl-6 text-left font-medium">Related to</th>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {data.sensors.map((s) => {
+                const dim = focus && !s.relatedComponents.includes(focus.name)
+                return (
+                  <tr key={s.sensor} className={`border-t border-line first:border-t-0 ${dim ? "opacity-40" : ""} ${focus && !dim ? "bg-accent-bg/40" : ""}`}>
+                    <td className="py-2 pl-4 font-mono text-[12px] font-medium text-ink">{s.sensor}</td>
+                    <td className="py-2 text-ink">
+                      {s.name} <span className="text-ink-faint">· {s.unit}</span>
+                    </td>
+                    <td className="py-2 text-right text-ink-faint">{s.rateHz} Hz</td>
+                    <td className="py-2 text-right font-medium text-ink">{reading(s.mean)}</td>
+                    <td className="py-2 text-right text-ink-muted">{reading(s.std)}</td>
+                    <td className="py-2 text-right text-ink-muted">{reading(s.min)}</td>
+                    <td className="py-2 text-right text-ink-muted">{reading(s.max)}</td>
+                    <td className="py-2 pr-4 pl-6">
+                      <span className="inline-flex flex-wrap gap-1.5">
+                        {s.relatedComponents.map((n) => (
+                          <span key={n} className="inline-flex items-center gap-1 text-[11.5px] text-ink-muted">
+                            <span className="inline-block h-2 w-2 rounded-sm" style={{ background: componentByName(n)?.series }} />
+                            {n}
+                          </span>
+                        ))}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+      <p className="text-[12px] text-ink-faint">
+        Each value summarises the sensor over one 60-second load cycle. "Related to" comes from the dataset analysis
+        (rank correlations and the models' SHAP rankings), see docs/DATASET.md §7.
+      </p>
     </div>
   )
 }

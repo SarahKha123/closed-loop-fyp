@@ -48,6 +48,6 @@ def test_publish_from_a_worker_thread():
             assert await asyncio.wait_for(q.get(), timeout=1) == {"from": "thread"}
         finally:
             events.unsubscribe(q)
-            events.bind(None)  # type: ignore[arg-type]
+            events.bind(None)
 
     asyncio.run(main())

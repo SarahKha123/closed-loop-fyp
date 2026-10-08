@@ -1,62 +1,77 @@
-// / ("The Loop") — KPI tiles and the four component health cards for the selected cycle.
+// / — the overview: headline KPIs, the four components' live health, the risk trend and recent changes.
 
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"
-import { StatusPill } from "../components/StatusPill"
-import { useAppState } from "../context/AppState"
-import { TOTAL_CYCLES } from "../domain/demo-data"
-import { statusClasses } from "../lib/status"
+import { Button } from "../components/ui/Button"
+import { Card } from "../components/ui/Card"
+import { EmptyState } from "../components/ui/EmptyState"
+import { Icon } from "../components/ui/Icon"
+import { useLive } from "../context/LiveContext"
+import { ActivityFeed } from "../features/dashboard/ActivityFeed"
+import { ComponentCard } from "../features/dashboard/ComponentCard"
+import { KpiTiles } from "../features/dashboard/KpiTiles"
+import { TrendPanel } from "../features/dashboard/TrendPanel"
+import { StatusBanner } from "../features/dashboard/StatusBanner"
+import { COMPONENTS } from "../lib/api"
+import { num } from "../lib/format"
 
 export const Route = createFileRoute("/")({
-  component: LoopView,
+  component: OverviewPage,
 })
 
-function LoopView() {
-  const { cycle, kpiTiles } = useAppState()
+const SPARK_POINTS = 60
+
+function OverviewPage() {
+  const { overview, trend, events, replay, control, loading } = useLive()
+  const hasData = Boolean(overview?.cycle)
 
   return (
-    <div className="flex flex-col gap-[22px]">
+    <div className="flex h-full min-h-[640px] flex-col gap-4">
       <PageHeader
-        title="System Overview"
-        subtitle={`Latest batch · Cycle ${cycle.id.toLocaleString()} of ${TOTAL_CYCLES.toLocaleString()} · UCI Hydraulic Condition Monitoring dataset`}
+        title="System overview"
+        subtitle={
+          hasData
+            ? `Hydraulic test rig · cycle ${num(overview!.cycle)} of ${num(replay?.total ?? 2205)} · UCI Condition Monitoring dataset`
+            : "Hydraulic test rig · UCI Condition Monitoring dataset, replayed cycle by cycle"
+        }
       />
+      <StatusBanner overview={overview} />
+      <KpiTiles overview={overview} />
 
-      <div className="flex gap-4">
-        {kpiTiles.map((k) => (
-          <div key={k.label} className="flex-1 rounded-xl border border-ink/10 bg-surface p-4">
-            <div className="text-[16px] tracking-wide text-ink-faint uppercase">{k.label}</div>
-            <div
-              className={`mt-1.5 text-[28px] font-bold ${k.kind ? statusClasses[k.kind].text : "text-ink"}`}
+      {!hasData ? (
+        <Card className="flex flex-1 items-center justify-center">
+          {loading ? (
+            <EmptyState icon="activity" title="Loading…" />
+          ) : (
+            <EmptyState
+              icon="play"
+              title="The replay hasn't started"
+              action={
+                <Button variant="primary" onClick={() => void control.play()} disabled={!replay}>
+                  <Icon name="play" size={12} /> Start the live replay
+                </Button>
+              }
             >
-              {k.value}
-            </div>
+              Recorded cycles arrive one at a time, as if from the rig. Each is scored by the four trained models and
+              shown here as it happens. Starts at cycle {num(replay?.nextCycle ?? 1665)}, the first all-healthy cycle.
+            </EmptyState>
+          )}
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 @5xl:grid-cols-4">
+            {COMPONENTS.map((c) => {
+              const state = overview!.components.find((s) => s.component === c.name)
+              const history = trend?.series[c.name].failureProbability.slice(-SPARK_POINTS) ?? []
+              return state ? <ComponentCard key={c.key} state={state} history={history} /> : null
+            })}
           </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        {cycle.components.map((c) => (
-          <Link
-            key={c.name}
-            to="/sensors"
-            search={{ component: c.name }}
-            className="flex flex-col gap-2.5 rounded-[14px] border border-ink/10 bg-surface p-[18px] transition-colors hover:border-accent-border"
-          >
-            <div className="flex items-center justify-between">
-              <div className="text-[20px] font-semibold">{c.name}</div>
-              <StatusPill kind={c.kind} label={c.statusLabel} />
-            </div>
-            <div className="text-[17.5px] text-ink-faint">{c.unit}</div>
-            <div className="text-3xl font-bold">{c.value}</div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-track">
-              <div
-                className={`h-full rounded-full ${statusClasses[c.kind].dot}`}
-                style={{ width: `${c.gaugePct}%` }}
-              />
-            </div>
-          </Link>
-        ))}
-      </div>
+          <div className="grid min-h-[300px] flex-1 grid-cols-1 gap-3 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <TrendPanel trend={trend} />
+            <ActivityFeed events={events} />
+          </div>
+        </>
+      )}
     </div>
   )
 }

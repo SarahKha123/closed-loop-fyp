@@ -25,8 +25,8 @@ _lock = threading.Lock()
 _loop: asyncio.AbstractEventLoop | None = None
 
 
-def bind(loop: asyncio.AbstractEventLoop) -> None:
-    """Remember the server's event loop, so publishes from other threads can be handed to it."""
+def bind(loop: asyncio.AbstractEventLoop | None) -> None:
+    """Remember the server's event loop (None on shutdown), so publishes from other threads can be handed to it."""
     global _loop
     _loop = loop
 
@@ -67,7 +67,7 @@ def publish(event: dict[str, Any]) -> None:
         running = asyncio.get_running_loop()
     except RuntimeError:
         running = None
-    if loop is not None and running is not loop:
+    if loop is not None and not loop.is_closed() and running is not loop:
         loop.call_soon_threadsafe(_deliver, event)  # called from a worker thread
     else:
         _deliver(event)
