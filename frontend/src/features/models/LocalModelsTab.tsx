@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Button } from "../../components/ui/Button"
 import { useModels } from "../../context/ModelsContext"
 import { formatSize } from "../../lib/format"
 import { request, streamEvents } from "../../lib/http"
 import type { EventStream } from "../../lib/http"
-import { btn, btnPrimary, card, input } from "../../lib/ui"
+import { card, input } from "../../lib/ui"
 import type { CatalogueModel, OllamaModel, PullEvent } from "./types"
 
 /**
@@ -81,9 +82,9 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
             <div className={`${card} flex items-center justify-between border-dashed p-6 text-[13px] text-ink-faint`}>
               {modelsError ?? "No chat models downloaded yet."}
               {!modelsError && (
-                <button type="button" className={btnPrimary} onClick={onDownloadTab}>
+                <Button variant="primary" onClick={onDownloadTab}>
                   Browse models
-                </button>
+                </Button>
               )}
             </div>
           ) : (
@@ -113,14 +114,14 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
           <div className="flex items-center justify-between text-[13px]">
             <span className="font-mono font-medium">{pull.tag}</span>
             {pulling && (
-              <button type="button" className={btn} onClick={() => streamRef.current?.cancel()}>
+              <Button onClick={() => streamRef.current?.cancel()}>
                 Cancel
-              </button>
+              </Button>
             )}
             {pull.error && (
-              <button type="button" className={btn} onClick={() => setPull(null)}>
+              <Button onClick={() => setPull(null)}>
                 Dismiss
-              </button>
+              </Button>
             )}
           </div>
           {pull.error ? (
@@ -159,11 +160,11 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
               aria-label="Model tag to download"
               className={`${input} grow font-mono`}
             />
-            <button type="submit" className={btnPrimary} disabled={!customTag.trim() || pulling}>
+            <Button type="submit" variant="primary" disabled={!customTag.trim() || pulling}>
               Download
-            </button>
+            </Button>
           </form>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2 @6xl:grid-cols-3">
             {catalogue.map((m) => (
               <div key={m.tag} className={`${card} flex flex-col gap-1.5 p-3.5`}>
                 <div className="flex items-start justify-between gap-2">
@@ -189,9 +190,9 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
                   {m.installed ? (
                     <span className="text-[12px] font-medium text-good-text">Installed</span>
                   ) : (
-                    <button type="button" className={btn} disabled={pulling} onClick={() => startPull(m.tag)}>
+                    <Button disabled={pulling} onClick={() => startPull(m.tag)}>
                       {pull?.tag === m.tag && pulling ? "Downloading…" : "Download"}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -226,12 +227,12 @@ function InstalledRow(props: {
           {[m.parameter_size, m.quantization_level, formatSize(m.size_bytes)].filter(Boolean).join(" · ")}
         </div>
       </div>
-      <button type="button" className={btn} disabled={pinned} onClick={props.onUse}>
+      <Button disabled={pinned} onClick={props.onUse}>
         {pinned ? "Pinned" : "Use"}
-      </button>
-      <button type="button" className={`${btn} hover:!border-critical hover:text-critical-text`} onClick={props.onDelete}>
+      </Button>
+      <Button variant="danger" onClick={props.onDelete}>
         Delete
-      </button>
+      </Button>
     </div>
   )
 }

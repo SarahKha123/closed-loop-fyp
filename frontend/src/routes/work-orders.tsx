@@ -32,6 +32,8 @@ function WorkOrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [tick, setTick] = useState(0)
+  const [closing, setClosing] = useState<{ id: string; note: string } | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   // Refresh whenever the overview changes (a new cycle or a work order event), or after an action here.
   useEffect(() => {
@@ -44,14 +46,14 @@ function WorkOrdersPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "could not load work orders"))
   }, [filter, overview, tick])
 
-  async function closeOrder(w: WorkOrder) {
-    const note = window.prompt(`Close ${w.id} (${w.component})? Optional note on what was done:`, "")
-    if (note === null) return
+  async function closeOrder(id: string, note: string) {
     try {
-      await api.closeWorkOrder(w.id, note)
+      await api.closeWorkOrder(id, note)
+      setClosing(null)
+      setActionError(null)
       setTick((t) => t + 1)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "could not close the work order")
+      setActionError(err instanceof Error ? err.message : "could not close the work order")
     }
   }
 
@@ -92,6 +94,8 @@ function WorkOrdersPage() {
           </button>
         ))}
       </div>
+
+      {actionError && <div className="text-[12.5px] text-critical-text">{actionError}</div>}
 
       <Card>
         {error ? (
@@ -162,11 +166,37 @@ function WorkOrdersPage() {
                     )}
                   </td>
                   <td className="py-2 pr-4 text-right">
-                    {w.status === "Open" && (
-                      <Button size="sm" onClick={() => void closeOrder(w)}>
-                        Close
-                      </Button>
-                    )}
+                    {w.status === "Open" &&
+                      (closing?.id === w.id ? (
+                        <form
+                          className="inline-flex items-center gap-1.5"
+                          onSubmit={(e) => {
+                            e.preventDefault()
+                            void closeOrder(w.id, closing.note)
+                          }}
+                        >
+                          <input
+                            autoFocus
+                            value={closing.note}
+                            onChange={(e) => setClosing({ id: w.id, note: e.target.value })}
+                            onKeyDown={(e) => e.key === "Escape" && setClosing(null)}
+                            placeholder="What was done? (optional)"
+                            aria-label={`Closing note for ${w.id}`}
+                            maxLength={500}
+                            className="h-7 w-[220px] rounded-md border border-line-strong bg-surface px-2 text-[12px] text-ink"
+                          />
+                          <Button size="sm" variant="primary" type="submit">
+                            Close
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setClosing(null)}>
+                            Cancel
+                          </Button>
+                        </form>
+                      ) : (
+                        <Button size="sm" onClick={() => setClosing({ id: w.id, note: "" })}>
+                          Close
+                        </Button>
+                      ))}
                   </td>
                 </tr>
               ))}

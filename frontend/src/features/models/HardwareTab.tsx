@@ -1,10 +1,11 @@
 // Hardware tab: what this machine has, and which installed chat models it can run well.
 
 import { useCallback, useEffect, useState } from "react"
+import { Button } from "../../components/ui/Button"
 import { useModels } from "../../context/ModelsContext"
 import { formatSize } from "../../lib/format"
 import { request } from "../../lib/http"
-import { btn, card } from "../../lib/ui"
+import { card } from "../../lib/ui"
 
 interface HardwareInfo {
   cpu: { model?: string | null; arch?: string | null; cores_physical: number | null; cores_logical: number | null; load_percent?: number | null }
@@ -42,7 +43,7 @@ function Stat({ label, value, sub, children }: { label: string; value: string; s
   return (
     <div className={`${card} p-4 flex min-w-0 flex-col gap-1.5`}>
       <div className="text-[12px] tracking-wide text-ink-faint uppercase">{label}</div>
-      <div className="truncate text-[18px] font-bold" title={value}>
+      <div className="truncate text-[18px] font-semibold" title={value}>
         {value}
       </div>
       {sub && <div className="truncate text-[12px] text-ink-muted" title={sub}>{sub}</div>}
@@ -104,14 +105,12 @@ export function HardwareTab() {
           {hw.host.container && " · in a container"}
           {" · "}Ollama {hw.ollama.reachable ? `${hw.ollama.version ?? ""} running` : "not reachable"}
         </div>
-        <button
-          type="button"
+        <Button
           onClick={() => void load()}
           disabled={loading}
-          className={btn}
         >
           {loading ? "Refreshing…" : "Refresh"}
-        </button>
+        </Button>
       </div>
 
       {hw.host.wsl && (
@@ -123,7 +122,7 @@ export function HardwareTab() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 @5xl:grid-cols-4">
         <Stat
           label="CPU"
           value={`${hw.cpu.cores_logical ?? "?"} threads`}
@@ -156,7 +155,7 @@ export function HardwareTab() {
         </Stat>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
         <div className={`${card} p-4 flex flex-col gap-1`}>
           <div className="text-[14px] font-semibold">Fully on the GPU</div>
           {vramBudget ? (
@@ -196,7 +195,7 @@ export function HardwareTab() {
                 <div key={m.name} className="flex items-center gap-3 px-4 py-3">
                   <span className="min-w-0 grow truncate font-mono text-[13px] font-medium">{m.name}</span>
                   <span className="text-[12px] text-ink-faint">{formatSize(m.size_bytes)}</span>
-                  <span className={`w-[220px] rounded-full px-2.5 py-0.5 text-center text-[11.5px] font-semibold ${where.cls}`}>
+                  <span className={`w-[200px] shrink-0 rounded-full px-2.5 py-0.5 text-center text-[11.5px] font-semibold ${where.cls}`}>
                     {where.label}
                   </span>
                 </div>

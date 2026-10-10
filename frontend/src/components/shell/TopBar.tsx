@@ -1,6 +1,5 @@
-// The bar above every page: where you are, whether the feed is live, the replay controls, theme and Advisor toggles.
+// The bar above every page: whether the feed is live, the replay controls, theme and Advisor toggles.
 
-import { useRouterState } from "@tanstack/react-router"
 import { useState } from "react"
 import { useLive } from "../../context/LiveContext"
 import { num } from "../../lib/format"
@@ -9,14 +8,6 @@ import { Button } from "../ui/Button"
 import { Icon } from "../ui/Icon"
 
 const SPEEDS = [0.05, 0.1, 0.25, 0.5, 1, 2, 5]
-
-function pageTitle(path: string): string {
-  if (path.startsWith("/components/")) return "Component"
-  if (path.startsWith("/work-orders")) return "Work orders"
-  if (path.startsWith("/sensors")) return "Sensors"
-  if (path.startsWith("/models")) return "AI models"
-  return "Overview"
-}
 
 export function TopBar({
   theme,
@@ -31,7 +22,6 @@ export function TopBar({
   onToggleAdvisor: () => void
   showAdvisorToggle: boolean
 }) {
-  const path = useRouterState({ select: (s) => s.location.pathname })
   const { replay, connection, control, controlError } = useLive()
   const [seekTo, setSeekTo] = useState("")
 
@@ -49,13 +39,6 @@ export function TopBar({
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-5">
-      <div className="min-w-0 text-[13px] text-ink-faint">
-        Closed Loop <span className="px-1">/</span>
-        <span className="font-medium text-ink">{pageTitle(path)}</span>
-      </div>
-
-      <div className="grow" />
-
       <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 py-1 pr-1 pl-3">
         <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${statusStyle.tone}`}>
           <span className={`h-2 w-2 rounded-full ${statusStyle.dot}`} />
@@ -81,7 +64,7 @@ export function TopBar({
             <Icon name="play" size={12} /> Play
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={() => void control.step()} disabled={!replay || replay.state !== "paused"} title="Step one cycle">
+        <Button size="sm" variant="ghost" onClick={() => void control.step()} disabled={!replay || replay.state !== "paused"} title="Step one cycle" aria-label="Step one cycle">
           <Icon name="step" size={12} />
         </Button>
         <label className="sr-only" htmlFor="replay-speed">
@@ -128,12 +111,15 @@ export function TopBar({
           }}
           disabled={!replay}
           title="Reset replay"
+          aria-label="Reset replay"
         >
           <Icon name="reset" size={13} />
         </Button>
       </div>
 
       {controlError && <span className="max-w-[220px] truncate text-[12px] text-critical-text" title={controlError}>{controlError}</span>}
+
+      <div className="grow" />
 
       <div className="flex items-center gap-1">
         <Button size="icon" variant="ghost" onClick={onToggleTheme} title={theme.isDark ? "Light theme" : "Dark theme"} aria-label="Toggle theme">

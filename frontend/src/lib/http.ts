@@ -6,6 +6,10 @@
 // split across two chunks, only has to happen once.
 
 const REQUEST_TIMEOUT_MS = 15000
+const UNREACHABLE = "could not reach the backend"
+
+/** 502/504 come from the dev proxy when the backend isn't running: say that, not "HTTP 502". */
+const statusText = (status: number) => (status === 502 || status === 504 ? UNREACHABLE : `HTTP ${status}`)
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number
@@ -26,14 +30,14 @@ export async function request<T>(path: string, init?: RequestOptions): Promise<T
     throw new Error(
       err instanceof Error && err.name === "AbortError"
         ? "the backend did not respond in time"
-        : "could not reach the backend",
+        : UNREACHABLE,
     )
   } finally {
     window.clearTimeout(timer)
   }
 
   if (!res.ok) {
-    let detail = `HTTP ${res.status}`
+    let detail = statusText(res.status)
     try {
       const body = (await res.json()) as { detail?: unknown }
       if (typeof body.detail === "string") detail = body.detail
@@ -69,7 +73,7 @@ export function streamEvents<E>(path: string, body: unknown, onEvent: (event: E)
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    if (!res.ok) throw new Error(res.status === 502 || res.status === 504 ? UNREACHABLE : `HTTP ${res.status}: ${await res.text()}`)
     if (!res.body) throw new Error("the backend sent no response body")
 
     const reader = res.body.getReader()

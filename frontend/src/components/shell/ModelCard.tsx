@@ -9,6 +9,7 @@ export function ModelCard() {
   let label = "Loading…"
   if (!modelsLoading) {
     if (active?.tag) label = active.tag
+    else if (!active && modelsError) label = "Backend unreachable"
     else if (active?.mode !== "cloud" && modelsError && models.length === 0) label = "Ollama unreachable"
     else label = "No model yet"
   }

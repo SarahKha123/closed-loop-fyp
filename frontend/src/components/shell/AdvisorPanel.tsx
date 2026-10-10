@@ -7,6 +7,21 @@ import { useModels } from "../../context/ModelsContext"
 import { Button } from "../ui/Button"
 import { Icon } from "../ui/Icon"
 
+// Models answer in light Markdown: render **bold**, `code`, bullets and drop heading marks; pre-wrap keeps the line breaks.
+// ponytail: not a Markdown parser (no tables, links, nesting); swap in one if answers start using them.
+function Rich({ text }: { text: string }) {
+  const clean = text.replace(/^#{1,6}\s+/gm, "").replace(/^(\s*)[*-] /gm, "$1• ")
+  return clean.split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g).map((part, i) =>
+    part.length > 4 && part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
+    ) : part.length > 2 && part.startsWith("`") && part.endsWith("`") ? (
+      <code key={i} className="rounded bg-surface px-1 font-mono text-[12px]">{part.slice(1, -1)}</code>
+    ) : (
+      part
+    ),
+  )
+}
+
 export function AdvisorPanel({ onClose }: { onClose: () => void }) {
   const { messages, streaming, send, stop, clear } = useChat()
   const { overview } = useLive()
@@ -73,7 +88,7 @@ export function AdvisorPanel({ onClose }: { onClose: () => void }) {
                     : "self-start bg-surface-3 text-ink"
               }`}
             >
-              {m.text || (m.streaming ? <span className="animate-live text-ink-faint">Thinking…</span> : "")}
+              {m.role === "assistant" && !m.error && m.text ? <Rich text={m.text} /> : m.text || (m.streaming ? <span className="animate-live text-ink-faint">Thinking…</span> : "")}
               {m.model && !m.streaming && <div className="mt-1 text-[10.5px] text-ink-faint">{m.model}</div>}
             </div>
           ))

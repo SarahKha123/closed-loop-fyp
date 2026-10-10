@@ -7,7 +7,7 @@ import { Icon } from "../../components/ui/Icon"
 export function StatusBanner({ overview }: { overview: Overview | null }) {
   const { error, connection } = useLive()
   const problems: { tone: "critical" | "warning"; text: string }[] = []
-  if (error) problems.push({ tone: "critical", text: `Backend unreachable: ${error}` })
+  if (error) problems.push({ tone: "critical", text: `${error.charAt(0).toUpperCase()}${error.slice(1)}. Start it with ./closed-loop.sh dev --host` })
   else if (connection === "offline") problems.push({ tone: "critical", text: "Live connection lost — reconnecting automatically." })
   if (overview?.replayError) problems.push({ tone: "critical", text: `Replay unavailable: ${overview.replayError}` })
   if (overview?.predictorError) problems.push({ tone: "critical", text: `Predictions unavailable: ${overview.predictorError}` })

@@ -3,12 +3,12 @@
 
 import { createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"
+import { Button } from "../components/ui/Button"
 import { useModels } from "../context/ModelsContext"
 import { ActiveModelBanner } from "../features/models/ActiveModelBanner"
 import { CloudTab } from "../features/models/CloudTab"
 import { HardwareTab } from "../features/models/HardwareTab"
 import { LocalModelsTab } from "../features/models/LocalModelsTab"
-import { btn } from "../lib/ui"
 
 type Tab = "installed" | "download" | "cloud" | "hardware"
 
@@ -25,21 +25,23 @@ function ModelsView() {
   const { active, setAuto } = useModels()
 
   return (
-    <div className="flex flex-col gap-[22px]">
+    <div className="flex flex-col gap-4">
       <PageHeader
-        title="Models"
+        title="AI models"
         subtitle="Choose what answers in the Advisor: a local model through Ollama, or a cloud API"
       />
 
       <ActiveModelBanner />
 
-      <div className="flex items-center gap-1 border-b border-line">
+      <div role="tablist" aria-label="Model settings" className="flex items-center gap-1 border-b border-line">
         {(["installed", "download", "cloud", "hardware"] as const).map((t) => (
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => navigate({ search: { tab: t === "installed" ? undefined : t } })}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-[14px] font-medium transition-colors ${
+            className={`-mb-px border-b-2 px-3 py-2.5 text-[13px] font-medium transition-colors ${
               tab === t ? "border-accent text-accent-text" : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
@@ -47,10 +49,10 @@ function ModelsView() {
           </button>
         ))}
         <div className="grow" />
-        {active?.mode !== "auto" && (
-          <button type="button" className={btn} onClick={() => void setAuto()}>
+        {active && active.mode !== "auto" && (
+          <Button onClick={() => void setAuto()}>
             Switch to Auto
-          </button>
+          </Button>
         )}
       </div>
 

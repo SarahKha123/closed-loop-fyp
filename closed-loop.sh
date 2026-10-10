@@ -127,11 +127,14 @@ cmd_setup() {
   ok "node modules installed"
 
   head_ "Backend virtualenv"
-  if [ ! -d backend/.venv ]; then
+  # A venv whose Python was removed (e.g. an uninstalled conda) still has its
+  # folder and scripts, so test the interpreter, not the directory.
+  if backend/.venv/bin/python -c "" 2>/dev/null; then
+    ok "backend/.venv already exists"
+  else
+    rm -rf backend/.venv
     python3 -m venv backend/.venv
     ok "created backend/.venv"
-  else
-    ok "backend/.venv already exists"
   fi
   backend/.venv/bin/pip install --quiet --upgrade pip
   backend/.venv/bin/pip install --quiet -r backend/requirements.txt
@@ -213,7 +216,7 @@ cmd_dev() {
 # process in one step, and a container that will not start is not a reason to
 # be unable to run anything.
 cmd_dev_host() {
-  [ -x backend/.venv/bin/uvicorn ] || fail "backend/.venv missing — run './closed-loop.sh setup' first"
+  backend/.venv/bin/python -c "import uvicorn" 2>/dev/null || fail "backend/.venv missing or broken — run './closed-loop.sh setup' first"
   [ -d frontend/node_modules ] || fail "frontend/node_modules missing — run './closed-loop.sh setup' first"
   ensure_env
   ensure_dirs

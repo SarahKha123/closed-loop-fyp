@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-10-07T12:22:11+00:00",
+  "trained_at": "2026-10-10T20:10:23+00:00",
   "classes": [
     "Optimal",
     "Degraded",
@@ -76,13 +76,13 @@
     "SE_max"
   ],
   "seed": 42,
-  "python": "3.14.7",
+  "python": "3.12.3",
   "libraries": {
     "scikit-learn": "1.9.1",
     "imbalanced-learn": "0.14.2",
     "xgboost-cpu": "3.4.1",
-    "shap": "0.52.0",
-    "numpy": "2.5.3",
+    "shap": "0.53.0",
+    "numpy": "2.5.4",
     "pandas": "3.0.6"
   },
   "components": {

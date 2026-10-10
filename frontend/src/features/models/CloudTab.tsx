@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
+import { Button } from "../../components/ui/Button"
 import { useModels } from "../../context/ModelsContext"
 import { request } from "../../lib/http"
-import { btn, btnPrimary, card, input } from "../../lib/ui"
+import { card, input } from "../../lib/ui"
 import type { CloudProvider } from "./types"
 
 /** Cloud APIs tab: one card per provider to save a key and model, test it, and use it. */
@@ -23,7 +24,7 @@ export function CloudTab() {
         the provider.
       </div>
       {error && <div className="text-[12.5px] text-critical-text">{error}</div>}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
         {providers.map((p) => (
           <ProviderCard key={p.id} provider={p} onChange={setProviders} />
         ))}
@@ -154,24 +155,22 @@ function ProviderCard({
       {note && <div className={`text-[12px] ${note.ok ? "text-good-text" : "text-critical-text"}`}>{note.text}</div>}
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <button type="button" className={btnPrimary} disabled={busy || !dirty} onClick={() => void save()}>
+        <Button variant="primary" disabled={busy || !dirty} onClick={() => void save()}>
           Save
-        </button>
-        <button type="button" className={btn} disabled={busy || !p.has_key || dirty} onClick={() => void test()}>
+        </Button>
+        <Button disabled={busy || !p.has_key || dirty} onClick={() => void test()}>
           Test
-        </button>
-        <button
-          type="button"
-          className={btn}
+        </Button>
+        <Button
           disabled={busy || !p.ready || dirty || inUse}
           onClick={() => void run(() => setCloud(p.id))}
         >
           {inUse ? "Using" : "Use this"}
-        </button>
+        </Button>
         {(p.has_key || p.model) && (
-          <button type="button" className={btn} disabled={busy} onClick={() => void clear()}>
+          <Button disabled={busy} onClick={() => void clear()}>
             Remove
-          </button>
+          </Button>
         )}
         <div className="grow" />
         {p.docs && (
