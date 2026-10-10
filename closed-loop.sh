@@ -140,6 +140,15 @@ cmd_setup() {
   backend/.venv/bin/pip install --quiet -r backend/requirements.txt
   ok "python packages installed"
 
+  head_ "ML models"
+  # Trained models aren't committed; build them once from the committed dataset.
+  if ls backend/ml/models/*.joblib >/dev/null 2>&1; then
+    ok "trained models present"
+  else
+    (cd backend && .venv/bin/python -m ml.train) || fail "model training failed — the output above says why"
+    ok "models trained"
+  fi
+
   head_ "Runtime directories"
   ensure_dirs
   ok "config/ ready"

@@ -7,6 +7,8 @@ clients only know how to talk to their own backend.
 
 from __future__ import annotations
 
+import re
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -61,3 +63,23 @@ def stream_reply(target: Target, messages: list[dict[str, str]]) -> Iterator[str
             yield from ollama_client.chat_stream(target.local_tag or "", messages)
     except (cloud.CloudError, ollama_client.OllamaError, ollama_client.OllamaUnavailable) as exc:
         raise ReplyError(str(exc)) from exc
+
+
+_THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def complete(target: Target, messages: list[dict[str, str]]) -> tuple[str, int | None, int]:
+    """The whole reply at once, for the insight engine: (text, first-token ms, total ms).
+
+    Streams underneath so the time to the first token can be measured. Any
+    reasoning a model prints inline (<think>…</think>) is dropped.
+    """
+    start = time.perf_counter()
+    first: int | None = None
+    parts: list[str] = []
+    for delta in stream_reply(target, messages):
+        if first is None:
+            first = round((time.perf_counter() - start) * 1000)
+        parts.append(delta)
+    total = round((time.perf_counter() - start) * 1000)
+    return _THINK.sub("", "".join(parts)).strip(), first, total

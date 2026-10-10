@@ -24,6 +24,17 @@ models. Docker is optional.
 Open <http://localhost:5173>, then go to **Models → Download** to get a chat
 model (or **Cloud APIs** to use a key).
 
+### Low-resource machines
+
+Defaults suit a 4-core, 8 GB laptop with no GPU (tested: `qwen3:1.7b` on CPU
+writes a verified insight in ~30 s). The knobs, all in `.env`
+(see `.env.example`): `OLLAMA_CONTEXT_LENGTH` (RAM per request),
+`OLLAMA_NUM_PREDICT`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_NUM_PARALLEL=1` /
+`OLLAMA_MAX_LOADED_MODELS=1` (one model in RAM), a q8_0 KV cache, and
+`OMP_NUM_THREADS` for the ML predictor. In the app, **Models → Settings →
+Rest between insights** keeps a slow model free for chat. Use `qwen3:0.6b` or
+`gemma3:1b` on 4 GB, or a cloud API to take the model off the machine entirely.
+
 With Docker instead: `./closed-loop.sh start` serves everything from one
 container at <http://localhost:8000>.
 

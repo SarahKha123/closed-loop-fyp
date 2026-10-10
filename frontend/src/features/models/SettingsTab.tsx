@@ -1,0 +1,129 @@
+// Settings tab: the runtime toggles (config/settings.json via /api/settings). Each change saves at once.
+
+import { useEffect, useState } from "react"
+import type { ReactNode } from "react"
+import { api } from "../../lib/api"
+import type { Settings } from "../../lib/api"
+import { card } from "../../lib/ui"
+
+type Patch = Parameters<typeof api.saveSettings>[0]
+
+function Row({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
+  return (
+    <label className="flex items-center justify-between gap-6 px-4 py-3">
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium text-ink">{label}</span>
+        <span className="block text-[12px] text-ink-faint">{hint}</span>
+      </span>
+      {children}
+    </label>
+  )
+}
+
+const toggle = "h-4 w-4 shrink-0 accent-[var(--accent)]"
+const number = "tabular h-8 w-20 shrink-0 rounded-lg border border-line-strong bg-surface px-2 text-right text-[13px] text-ink"
+
+/** A number that saves on blur or Enter, so typing "15" doesn't first save "1". */
+function NumberField({ value, min, max, step = 1, onSave }: { value: number; min: number; max: number; step?: number; onSave: (v: number) => void }) {
+  const [text, setText] = useState(String(value)) // callers key this on `value`, so a saved change resets it
+  const commit = () => {
+    const v = Number(text)
+    if (text !== "" && v >= min && v <= max && v !== value) onSave(v)
+    else setText(String(value))
+  }
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+      className={number}
+    />
+  )
+}
+
+export function SettingsTab() {
+  const [s, setS] = useState<Settings | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.settings().then(setS).catch((err: unknown) => setError(err instanceof Error ? err.message : "could not load settings"))
+  }, [])
+
+  async function save(patch: Patch) {
+    try {
+      setS(await api.saveSettings(patch))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "could not save")
+    }
+  }
+
+  if (!s) return <div className="text-[13px] text-ink-faint">{error ?? "Loading settings…"}</div>
+
+  const section = (title: string, rows: ReactNode) => (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[13px] font-semibold text-ink">{title}</h2>
+      <div className={`${card} divide-y divide-line`}>{rows}</div>
+    </section>
+  )
+
+  return (
+    <div className="flex max-w-3xl flex-col gap-5">
+      <p className="text-[12.5px] text-ink-faint">
+        Saved to <code className="font-mono">config/settings.json</code> and applied to the next event — no restart.
+      </p>
+      {error && <div className="text-[12.5px] text-critical-text">{error}</div>}
+
+      {section(
+        "Live insights",
+        <>
+          <Row label="Write insights" hint="The Advisor comments when a component changes condition, crosses the threshold, or a work order opens or closes. Off for the dashboard-only study condition.">
+            <input type="checkbox" className={toggle} checked={s.insights.enabled} onChange={(e) => void save({ insights: { enabled: e.target.checked } })} />
+          </Row>
+          <Row label="Risk threshold (%)" hint="A failure probability crossing this, either way, triggers an insight.">
+            <NumberField key={Math.round(s.insights.threshold * 100)} value={Math.round(s.insights.threshold * 100)} min={5} max={95} step={5} onSave={(v) => void save({ insights: { threshold: v / 100 } })} />
+          </Row>
+          <Row label="Rest between insights (s)" hint="Changes during the rest are merged into the next insight. Raise it on a slow machine so chat answers don't wait behind insights.">
+            <NumberField key={s.insights.cooldownSeconds} value={s.insights.cooldownSeconds} min={0} max={600} step={5} onSave={(v) => void save({ insights: { cooldownSeconds: v } })} />
+          </Row>
+        </>,
+      )}
+
+      {section(
+        "Grounding check",
+        <>
+          <Row label="Check AI answers against the data" hint="Every number, work order and condition must be in the snapshot the model was given; one rewrite if not. Turn off to measure its effect.">
+            <input type="checkbox" className={toggle} checked={s.grounding.enabled} onChange={(e) => void save({ grounding: { enabled: e.target.checked } })} />
+          </Row>
+          <Row label="Hide unverified insights" hint="They are still saved for the evaluation, just not shown.">
+            <input type="checkbox" className={toggle} checked={s.grounding.hideUnverified} onChange={(e) => void save({ grounding: { hideUnverified: e.target.checked } })} />
+          </Row>
+        </>,
+      )}
+
+      {section(
+        "Work orders",
+        <>
+          <Row label="Cycles Critical before a work order" hint="Raise above 1 to ignore one-cycle blips.">
+            <NumberField key={s.monitor.confirmCycles} value={s.monitor.confirmCycles} min={1} max={20} onSave={(v) => void save({ monitor: { confirmCycles: v } })} />
+          </Row>
+          <Row label="Close automatically on recovery" hint="Automatic work orders close when the component is Optimal again. Manual ones never do.">
+            <input type="checkbox" className={toggle} checked={s.monitor.autoCloseOnRecovery} onChange={(e) => void save({ monitor: { autoCloseOnRecovery: e.target.checked } })} />
+          </Row>
+        </>,
+      )}
+
+      {section(
+        "Chat",
+        <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Small local models have short context windows.">
+          <NumberField key={s.chat.maxTurns} value={s.chat.maxTurns} min={1} max={50} onSave={(v) => void save({ chat: { maxTurns: v } })} />
+        </Row>,
+      )}
+    </div>
+  )
+}

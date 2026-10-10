@@ -9,12 +9,13 @@ import { ActiveModelBanner } from "../features/models/ActiveModelBanner"
 import { CloudTab } from "../features/models/CloudTab"
 import { HardwareTab } from "../features/models/HardwareTab"
 import { LocalModelsTab } from "../features/models/LocalModelsTab"
+import { SettingsTab } from "../features/models/SettingsTab"
 
-type Tab = "installed" | "download" | "cloud" | "hardware"
+type Tab = "installed" | "download" | "cloud" | "hardware" | "settings"
 
 export const Route = createFileRoute("/models")({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
-    tab: ["download", "cloud", "hardware"].includes(search.tab as string) ? (search.tab as Tab) : undefined,
+    tab: ["download", "cloud", "hardware", "settings"].includes(search.tab as string) ? (search.tab as Tab) : undefined,
   }),
   component: ModelsView,
 })
@@ -28,13 +29,13 @@ function ModelsView() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="AI models"
-        subtitle="Choose what answers in the Advisor: a local model through Ollama, or a cloud API"
+        subtitle="Choose what answers in the Advisor — a local model through Ollama, or a cloud API — and how it behaves"
       />
 
       <ActiveModelBanner />
 
       <div role="tablist" aria-label="Model settings" className="flex items-center gap-1 border-b border-line">
-        {(["installed", "download", "cloud", "hardware"] as const).map((t) => (
+        {(["installed", "download", "cloud", "hardware", "settings"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -45,7 +46,7 @@ function ModelsView() {
               tab === t ? "border-accent text-accent-text" : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
-            {{ installed: "Installed", download: "Download", cloud: "Cloud APIs", hardware: "Hardware" }[t]}
+            {{ installed: "Installed", download: "Download", cloud: "Cloud APIs", hardware: "Hardware", settings: "Settings" }[t]}
           </button>
         ))}
         <div className="grow" />
@@ -62,6 +63,7 @@ function ModelsView() {
       )}
       {tab === "cloud" && <CloudTab />}
       {tab === "hardware" && <HardwareTab />}
+      {tab === "settings" && <SettingsTab />}
     </div>
   )
 }

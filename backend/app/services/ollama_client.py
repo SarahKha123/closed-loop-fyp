@@ -29,7 +29,7 @@ import httpx
 
 CONNECT_TIMEOUT = 2.0
 LIST_TIMEOUT = 5.0
-CHAT_READ_TIMEOUT = 120.0
+CHAT_READ_TIMEOUT = 300.0  # a CPU-only machine can take minutes to load a model before the first token
 PULL_READ_TIMEOUT = 600.0
 
 _resolved_base: str | None = None
@@ -186,9 +186,26 @@ def version() -> str | None:
     return (response.json() or {}).get("version") if response.status_code < 400 else None
 
 
+def _chat_options() -> dict[str, Any]:
+    """Memory/time limits sent with every chat, from the same env vars `ollama serve` reads (.env.example).
+
+    Sent per request too, so they hold even against an Ollama this project didn't start.
+    """
+    payload: dict[str, Any] = {"keep_alive": os.environ.get("OLLAMA_KEEP_ALIVE", "10m")}
+    options = {
+        "num_ctx": int(os.environ.get("OLLAMA_CONTEXT_LENGTH", "4096")),   # KV cache RAM grows with this
+        "num_predict": int(os.environ.get("OLLAMA_NUM_PREDICT", "1024")),  # caps a runaway reply on a slow CPU
+    }
+    if os.environ.get("OLLAMA_NUM_THREAD"):
+        options["num_thread"] = int(os.environ["OLLAMA_NUM_THREAD"])
+    payload["options"] = options
+    return payload
+
+
 def chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
     """Stream a chat reply as text deltas."""
-    for event in _stream("/api/chat", {"model": model, "messages": messages, "stream": True}, CHAT_READ_TIMEOUT):
+    payload = {"model": model, "messages": messages, "stream": True, **_chat_options()}
+    for event in _stream("/api/chat", payload, CHAT_READ_TIMEOUT):
         content = (event.get("message") or {}).get("content")
         if content:
             yield content

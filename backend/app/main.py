@@ -21,8 +21,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, cloud, dashboard, hardware, health, models, replay, stream, work_orders
+from .api import chat, cloud, dashboard, hardware, health, insights, models, replay, settings, stream, work_orders
 from .services import db, events, ingest, monitor, paths
+from .services import insights as insight_service
 from .services import replay as replay_service
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             truth = {c: dataset.get(c).true_conditions for c in range(dataset.first, dataset.last + 1) if c in dataset}
             tasks.append(asyncio.create_task(predictor_service.run_worker(model, truth), name="predictor"))
             tasks.append(asyncio.create_task(monitor.run(), name="monitor"))
+            tasks.append(asyncio.create_task(insight_service.run(), name="insights"))
 
     yield
 
@@ -106,6 +108,8 @@ app.include_router(stream.router)
 app.include_router(dashboard.router)
 app.include_router(work_orders.router)
 app.include_router(cloud.router)
+app.include_router(insights.router)
+app.include_router(settings.router)
 
 
 _static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR", "static"))

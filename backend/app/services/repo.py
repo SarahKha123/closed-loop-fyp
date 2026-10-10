@@ -79,6 +79,7 @@ def delete_from_cycle(cycle: int) -> None:
     """Drop this cycle and everything after it (predictions cascade). Used when the replay seeks back."""
     with db.write() as conn:
         conn.execute("DELETE FROM tbl_SensorReading WHERE CycleNumber >= ?", (cycle,))
+        conn.execute("DELETE FROM tbl_Insight WHERE CycleNumber >= ?", (cycle,))
 
 
 # ── predictions ──────────────────────────────────────────────────────────────
@@ -361,29 +362,42 @@ def insert_insight(
         return int(cur.lastrowid)
 
 
-def list_insights(limit: int = 50) -> list[dict[str, Any]]:
-    """Newest first. The snapshot is left out (large); fetch it per insight if needed."""
+def list_insights(limit: int = 50, *, include_unverified: bool = True) -> list[dict[str, Any]]:
+    """Newest first, chat answers left out. The snapshot is left out (large); `insight(id, snapshot=True)` has it."""
+    where = " WHERE TriggerType != 'chat'" + ("" if include_unverified else " AND (Grounded IS NULL OR Grounded = 1)")
     with db.read() as conn:
-        rows = conn.execute("SELECT * FROM tbl_Insight ORDER BY InsightID DESC LIMIT ?", (limit,)).fetchall()
-    return [
-        {
-            "id": r["InsightID"],
-            "createdAt": r["CreatedAt"],
-            "cycle": r["CycleNumber"],
-            "triggerType": r["TriggerType"],
-            "triggerRef": r["TriggerRef"],
-            "model": r["Model"],
-            "mode": r["Mode"],
-            "promptVersion": r["PromptVersion"],
-            "text": r["Text"],
-            "grounded": None if r["Grounded"] is None else bool(r["Grounded"]),
-            "validation": _loads(r["ValidationDetail"]),
-            "attempts": r["Attempts"],
-            "latencyMs": r["LatencyMs"],
-            "firstTokenMs": r["FirstTokenMs"],
-        }
-        for r in rows
-    ]
+        rows = conn.execute(f"SELECT * FROM tbl_Insight{where} ORDER BY InsightID DESC LIMIT ?", (limit,)).fetchall()  # noqa: S608 — fixed clause
+    return [_insight(r) for r in rows]
+
+
+def insight(insight_id: int, *, snapshot: bool = False) -> dict[str, Any] | None:
+    with db.read() as conn:
+        row = conn.execute("SELECT * FROM tbl_Insight WHERE InsightID = ?", (insight_id,)).fetchone()
+    if row is None:
+        return None
+    out = _insight(row)
+    if snapshot:
+        out["snapshot"] = _loads(row["Snapshot"])
+    return out
+
+
+def _insight(r: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": r["InsightID"],
+        "createdAt": r["CreatedAt"],
+        "cycle": r["CycleNumber"],
+        "triggerType": r["TriggerType"],
+        "triggerRef": r["TriggerRef"],
+        "model": r["Model"],
+        "mode": r["Mode"],
+        "promptVersion": r["PromptVersion"],
+        "text": r["Text"],
+        "grounded": None if r["Grounded"] is None else bool(r["Grounded"]),
+        "validation": _loads(r["ValidationDetail"]),
+        "attempts": r["Attempts"],
+        "latencyMs": r["LatencyMs"],
+        "firstTokenMs": r["FirstTokenMs"],
+    }
 
 
 # ── maintenance ──────────────────────────────────────────────────────────────

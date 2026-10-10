@@ -4,11 +4,13 @@ Replaces FYP1's FL_MonitorRisk (which polled every 15 minutes): it reacts to
 every `prediction` event as it happens.
 
 Rules (per component):
-- Critical for CONFIRM_CYCLES consecutive cycles, and no open work order
+- Critical for `monitor.confirmCycles` consecutive cycles, and no open work order
   → open one (CreatedBy = system:monitor, linked to the triggering prediction).
 - Back to Optimal while an automatic work order is open, and
-  AUTO_CLOSE_ON_RECOVERY → close it with the note "condition recovered".
+  `monitor.autoCloseOnRecovery` → close it with the note "condition recovered".
   Manual (user) work orders are never closed automatically.
+
+Both rules are runtime settings (services/settings.py).
 """
 
 from __future__ import annotations
@@ -17,27 +19,26 @@ import asyncio
 import logging
 from typing import Any
 
-from . import events, repo, work_orders
+from . import events, repo, settings, work_orders
 
 log = logging.getLogger(__name__)
-
-CONFIRM_CYCLES = 1             # raise to require Critical on several consecutive cycles (anti-flapping)
-AUTO_CLOSE_ON_RECOVERY = True  # False: recovered components' work orders wait for a person to close them
 
 
 def handle(event: dict[str, Any]) -> list[dict[str, Any]]:
     """Apply the rules to one `prediction` event. Returns the work orders opened or closed."""
     changed: list[dict[str, Any]] = []
+    rules = settings.get()["monitor"]
+    confirm = rules["confirmCycles"]
     for p in event.get("predictions", []):
         equipment_id = p["equipmentId"]
         if p["condition"] == "Critical":
-            if CONFIRM_CYCLES > 1 and not _critical_streak(equipment_id, CONFIRM_CYCLES):
+            if confirm > 1 and not _critical_streak(equipment_id, confirm):
                 continue
             full = _with_details(p, event["cycle"])
             wo = work_orders.open_for_prediction(full)
             if wo:
                 changed.append(wo)
-        elif p["condition"] == "Optimal" and AUTO_CLOSE_ON_RECOVERY:
+        elif p["condition"] == "Optimal" and rules["autoCloseOnRecovery"]:
             for wo in repo.list_work_orders("Open"):
                 if wo["equipmentId"] == equipment_id and wo["createdBy"] == work_orders.SYSTEM:
                     changed.append(work_orders.close(wo["id"], f"Condition recovered: Optimal at cycle {event['cycle']}"))

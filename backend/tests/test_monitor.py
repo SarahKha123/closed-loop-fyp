@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services import db, events, monitor, repo, work_orders
+from app.services import db, events, monitor, repo, settings, work_orders
 
 COMPONENTS = ("cooler", "valve", "pump", "accumulator")
 
@@ -63,14 +63,14 @@ def test_recovery_closes_only_the_automatic_order(fresh_db):
 
 
 def test_auto_close_can_be_switched_off(fresh_db, monkeypatch):
-    monkeypatch.setattr(monitor, "AUTO_CLOSE_ON_RECOVERY", False)
+    settings.update({"monitor": {"autoCloseOnRecovery": False}})
     monitor.handle(_cycle(10, {"cooler": "Critical"}))
     assert monitor.handle(_cycle(11, {})) == []
     assert len(repo.list_work_orders("Open")) == 1
 
 
 def test_confirm_cycles_needs_a_streak(fresh_db, monkeypatch):
-    monkeypatch.setattr(monitor, "CONFIRM_CYCLES", 2)
+    settings.update({"monitor": {"confirmCycles": 2}})
     assert monitor.handle(_cycle(10, {"pump": "Critical"})) == []
     assert len(monitor.handle(_cycle(11, {"pump": "Critical"}))) == 1
 

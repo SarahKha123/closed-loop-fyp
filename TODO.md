@@ -13,7 +13,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 
 ---
 
-## Status at a glance (updated 2026-10-07)
+## Status at a glance (updated 2026-10-11)
 
 | Area | Built | Partial | Not started |
 |---|---|---|---|
@@ -25,12 +25,12 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 | Replay + live stream (M3) | ✅ | | |
 | Prediction (M4) | ✅ 4 models + SHAP, ~60 ms/cycle | | |
 | Work orders (M6) | ✅ automatic open/close, manual raise/close, audit trail | | |
-| AI chat | ✅ streaming, local/cloud, history cap | 🟡 grounded only in demo values | tools, actions |
-| AI live insights + validator (M7–M8) | | 🟡 canned demo announcements only | ⬜ the real engine |
+| AI chat | ✅ streaming, local/cloud, history cap, live snapshot, grounding badge | | tools, actions (M9) |
+| AI live insights + validator (M7–M8) | ✅ engine, cooldown, grounding v1 + retry, verified badge | | validator v2 (optional) |
 | Evaluation + study mode (M10–M11) | | | ⬜ |
 | Tests, packaging, docs (M12) | ✅ docs for what exists; pytest (23 tests) | 🟡 Docker untested since the move | settings, fresh-clone setup |
 
-**Milestones:** 6 of 12 complete (M1–M6). Next: M7 (insight engine — the AI speaks first).
+**Milestones:** 8 of 12 complete (M1–M8), plus runtime settings and low-resource tuning (`.env.example`). Next: M9 (chat tools + confirmed actions).
 
 ## Feature map
 
@@ -171,8 +171,8 @@ Each one changes code. Decide before starting the milestone it's tagged with.
 - [x] **Granularity of `tbl_SensorReading`** — **decided: one row per cycle** (the 17 sensors are shared by all components) *(M2)*
 - [x] **Definition of `FailureProbability`** — **decided: `P(Degraded) + P(Critical)`**, the chance the component is not optimal *(M4; drives the KPIs, trend chart and monitor)*
 - [x] **Work order on recovery** — **decided: auto-close** when the component returns to Optimal (`monitor.AUTO_CLOSE_ON_RECOVERY`, one line to turn off); user-raised orders are never auto-closed *(M6)*
-- [ ] **Insight frequency** — only on events (recommended for small local models), or also a periodic summary every N cycles *(M7)*
-- [ ] **Validator v1 or v2** — v1: every number must exist somewhere in the snapshot; v2: each number must match the component named in the same sentence *(M8; start with v1, add v2 if time allows)*
+- [x] **Insight frequency** — **decided: events only**, coalesced, with a cooldown — — only on events (recommended for small local models), or also a periodic summary every N cycles *(M7)*
+- [x] **Validator v1 or v2** — **v1 built**; v2 if time allows — — v1: every number must exist somewhere in the snapshot; v2: each number must match the component named in the same sentence *(M8; start with v1, add v2 if time allows)*
 - [ ] **Models for evaluation** — which 2 local tags fit the GPU (e.g. `qwen3:1.7b`, `qwen3:4b`) and which 1–2 cloud models *(M10)*
 
 ---
@@ -504,7 +504,7 @@ CREATE TABLE tbl_Insight (
 **Goal:** the AI speaks first: when the data changes meaningfully, a short explanation grounded in the dashboard's values appears in the Advisor panel.
 
 **Snapshot** — `backend/app/services/snapshot.py`
-- [ ] `build_snapshot(cycle) -> dict` — exactly what the dashboard shows, nothing else (never `TrueCondition`):
+- [x] `build_snapshot(cycle) -> dict` — exactly what the dashboard shows, nothing else (never `TrueCondition`):
   ```json
   {"cycle": 1465, "totalCycles": 2205,
    "components": [{"name": "Accumulator", "condition": "Critical", "previousCondition": "Degraded",
@@ -513,31 +513,33 @@ CREATE TABLE tbl_Insight (
    "openWorkOrders": [{"id": "WO-0004", "component": "Accumulator", "createdBy": "system:monitor"}],
    "event": {"type": "condition_change", "component": "Accumulator", "from": "Degraded", "to": "Critical"}}
   ```
-- [ ] `backend/ml/feature_labels.py` (or a dict in `snapshot.py`): human labels and units for the 68 features (`PS2_mean` → "Pump outlet pressure (mean)", bar) so the AI and UI say readable names
-- [ ] Round values to the precision shown in the UI (the validator uses the same rounding)
-- [ ] Keep it under ~1,500 tokens; include only components that changed plus a one-line status for the rest
+- [x] `backend/ml/feature_labels.py` (or a dict in `snapshot.py`): human labels and units for the 68 features (`PS2_mean` → "Pump outlet pressure (mean)", bar) so the AI and UI say readable names
+- [x] Round values to the precision shown in the UI (the validator uses the same rounding)
+- [x] Keep it under ~1,500 tokens; include only components that changed plus a one-line status for the rest
 
 **Prompts** — `backend/app/services/prompts.py`
-- [ ] `PROMPT_VERSION = "insight-v1"` (bump on any change; stored with each insight)
-- [ ] System instructions: you are the maintenance Advisor; use **only** values in the snapshot; name the component; say what changed and from/to; give the top driver with its value and unit; suggest one action; 2–4 sentences; no values that aren't in the snapshot
-- [ ] User message: the snapshot JSON
-- [ ] For reasoning models (Qwen3), disable thinking for insights (`/no_think` or the API option) — faster and shorter
+- [x] `PROMPT_VERSION = "insight-v1"` (bump on any change; stored with each insight)
+- [x] System instructions: you are the maintenance Advisor; use **only** values in the snapshot; name the component; say what changed and from/to; give the top driver with its value and unit; suggest one action; 2–4 sentences; no values that aren't in the snapshot
+- [x] User message: the snapshot JSON
+- [x] For reasoning models (Qwen3), disable thinking for insights (`/no_think` or the API option) — faster and shorter
 
 **Engine** — `backend/app/services/insights.py`
-- [ ] Subscribe to `prediction` and `work_order` events; triggers: condition change, work order opened/closed, failure probability crossing `settings.insights.threshold`
-- [ ] Debounce: at most one insight in flight; coalesce events that arrive meanwhile into the next one; minimum `settings.insights.min_cycles_between` cycles apart
-- [ ] Generate through `advisor.choose()` + a non-chat call: add `advisor.complete(target, messages) -> (text, first_token_ms, total_ms)` collecting the stream
-- [ ] Save to `tbl_Insight` (snapshot, model, mode, prompt version, timings) → `publish(insight)`
-- [ ] If no model is available (`NoModel`), publish a single "insights paused: <reason>" notice, not one per event
-- [ ] `settings.insights.enabled` on/off (needed for M11's dashboard-only condition)
+- [x] Subscribe to `prediction` and `work_order` events; triggers: condition change, work order opened/closed, failure probability crossing `settings.insights.threshold`
+- [x] Debounce: at most one insight in flight; coalesce events that arrive meanwhile into the next one; then rest `settings.insights.cooldownSeconds` (time, not cycles — what matters on a slow machine)
+- [x] Generate through `advisor.choose()` + a non-chat call: add `advisor.complete(target, messages) -> (text, first_token_ms, total_ms)` collecting the stream
+- [x] Save to `tbl_Insight` (snapshot, model, mode, prompt version, timings) → `publish(insight)`
+- [x] If no model is available (`NoModel`), publish a single "insights paused: <reason>" notice, not one per event
+- [x] `settings.insights.enabled` on/off (needed for M11's dashboard-only condition)
 
 **API** — `backend/app/api/insights.py`
-- [ ] `GET /api/insights?limit=50` · `POST /api/insights/generate` (manual "summarise now", useful for testing)
+- [x] `GET /api/insights?limit=50` · `POST /api/insights/generate` (manual "summarise now", useful for testing)
 
 **UI** — `features/insights/`
-- [ ] Advisor panel split: **Live insights** feed (newest first) above **Chat**
-- [ ] `InsightCard`: text, cycle, time, model badge (local/cloud), latency; verification badge added in M8
-- [ ] New insight arrives via the stream; a subtle highlight, not a modal
+- [x] Advisor panel split: **Live insights** feed (newest first) above **Chat**
+- [x] `InsightCard`: text, cycle, time, model badge (local/cloud), latency; verification badge added in M8
+- [x] New insight arrives via the stream; a subtle highlight, not a modal
+
+✅ **Done (2026-10-11).** Live check on a 4-core / 7 GB CPU-only machine with `qwen3:1.7b`: seeking to cycle 1 and stepping opened WO-0001 and produced a verified insight (attempts 2) in 31 s; 51 tests.
 
 **Done when:** replaying into a fault produces an insight within a few seconds naming the right component, condition change and driver, saved in `tbl_Insight` with its snapshot and timings.
 
@@ -548,36 +550,38 @@ CREATE TABLE tbl_Insight (
 **Goal:** every AI statement is checked against the snapshot it came from. This is RQ3 and the core of Part B.
 
 **Validator** — `backend/app/services/grounding.py`
-- [ ] `extract_claims(text) -> list[Claim]`:
+- [x] `extract_claims(text) -> list[Claim]`:
   - numbers with optional units: regex for `-?\d+(\.\d+)?\s*(bar|°C|C|%|kW|W|l/min|L/min|mm/s)?`
   - percentages vs probabilities: "97%" and "0.97" both map to 0.97 when compared with a probability
   - component names (Cooler, Valve, Pump, Accumulator, and plurals/lowercase)
   - conditions (optimal, degraded, critical)
   - cycle numbers ("cycle 1,465") and work order IDs (`WO-\d+`)
   - sentence index for each claim (for v2)
-- [ ] `snapshot_values(snapshot) -> list[Value]` — every number with its unit and the component it belongs to
-- [ ] `validate(text, snapshot) -> {"grounded": bool, "checked": [...], "mismatches": [...]}`
+- [x] `snapshot_values(snapshot) -> list[Value]` — every number with its unit and the component it belongs to
+- [x] `validate(text, snapshot) -> {"grounded": bool, "checked": [...], "mismatches": [...]}`
   - v1: each number must match **some** snapshot value of a compatible unit within tolerance (`abs ≤ 0.5 × last displayed digit` or ≤ 1 % relative, whichever is larger)
   - component + condition pairs ("accumulator … critical") must agree with the snapshot
   - cycle numbers and WO IDs must exist in the snapshot
   - numbers that are clearly not data (e.g. "2–4 sentences", list numbering) are ignored by rule; log what was ignored
-  - v2 (optional): a number in a sentence that names one component must match **that** component's values
-- [ ] Return enough detail for the UI and for Part B
+  - v2 (optional, **not built**): a number in a sentence that names one component must match **that** component's values
+- [x] Return enough detail for the UI and for Part B
 
 **Wiring**
-- [ ] In the insight engine: generate → validate → if it fails, regenerate **once** with a message listing the mismatches ("these values are not in the data: …") → validate again → save `Grounded`, `ValidationDetail`, `Attempts`
-- [ ] Still failing: save with `Grounded = 0` and show it with a warning (`settings.insights.hide_unverified` decides show vs hide)
-- [ ] `settings.grounding.enabled` off → skip validation, `Grounded = NULL` (needed for the with/without comparison in M10)
+- [x] In the insight engine: generate → validate → if it fails, regenerate **once** with a message listing the mismatches ("these values are not in the data: …") → validate again → save `Grounded`, `ValidationDetail`, `Attempts`
+- [x] Still failing: save with `Grounded = 0` and show it with a warning (`settings.insights.hide_unverified` decides show vs hide)
+- [x] `settings.grounding.enabled` off → skip validation, `Grounded = NULL` (needed for the with/without comparison in M10)
 
 **UI**
-- [ ] `InsightCard`: ✓ Verified / ⚠ Unverified badge; click → list of checked values with ✓/✗
+- [x] `InsightCard`: ✓ Verified / ⚠ Unverified badge; click → list of checked values with ✓/✗
 
 **Tests** — `backend/tests/test_grounding.py`
-- [ ] Correct text passes; a changed number fails; the wrong component's value in v2 fails
-- [ ] Rounding within tolerance passes ("97%" vs 0.968)
-- [ ] Units parsed (bar, °C, kW, l/min, mm/s, %)
-- [ ] "Accumulator is optimal" fails when the snapshot says Critical
-- [ ] Unknown WO ID fails; list numbering is ignored
+- [x] Correct text passes; a changed number fails (the v2 wrong-component case waits for v2)
+- [x] Rounding within tolerance passes ("97%" vs 0.968)
+- [x] Units parsed (bar, °C, kW, l/min, mm/s, %)
+- [x] "Accumulator is optimal" fails when the snapshot says Critical
+- [x] Unknown WO ID fails; list numbering is ignored
+
+✅ **Done (2026-10-11)** — v1; v2 (per-component numbers) still optional.
 
 **Done when:** the grounding tests pass and insights in the UI show their verification status with the checked values.
 
@@ -588,9 +592,9 @@ CREATE TABLE tbl_Insight (
 **Goal:** chat answers from live data and can create work orders on request — the FYP1 conversational path, built.
 
 **Context**
-- [ ] Chat requests no longer carry a frontend-built system prompt: `POST /api/chat {messages}` → the backend prepends the instructions + `build_snapshot(current cycle)`
-- [ ] Remove `buildSystemPrompt` from `frontend/src/domain/advisor.ts`
-- [ ] **Cap history**: last 10 turns (`settings.chat.max_turns`) plus the snapshot; drop older turns server-side
+- [x] Chat requests no longer carry a frontend-built system prompt: `POST /api/chat {messages}` → the backend prepends the instructions + `build_snapshot(current cycle)`
+- [x] Remove `buildSystemPrompt` from `frontend/src/domain/advisor.ts`
+- [x] **Cap history**: last 10 turns (`settings.chat.max_turns`) plus the snapshot; drop older turns server-side
 
 **Tools** — `backend/app/services/tools.py`
 - [ ] Definitions (JSON schema, same for Ollama and OpenAI-compatible):
@@ -604,8 +608,8 @@ CREATE TABLE tbl_Insight (
 - [ ] **Confirmation for actions**: the stream emits `{"phase": "confirm", "action": {"tool": "create_work_order", "component": "Cooler", "note": "…"}, "id": "…"}`; the UI asks; `POST /api/chat/confirm {id, approve}` runs it with `CreatedBy = "user"` and the model writes the final message
 
 **Grounding and logging**
-- [ ] Validate chat answers with `grounding.validate` against the snapshot + tool results; show the same badge
-- [ ] Log each answer to `tbl_Insight` with `TriggerType = "chat"`
+- [~] Validate chat answers with `grounding.validate` against the snapshot + tool results (snapshot done; tool results with the tools); show the same badge
+- [x] Log each answer to `tbl_Insight` with `TriggerType = "chat"`
 
 **UI**
 - [ ] Confirmation card in the chat ("Create a work order for Cooler? [Create] [Cancel]")
@@ -680,7 +684,7 @@ CREATE TABLE tbl_Insight (
 **Tests**
 - [ ] Add `pytest` to a `backend/requirements-dev.txt`; move `check_models.py` into pytest style; `backend/tests/` covers repo, events, replay, predictor, monitor, grounding, tools, model selection
 - [ ] One end-to-end test: temp DB → seek to a known fault → step → assert prediction, work order and (with a stub model) an insight row
-- [ ] A stub LLM (`services/advisor.py` test double returning fixed text) so tests never need Ollama or a key
+- [x] A stub LLM (`services/advisor.py` test double returning fixed text) so tests never need Ollama or a key
 - [ ] Frontend: `tsc -b`, `oxlint`, `vite build` clean; optional Vitest for `lib/stream.ts` and the reducer
 
 **Robustness**
@@ -694,9 +698,9 @@ CREATE TABLE tbl_Insight (
 - [ ] Embedding detection via `/api/show` capabilities
 
 **Packaging**
-- [ ] `./closed-loop.sh setup` also runs `ml.evaluate` + `ml.train` (from `backend/`) if `backend/ml/models/` has no `.joblib` files (no download needed — the CSV is committed)
-- [ ] Dockerfile: copy `backend/ml/` and `backend/data/`, train the models during the image build; test `./closed-loop.sh start` on a machine with Docker
-- [ ] `.dockerignore` (node_modules, .venv, data, Daedalus, dist)
+- [x] `./closed-loop.sh setup` also runs `ml.evaluate` + `ml.train` (from `backend/`) if `backend/ml/models/` has no `.joblib` files (no download needed — the CSV is committed)
+- [~] Dockerfile: copy `backend/ml/` and `backend/data/`, train the models during the image build (done); test `./closed-loop.sh start` on a machine with Docker
+- [x] `.dockerignore` (node_modules, .venv, data, Daedalus, dist)
 - [ ] Keep every `requirements*.txt` unpinned (project rule); commit `pnpm-lock.yaml` changes
 - [ ] Delete the old root `node_modules/` and `dist/`
 
@@ -713,7 +717,7 @@ CREATE TABLE tbl_Insight (
 ## Cross-cutting
 
 **Runtime settings** — `backend/app/services/settings.py` + `config/settings.json`
-- [ ] One validated settings object (defaults in code, overrides from the file), read at startup and editable via `GET/PUT /api/settings`:
+- [x] One validated settings object (keys as built: `docs/API.md` Settings) (defaults in code, overrides from the file), read at startup and editable via `GET/PUT /api/settings`:
   ```json
   {"replay":    {"seconds_per_cycle": 2.0, "start_cycle": 1},
    "monitor":   {"confirm_cycles": 1, "auto_close_on_recovery": false},
@@ -722,7 +726,7 @@ CREATE TABLE tbl_Insight (
    "chat":      {"max_turns": 10},
    "study":     {"enabled": false, "condition": "dashboard_ai", "model": null}}
   ```
-- [ ] A small Settings section (on the Models page or its own page) for the toggles you'll flip during evaluation
+- [x] A small Settings section (Models → Settings) (on the Models page or its own page) for the toggles you'll flip during evaluation
 
 **Logging**
 - [ ] Python `logging` with one format; INFO for replay/monitor/insight events, DEBUG for prompts; no API keys ever logged

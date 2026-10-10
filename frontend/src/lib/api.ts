@@ -107,6 +107,40 @@ export interface WorkOrder {
   closedNote: string | null
 }
 
+/** The grounding check's verdict on an AI text (docs/API.md: Insights). */
+export interface Validation {
+  grounded: boolean
+  checked: { claim: string; ok: boolean }[]
+  mismatches: string[]
+}
+
+export interface Insight {
+  id: number
+  createdAt: string
+  cycle: number | null
+  triggerType: "condition_change" | "threshold" | "work_order" | "multiple" | "manual"
+  triggerRef: string | null
+  model: string
+  mode: "local" | "cloud"
+  promptVersion: string
+  text: string
+  /** null: written with the grounding check off. */
+  grounded: boolean | null
+  validation: Validation | null
+  attempts: number
+  latencyMs: number | null
+  firstTokenMs: number | null
+}
+
+export interface Settings {
+  insights: { enabled: boolean; threshold: number; cooldownSeconds: number }
+  grounding: { enabled: boolean; hideUnverified: boolean }
+  monitor: { confirmCycles: number; autoCloseOnRecovery: boolean }
+  chat: { maxTurns: number }
+}
+
+type DeepPartial<T> = { [K in keyof T]?: Partial<T[K]> }
+
 export const COMPONENTS: { key: ComponentKey; name: ComponentName; series: string }[] = [
   { key: "cooler", name: "Cooler", series: "var(--series-1)" },
   { key: "valve", name: "Valve", series: "var(--series-2)" },
@@ -128,6 +162,12 @@ export const api = {
     request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
   closeWorkOrder: (id: string, note: string) =>
     request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify({ note }) }),
+  insights: (limit = 30) => request<{ insights: Insight[] }>(`/api/insights?limit=${limit}`),
+  // Waits for the model: allow a slow local one its time.
+  generateInsight: () => request<Insight>("/api/insights/generate", { method: "POST", timeoutMs: 180000 }),
+  settings: () => request<Settings>("/api/settings"),
+  saveSettings: (patch: DeepPartial<Settings>) =>
+    request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
   replay: {
     play: () => request<ReplayState>("/api/replay/play", { method: "POST" }),
     pause: () => request<ReplayState>("/api/replay/pause", { method: "POST" }),

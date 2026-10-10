@@ -3,7 +3,7 @@
 // and on reconnect listeners get a synthetic "reconnected" event so they can
 // refetch anything missed while offline.
 
-import type { ReplayState } from "./api"
+import type { Insight, ReplayState } from "./api"
 
 export type StreamStatus = "connecting" | "open" | "offline"
 
@@ -21,7 +21,8 @@ export type StreamEvent =
       }[]
     }
   | { type: "work_order"; action: "opened" | "closed"; workOrder: { id: string; component: string } }
-  | { type: "insight"; insight: unknown }
+  | { type: "insight"; insight: Insight }
+  | { type: "insight_notice"; text: string }
   | { type: "reconnected" }
 
 type Listener = (event: StreamEvent) => void

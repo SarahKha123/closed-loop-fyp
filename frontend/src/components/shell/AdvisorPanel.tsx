@@ -1,9 +1,13 @@
-// The right-hand Advisor: chat about the live readings, answered by the active local or cloud model.
+// The right-hand Advisor: live insights it writes when the data changes, then a chat about the live readings,
+// both answered by the active local or cloud model and grounding-checked against the snapshot it was given.
 
 import { useEffect, useRef, useState } from "react"
 import { useChat } from "../../context/ChatContext"
 import { useLive } from "../../context/LiveContext"
 import { useModels } from "../../context/ModelsContext"
+import { api } from "../../lib/api"
+import type { Insight, Validation } from "../../lib/api"
+import { num } from "../../lib/format"
 import { Button } from "../ui/Button"
 import { Icon } from "../ui/Icon"
 
@@ -19,6 +23,109 @@ function Rich({ text }: { text: string }) {
     ) : (
       part
     ),
+  )
+}
+
+/** ✓ Verified / ⚠ Unverified, opening to every value the check compared. Nothing when the check didn't run. */
+function GroundingBadge({ grounded, validation }: { grounded?: boolean | null; validation?: Validation | null }) {
+  if (grounded == null) return null
+  return (
+    <details className="text-[11px]">
+      <summary
+        className={`inline-flex cursor-pointer list-none items-center gap-1 rounded-full px-1.5 py-px font-semibold ${
+          grounded ? "bg-good-bg text-good-text" : "bg-warning-bg text-warning-text"
+        }`}
+        title="Every number, work order and condition in the text, checked against the data the model was given"
+      >
+        <Icon name={grounded ? "check" : "alert"} size={11} />
+        {grounded ? "Verified" : "Unverified"}
+      </summary>
+      <ul className="mt-1 flex flex-col gap-px pl-1">
+        {!validation?.checked.length ? (
+          <li className="text-ink-faint">Nothing checkable in the text.</li>
+        ) : (
+          validation.checked.map((c, i) => (
+            <li key={i} className={c.ok ? "text-ink-muted" : "font-medium text-critical-text"}>
+              {c.ok ? "✓" : "✗ not in the data:"} {c.claim}
+            </li>
+          ))
+        )}
+      </ul>
+    </details>
+  )
+}
+
+const TRIGGER: Record<Insight["triggerType"], string> = {
+  condition_change: "Condition change",
+  threshold: "Risk threshold",
+  work_order: "Work order",
+  multiple: "Several changes",
+  manual: "Summary",
+}
+
+function InsightCard({ insight: i }: { insight: Insight }) {
+  return (
+    <article className="animate-toast-in rounded-lg border border-line bg-surface-2 px-3 py-2">
+      <div className="flex items-center gap-1 text-[11px] text-ink-faint">
+        <span className="font-semibold text-ink-muted">{TRIGGER[i.triggerType]}</span>
+        <span>· cycle {num(i.cycle)}</span>
+        <span className="ml-auto">{new Date(i.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      <p className="mt-1 text-[12.5px] leading-relaxed whitespace-pre-wrap text-ink">
+        <Rich text={i.text} />
+      </p>
+      <div className="mt-1.5 flex flex-wrap items-start gap-x-2 gap-y-1 text-[10.5px] text-ink-faint">
+        <GroundingBadge grounded={i.grounded} validation={i.validation} />
+        <span className="truncate pt-px" title={i.model}>
+          {i.mode} · {i.model}
+          {i.latencyMs != null && ` · ${(i.latencyMs / 1000).toFixed(1)} s`}
+          {i.attempts > 1 && " · rewritten once"}
+        </span>
+      </div>
+    </article>
+  )
+}
+
+function InsightsFeed() {
+  const { insights, insightNotice, overview } = useLive()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function summarise() {
+    setBusy(true)
+    try {
+      await api.generateInsight() // the new insight arrives through the live stream
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "could not write a summary")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="flex max-h-[45%] shrink-0 flex-col border-b border-line" aria-label="Live insights">
+      <div className="flex items-center gap-2 px-4 pt-2.5 pb-1.5">
+        <span className="text-[11px] font-semibold tracking-wide text-ink-faint uppercase">Live insights</span>
+        <span className="grow" />
+        <Button size="sm" variant="ghost" onClick={() => void summarise()} disabled={busy || !overview?.cycle} className="!h-6">
+          {busy ? "Writing…" : "Summarise now"}
+        </Button>
+      </div>
+      {(error ?? insightNotice) && (
+        <div className="mx-4 mb-2 rounded-md bg-warning-bg px-2.5 py-1.5 text-[11.5px] text-warning-text">{error ?? insightNotice}</div>
+      )}
+      <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3">
+        {insights.length === 0 ? (
+          <p className="text-[12px] text-ink-faint">
+            The Advisor writes a short note here when a component changes condition, crosses the risk threshold, or a work
+            order opens or closes.
+          </p>
+        ) : (
+          insights.map((i) => <InsightCard key={i.id} insight={i} />)
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -68,6 +175,8 @@ export function AdvisorPanel({ onClose }: { onClose: () => void }) {
         </Button>
       </header>
 
+      <InsightsFeed />
+
       <div ref={scrollRef} className="flex min-h-0 grow flex-col gap-2.5 overflow-y-auto px-4 py-3">
         {messages.length === 0 ? (
           <div className="my-auto text-center">
@@ -89,7 +198,12 @@ export function AdvisorPanel({ onClose }: { onClose: () => void }) {
               }`}
             >
               {m.role === "assistant" && !m.error && m.text ? <Rich text={m.text} /> : m.text || (m.streaming ? <span className="animate-live text-ink-faint">Thinking…</span> : "")}
-              {m.model && !m.streaming && <div className="mt-1 text-[10.5px] text-ink-faint">{m.model}</div>}
+              {m.model && !m.streaming && (
+                <div className="mt-1.5 flex flex-wrap items-start gap-x-2 gap-y-1 text-[10.5px] text-ink-faint">
+                  <GroundingBadge grounded={m.grounded} validation={m.validation} />
+                  <span className="pt-px">{m.model}</span>
+                </div>
+              )}
             </div>
           ))
         )}

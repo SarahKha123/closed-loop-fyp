@@ -211,7 +211,8 @@ sent after 15 s of silence to keep the connection open.
 | `cycle` | a cycle was written | `{"cycle": 1665, "readingId": 1}` | M3 |
 | `prediction` | a cycle was scored | `{"cycle": 733, "predictions": [{"component": "Cooler", "condition": "Degraded", "failureProbability": 0.98, "changedFrom": "Critical", "predictionId": 2917, "equipmentId": "COOLER-1"}, …]}` | M4 |
 | `work_order` | a work order opened or closed | `{"action": "opened" \| "closed", "workOrder": {...}}` | M6 |
-| `insight` | the AI produced an insight | the insight | M7 |
+| `insight` | the AI produced an insight | the insight (as in `GET /api/insights`) | M7 |
+| `insight_notice` | the insight engine can't reach a model (sent once, until an insight succeeds) | `{"text": "Insights paused: …"}` | M7 |
 
 ```
 data: {"type": "replay", "state": "playing", "cycle": 1665, "nextCycle": 1666, "first": 1, "total": 2205, "secondsPerCycle": 0.5}
@@ -296,20 +297,69 @@ Users can close any work order; the monitor only ever auto-closes its own.
 ## Chat
 
 ### `POST /api/chat` (SSE)
-Body: the full transcript, OpenAI-style.
+Body: the conversation's user/assistant turns (system messages are ignored —
+the backend adds its own prompt with the live snapshot, `services/prompts.py`).
 ```json
-{"messages": [
-  {"role": "system", "content": "You are the Advisor panel…"},
-  {"role": "user", "content": "Why is the accumulator flagged?"}
-]}
+{"messages": [{"role": "user", "content": "Why is the accumulator flagged?"}]}
 ```
-The model is whatever `/api/models/active` resolves to; it can't be chosen per request.
+The model is whatever `/api/models/active` resolves to; it can't be chosen per
+request. History is capped at `chat.maxTurns` exchanges.
 
 Frames:
 ```json
 {"phase": "token", "text": "Gas pre-charge"}
 {"phase": "token", "text": " pressure is…"}
-{"phase": "done", "model": "qwen3:1.7b"}     // cloud: "openai/<model>"
+{"phase": "done", "model": "qwen3:1.7b", "grounded": true, "validation": {"grounded": true, "checked": [{"claim": "99.9%", "ok": true}], "mismatches": []}}
 ```
-or `{"phase": "error", "error": "…"}` if the model fails mid-reply.
-`400` if there's no user message; `503` (before streaming) if no model can answer.
+`grounded`/`validation` are `null` when the grounding check is off or nothing
+has been replayed yet. Each answer is logged to `tbl_Insight` with
+`TriggerType = "chat"`. `{"phase": "error", "error": "…"}` if the model fails
+mid-reply; `400` unless the last turn is a user message; `503` (before
+streaming) if no model can answer.
+
+---
+
+## Insights
+
+What the Advisor writes by itself on a condition change, a failure probability
+crossing `insights.threshold`, or a work order opening/closing. One at a time;
+triggers during a generation or the `insights.cooldownSeconds` rest after it
+are merged into the next one. Each is grounding-checked and rewritten once if
+it fails.
+
+### `GET /api/insights?limit=50`
+Newest first, chat answers excluded (unverified ones too when `grounding.hideUnverified`).
+```json
+{"insights": [{"id": 1, "createdAt": "…", "cycle": 3, "triggerType": "work_order",
+  "triggerRef": "Work order WO-0001 opened for Cooler", "model": "qwen3:1.7b", "mode": "local",
+  "promptVersion": "insight-v1", "text": "The Cooler changed to Critical…", "grounded": true,
+  "validation": {"grounded": true, "checked": [{"claim": "WO-0001", "ok": true}], "mismatches": []},
+  "attempts": 2, "latencyMs": 30926, "firstTokenMs": 16171}]}
+```
+`triggerType`: `condition_change` · `threshold` · `work_order` · `multiple` · `manual`.
+
+### `GET /api/insights/{id}`
+One insight plus the `snapshot` it was written from. `404` if unknown.
+
+### `POST /api/insights/generate`
+"Summarise now" — waits for the model and returns the new insight (also sent
+on the stream). `503` no model · `409` nothing scored yet · `502` the model failed.
+
+---
+
+## Settings
+
+Runtime toggles, saved to `config/settings.json` (overrides only) and applied
+to the next event — no restart.
+
+### `GET /api/settings`
+```json
+{"insights":  {"enabled": true, "threshold": 0.5, "cooldownSeconds": 10},
+ "grounding": {"enabled": true, "hideUnverified": false},
+ "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": true},
+ "chat":      {"maxTurns": 10}}
+```
+
+### `PUT /api/settings`
+A partial patch, e.g. `{"insights": {"enabled": false}}`; returns the full
+settings. `400` on an unknown key, wrong type or out-of-range value (nothing is saved).

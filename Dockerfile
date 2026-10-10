@@ -27,7 +27,10 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    CLOSED_LOOP_STATIC_DIR=/app/static
+    CLOSED_LOOP_STATIC_DIR=/app/static \
+    OMP_NUM_THREADS=2 \
+    OPENBLAS_NUM_THREADS=2 \
+    MKL_NUM_THREADS=2
 
 WORKDIR /app
 
@@ -37,6 +40,12 @@ RUN apt-get update \
 
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt
+
+# The dataset and the ML pipeline; the models are trained here (~2 min, once —
+# cached until ml/ or data/ change) because trained models aren't committed.
+COPY backend/data ./data
+COPY backend/ml ./ml
+RUN python -m ml.train
 
 COPY backend/app ./app
 COPY --from=frontend /build/dist ./static
