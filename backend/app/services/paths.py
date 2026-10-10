@@ -1,9 +1,9 @@
 """Where the committed model choice lives.
 
-Mirrors Daedalus's `db/paths.py`: one env var picks the directory, so the same
-code resolves `/config` in the container and `./config` on the host, and the
-file is a bind-mounted, version-controllable choice rather than state hidden
-in a volume.
+Everything the app writes lives in the repo's `config/` (or wherever
+CLOSED_LOOP_CONFIG_DIR points), whichever directory the server is started
+from: the model choice and settings (committable), the cloud keys and the
+database (gitignored).
 """
 
 from __future__ import annotations
@@ -11,7 +11,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-CONFIG_DIR = Path(os.environ.get("CLOSED_LOOP_CONFIG_DIR", "config"))
+REPO = Path(__file__).resolve().parents[3]
+CONFIG_DIR = Path(os.environ.get("CLOSED_LOOP_CONFIG_DIR", REPO / "config"))
 MODEL_CONFIG = CONFIG_DIR / "model_config.json"
 # Cloud API keys. Gitignored — unlike model_config.json, never committed.
 CLOUD_CONFIG = CONFIG_DIR / "cloud.json"

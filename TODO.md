@@ -19,23 +19,28 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 |---|---|---|---|
 | Model management (local + cloud + hardware) | ✅ all | | |
 | App shell and UI layout | ✅ all | | |
-| Dashboard (M5) | ✅ real data, live, redesigned (light/dark), trend chart, SHAP bars, component pages | | |
 | ML pipeline (M1) | ✅ rebuilt, matches FYP1 | | |
 | Data layer (M2) | ✅ schema, queries, tests | | |
-| Replay + live stream (M3) | ✅ | | |
+| Replay + live stream (M3) | ✅ | | CSV upload (stretch) |
 | Prediction (M4) | ✅ 4 models + SHAP, ~60 ms/cycle | | |
+| Dashboard (M5) | ✅ real data, live, light/dark, trend chart, SHAP bars, component pages | | |
 | Work orders (M6) | ✅ automatic open/close, manual raise/close, audit trail | | |
-| AI chat | ✅ streaming, local/cloud, history cap, live snapshot, grounding badge | | tools, actions (M9) |
-| AI live insights + validator (M7–M8) | ✅ engine, cooldown, grounding v1 + retry, verified badge | | validator v2 (optional) |
-| Evaluation + study mode (M10–M11) | | | ⬜ |
-| Tests, packaging, docs (M12) | ✅ docs for what exists; pytest (23 tests) | 🟡 Docker untested since the move | settings, fresh-clone setup |
+| Live insights (M7) | ✅ triggers, coalescing, cooldown, notices, feed in the Advisor | | |
+| Grounding check (M8) | ✅ v1, one retry, verified badge with checked values | | v2 (optional) |
+| Advisor chat (M9) | ✅ live snapshot, tools, confirm-before-create, no-tools fallback, grounding badge | | |
+| Runtime settings + low-resource tuning | ✅ `config/settings.json` + Settings tab; `.env` limits | | |
+| Evaluation (M10) | | | ⬜ |
+| Study mode (M11) | | | ⬜ |
+| Hardening + packaging (M12) | ✅ local-only setup/start/test, models trained on setup, 56 tests, docs | 🟡 robustness pass | end-to-end test, long-replay soak |
 
-**Milestones:** 8 of 12 complete (M1–M8), plus runtime settings and low-resource tuning (`.env.example`). Next: M9 (chat tools + confirmed actions).
+**Milestones:** 9 of 12 complete (M1–M9). Docker was removed (2026-10-11):
+everything runs directly on the machine through `closed-loop.sh`.
+Next: **M10** (evaluation harness).
 
 ## Feature map
 
 Every feature of the finished system, its status now, and the milestone that delivers it.
-Status: **Built** · **Partial** (exists but not on real data, or missing pieces) · **—** not started.
+Status: **Built** · **Partial** · **—** not started.
 
 **Data and ML**
 
@@ -47,7 +52,7 @@ Status: **Built** · **Partial** (exists but not on real data, or missing pieces
 | Training: baseline, LR, RF, XGBoost with SMOTE in folds | Built | M1 |
 | Evaluation reproducing FYP1 Table 4.2 | Built (±0.005) | M1 |
 | SHAP for all four components | Built | M1 |
-| Saved models + manifest | Built | M1 |
+| Saved models + manifest; trained by `setup` when missing | Built | M1, M12 |
 
 **Live pipeline**
 
@@ -57,28 +62,28 @@ Status: **Built** · **Partial** (exists but not on real data, or missing pieces
 | Cycle replay with play / pause / step / speed / seek | Built | M3 |
 | Event bus + live SSE stream to the browser | Built | M3 |
 | CSV ingest in the same schema (stretch) | — | M3 |
-| Live scoring of each cycle with SHAP drivers | — | M4 |
-| Whole-replay accuracy check | — | M4 |
+| Live scoring of each cycle with SHAP drivers | Built | M4 |
+| Whole-replay accuracy check (`ml/replay_check.py`) | Built | M4 |
 
 **Dashboard**
 
 | Feature | Status | Milestone |
 |---|---|---|
 | Fixed-viewport layout (no page scroll) | Built | — |
-| Overview: KPI tiles + component cards | Partial — demo data | M5 |
-| Replay controls in the sidebar | Partial — a demo cycle picker stands in | M5 |
-| Risk trend chart | — | M5 |
-| SHAP "why" bars per component | — | M5 |
-| Sensor Feed page | Partial — demo data | M5 |
-| Alert banner and toasts | Partial — demo data | M5, M6 |
+| Overview: KPI tiles + component cards | Built | M5 |
+| Replay controls in the top bar | Built | M5 |
+| Risk trend chart (with table view) | Built | M5 |
+| SHAP "why" bars per component, component pages | Built | M5 |
+| Sensor Feed page | Built | M5 |
+| Alert banner and toasts | Built | M5, M6 |
 
 **Work orders**
 
 | Feature | Status | Milestone |
 |---|---|---|
-| Work Orders page | Partial — demo data | M6 |
-| Automatic work order when Critical (system) | Partial — simulated by demo data | M6 |
-| Manual create / close, System vs User badge, audit link | — | M6 |
+| Work Orders page | Built | M6 |
+| Automatic work order when Critical (system), auto-close on recovery | Built | M6 |
+| Manual create / close, System vs User badge, audit link | Built | M6 |
 
 **AI layer**
 
@@ -88,11 +93,11 @@ Status: **Built** · **Partial** (exists but not on real data, or missing pieces
 | Cloud models: providers, keys, test, use | Built | — |
 | Hardware report and "what fits" | Built | — |
 | Streaming Advisor chat (local or cloud) | Built | — |
-| Chat grounded in live data (backend snapshot) | Partial — prompt built in the browser from demo data | M9 |
-| Chat history cap | Built (last 10 turns) | M9 |
-| Chat tools: status, history, create work order with confirm | — | M9 |
-| Live insights when data changes | Partial — canned demo announcements | M7 |
-| Grounding validator + verified badge | — | M8 |
+| Chat grounded in live data (backend snapshot) | Built | M9 |
+| Chat history cap (setting) | Built | M9 |
+| Chat tools: status, history, create work order with confirm | Built | M9 |
+| Live insights when data changes | Built | M7 |
+| Grounding validator + verified badge (insights and chat) | Built (v1) | M8, M9 |
 
 **Evaluation and study**
 
@@ -106,27 +111,30 @@ Status: **Built** · **Partial** (exists but not on real data, or missing pieces
 
 | Feature | Status | Milestone |
 |---|---|---|
-| `./closed-loop.sh dev --host` (no Docker, starts Ollama) | Built | — |
-| Docker / compose | Partial — untested since the `frontend/` move | M12 |
-| Docs (README, ARCHITECTURE, API, DEVELOPMENT) | Built for what exists | updated each milestone |
-| Tests | Partial — pytest, 23 tests (repo, events, replay, history cap); `check_models.py` not yet converted | M12 |
-| Runtime settings file + API | — | Cross-cutting |
+| `./closed-loop.sh setup / start / dev / test / status / reset-db` (local, starts Ollama) | Built | M12 |
+| Low-resource limits (`.env`: Ollama context/threads/keep-alive, predictor threads) | Built | Cross-cutting |
+| Runtime settings file + API + Settings tab | Built | Cross-cutting |
+| Docs (README, ARCHITECTURE, API, DEVELOPMENT, DATASET) | Built | updated each milestone |
+| Tests | Built — pytest, 56 tests with stub models; `check_models.py` self-check | M12 |
+| Docker / compose | Cut (2026-10-11) — not needed to run, cost RAM on low-end machines | — |
 
 ## Start here
 
-**Done so far:** M1 (ML pipeline, matching FYP1; trained from your summary CSV),
-M2 (shared data layer), M3 (live replay + event stream), plus the chat history
-cap and clean-ups.
+**Done:** M1–M9 — the full closed loop runs live: replay → prediction + SHAP →
+automatic work orders → AI insights checked against the data → chat that can
+look things up and propose work orders the engineer confirms. Checked live on
+a 4-core / 7 GB CPU-only laptop with `qwen3:1.7b`.
 
 **Next, in order:**
 
-1. **M4 — prediction service:** score each replayed cycle with the four saved
-   models; per-prediction SHAP; `changedFrom`; publish `prediction` events;
-   the full-replay accuracy check. First task: list the ML packages in
-   `backend/requirements.txt` (unpinned).
-2. **M5 — dashboard on real data:** replay controls in the sidebar, live
-   overview, trend chart, SHAP bars — the demo data disappears.
-3. **M6 — monitor and work orders.**
+1. **M10 — evaluation harness:** frozen scenario set from the replay,
+   `eval/run.py` calling `insights.generate`'s path directly for each model ×
+   scenario × validator on/off, then `eval/analyse.py` for grounding accuracy,
+   hallucination rate, coverage, latency and the trade-off chart. First:
+   decide the models (below) — on this laptop, local candidates are
+   `qwen3:0.6b`, `qwen3:1.7b`, and `qwen3:4b` if it fits.
+2. **M11 — study mode.**
+3. **M12 — the rest of hardening:** end-to-end test, long-replay soak.
 
 ---
 
@@ -134,18 +142,13 @@ cap and clean-ups.
 
 ```
 closed-loop-fyp/
-├── backend/ml/                 M1  features, labels, training, evaluation, saved models (inside the backend)
-│   ├── features.py               the 68-feature extraction (shared with the backend)
-│   ├── labels.py                 graded conditions → Optimal/Degraded/Critical
-│   ├── train.py · evaluate.py · dataset_report.py
-│   ├── models/<component>.joblib + manifest.json
-│   └── results/                  metrics, SHAP plots, replay check
+├── backend/ml/                 M1  features, labels, training, evaluation, saved models
 ├── backend/data/               M1  hydraulic_condition_monitoring_summary.csv (committed)
 ├── backend/app/
-│   ├── api/                      dashboard, replay, stream, work_orders, insights, study (+ existing)
+│   ├── api/                      health, models, cloud, hardware, replay, stream, dashboard,
+│   │                             work_orders, insights, chat (+ confirm), settings, study (M11)
 │   └── services/
-│       ├── db.py                 M2  SQLite connection + schema
-│       ├── repo.py               M2  all SQL queries in one place
+│       ├── db.py · repo.py       M2  SQLite schema + all SQL
 │       ├── events.py             M3  in-process pub/sub
 │       ├── ingest.py · replay.py M3
 │       ├── predictor.py          M4
@@ -153,13 +156,13 @@ closed-loop-fyp/
 │       ├── snapshot.py · insights.py · prompts.py   M7
 │       ├── grounding.py          M8
 │       ├── tools.py              M9  chat tools
-│       └── settings.py           cross-cutting runtime settings
+│       └── settings.py           runtime settings
 ├── eval/                       M10 scenarios, runner, analysis
 ├── frontend/src/
-│   ├── lib/stream.ts             M5  one EventSource for live events
-│   ├── features/dashboard/       M5  ReplayControls, TrendChart, ShapBars
-│   ├── features/insights/        M7  InsightFeed, InsightCard
-│   ├── features/work-orders/     M6
+│   ├── lib/stream.ts             one EventSource for live events
+│   ├── features/dashboard/       KPIs, cards, trend, activity, new work order
+│   ├── features/models/          model tabs + Settings tab
+│   ├── components/shell/AdvisorPanel.tsx   insights feed, chat, grounding badges, confirm cards
 │   └── features/study/           M11
 └── config/                     settings.json, model_config.json, cloud.json, closed_loop.db (last two gitignored)
 ```
@@ -170,10 +173,10 @@ Each one changes code. Decide before starting the milestone it's tagged with.
 
 - [x] **Granularity of `tbl_SensorReading`** — **decided: one row per cycle** (the 17 sensors are shared by all components) *(M2)*
 - [x] **Definition of `FailureProbability`** — **decided: `P(Degraded) + P(Critical)`**, the chance the component is not optimal *(M4; drives the KPIs, trend chart and monitor)*
-- [x] **Work order on recovery** — **decided: auto-close** when the component returns to Optimal (`monitor.AUTO_CLOSE_ON_RECOVERY`, one line to turn off); user-raised orders are never auto-closed *(M6)*
-- [x] **Insight frequency** — **decided: events only**, coalesced, with a cooldown — — only on events (recommended for small local models), or also a periodic summary every N cycles *(M7)*
-- [x] **Validator v1 or v2** — **v1 built**; v2 if time allows — — v1: every number must exist somewhere in the snapshot; v2: each number must match the component named in the same sentence *(M8; start with v1, add v2 if time allows)*
-- [ ] **Models for evaluation** — which 2 local tags fit the GPU (e.g. `qwen3:1.7b`, `qwen3:4b`) and which 1–2 cloud models *(M10)*
+- [x] **Work order on recovery** — **decided: auto-close** when the component returns to Optimal (setting `monitor.autoCloseOnRecovery`); user-raised orders are never auto-closed *(M6)*
+- [x] **Insight frequency** — **decided: events only**, coalesced, with a cooldown. Options were: only on events (recommended for small local models), or also a periodic summary every N cycles *(M7)*
+- [x] **Validator v1 or v2** — **v1 built**; v2 if time allows. Options were: v1: every number must exist somewhere in the snapshot; v2: each number must match the component named in the same sentence *(M8; start with v1, add v2 if time allows)*
+- [ ] **Models for evaluation** — which 2 local tags run acceptably on the target laptop (e.g. `qwen3:1.7b`, `qwen3:4b`; `qwen3:0.6b` as the low end) and which 1–2 cloud models *(M10)*
 
 ---
 
@@ -185,19 +188,19 @@ Each one changes code. Decide before starting the milestone it's tagged with.
 - [x] Cloud client: OpenAI-compatible streamed chat, `/models` test, masked keys, 0600 key file (`services/cloud.py`)
 - [x] Model selection policy: auto / pinned / cloud, `resolve_now()` (`services/model_config.py`)
 - [x] Advisor routing local vs cloud (`services/advisor.py`), SSE helper (`api/sse.py`)
-- [x] Hardware probes: CPU, RAM, GPU/VRAM, disk, WSL, container (`services/hardware.py`)
-- [x] Frontend split into routes / components / features / context / domain / lib
-- [x] `./closed-loop.sh dev --host` (no Docker; starts Ollama if needed); self-check `backend/tests/check_models.py`
+- [x] Hardware probes: CPU, RAM, GPU/VRAM, disk, WSL (`services/hardware.py`)
+- [x] Frontend split into routes / components / features / context / lib
+- [x] `./closed-loop.sh` runs everything locally (starts Ollama if needed); self-check `backend/tests/check_models.py`
 
 ## Known issues in the current code
 
-- [ ] The dashboard runs on demo data (`frontend/src/domain/demo-data.ts`) → **M5**
-- [x] Chat sends the whole transcript every request → **capped early**: `advisor.trim_history()` keeps system messages + the last 10 turns (tested); M9 moves it into settings
+- [x] The dashboard runs on demo data → fixed in **M5** (demo data deleted)
+- [x] Chat sends the whole transcript every request → capped: `advisor.trim_history()` keeps the last `chat.maxTurns` exchanges (setting, tested)
 - [ ] A model download stops when leaving the Models page or opening the Cloud/Hardware tab → move pulls server-side in **M12** (optional)
 - [ ] Embedding models are detected by name/family (`embed`, `bert`) because Ollama reports no capabilities → use `/api/show` capabilities if the Ollama version provides them (**M12**, optional)
-- [ ] Docker build untested since the `frontend/` move → **M12**
+- [-] Docker build untested → Docker removed (2026-10-11)
 - [x] Old `node_modules/` and `dist/` left at the repo root from before the move → deleted
-- [~] Only one test script, no test runner → pytest added with M2 (`backend/requirements-dev.txt`, 11 tests); `check_models.py` still to convert in **M12**
+- [x] Only one test script, no test runner → pytest (`backend/requirements-dev.txt`, 56 tests); `check_models.py` kept as a plain-assert self-check
 
 ---
 
@@ -597,28 +600,32 @@ CREATE TABLE tbl_Insight (
 - [x] **Cap history**: last 10 turns (`settings.chat.max_turns`) plus the snapshot; drop older turns server-side
 
 **Tools** — `backend/app/services/tools.py`
-- [ ] Definitions (JSON schema, same for Ollama and OpenAI-compatible):
+- [x] Definitions (JSON schema, same for Ollama and OpenAI-compatible):
   - `get_equipment_status(component)` → latest prediction + SHAP drivers + open work order (FYP1 `FL_GetEquipmentStatus`)
-  - `get_history(component, last_cycles)` → condition and failure probability over recent cycles
+  - `get_history(component, last_cycles)` → runs of the same condition + failure probability first/latest/min/max (compact for small context windows)
   - `create_work_order(component, note)` → **does not run immediately**; returns a pending action
-- [ ] Tool loop in `advisor.py`: non-streamed calls while the model requests tools (max 3 rounds) → execute → append results → then stream the final answer
-  - Ollama: `tools` in `/api/chat`, read `message.tool_calls`
-  - OpenAI-compatible: `tools` + `tool_choice: "auto"`, read `choices[0].message.tool_calls`, reply with `role: "tool"` messages
-- [ ] Models without tool support: detect once (an error or a missing `tool_calls` field) → fall back to snapshot-only chat; show "this model can't take actions" in the UI
-- [ ] **Confirmation for actions**: the stream emits `{"phase": "confirm", "action": {"tool": "create_work_order", "component": "Cooler", "note": "…"}, "id": "…"}`; the UI asks; `POST /api/chat/confirm {id, approve}` runs it with `CreatedBy = "user"` and the model writes the final message
+- [x] Tool loop (`tools.converse`, rounds through `advisor.tool_round`): non-streamed calls while the model requests tools (max 3 rounds) → execute → append results → answer. The final answer is the last round's text (sent as one `token`) rather than a second streamed call — one model call fewer per answer on a slow CPU; turn `chat.tools` off for streaming
+  - Ollama: `tools` in `/api/chat`, read `message.tool_calls` (results matched by `tool_name`)
+  - OpenAI-compatible: `tools` + `tool_choice: "auto"`, read `choices[0].message.tool_calls`, reply with `role: "tool"` + `tool_call_id`
+- [x] Models without tool support: detected once (Ollama "does not support tools") → remembered for the run, snapshot-only streamed chat; `done.tools = false` → the UI says "this model can't look things up or raise work orders"
+- [x] **Confirmation for actions**: the stream emits `{"phase": "confirm", "action": {"id", "tool": "create_work_order", "component", "note", "alreadyOpen"}}`; the UI asks; `POST /api/chat/confirm {id, approve}` runs it with `CreatedBy = "user"`. Deviation: the UI shows the result ("✓ WO-0002 created") instead of a second model call writing a final message
 
 **Grounding and logging**
-- [~] Validate chat answers with `grounding.validate` against the snapshot + tool results (snapshot done; tool results with the tools); show the same badge
-- [x] Log each answer to `tbl_Insight` with `TriggerType = "chat"`
+- [x] Validate chat answers with `grounding.validate` against the snapshot + tool results (and the tool arguments); conditions a tool reported (e.g. earlier history periods) count as known; same badge
+- [x] Log each answer to `tbl_Insight` with `TriggerType = "chat"` (snapshot + tool results stored)
 
 **UI**
-- [ ] Confirmation card in the chat ("Create a work order for Cooler? [Create] [Cancel]")
-- [ ] Created work orders appear on the Work Orders page with a User badge (via the stream)
-- [ ] Remove the canned "Why is X flagged?" answer; keep the shortcut button, now sending a real question
+- [x] Confirmation card in the chat ("Create a work order for the cooler? [Create] [Cancel]"), with "WO-… is already open" when relevant
+- [x] Created work orders appear on the Work Orders page with a User badge (via the stream)
+- [x] "Looked up status, history" note on answers that used tools
+- [x] The canned "Why is X flagged?" answer is gone; the shortcut buttons send real questions
+- [x] Settings: "Let the Advisor use tools" (`chat.tools`)
 
 **Tests**
-- [ ] `test_tools.py`: each tool returns the right shape from a seeded DB; `create_work_order` without confirmation creates nothing; with confirmation creates one with `CreatedBy = user`
-- [ ] History cap: 30 turns in → 10 sent to the model
+- [x] `test_tools.py`: each tool's shape from a seeded DB; proposing creates nothing; confirm creates one with `CreatedBy = user`, once only; cancel; the tool loop with a stub model; the chat endpoint end to end (confirm frame → confirm → work order); the no-tools fallback
+- [x] History cap: 30 turns in → 10 sent to the model (`test_advisor.py`)
+
+✅ **Done (2026-10-11).** Live with `qwen3:1.7b` on CPU: "How has the cooler changed…" → `get_history` → answer in 11.6 s; "What is the status of the accumulator?" → verified answer; "Raise a work order for the pump…" → confirm card → WO-0002 created by `user`. The check caught the model inventing an ID for an unconfirmed work order ("WO-0002", Unverified); the prompt now says a proposal has no ID (chat-v2). 56 tests.
 
 **Done when:** "What's the status of the accumulator?" answers with the live values (verified badge), and "Raise a work order for it" → confirm → a User work order appears.
 
@@ -682,33 +689,39 @@ CREATE TABLE tbl_Insight (
 **Goal:** reliable for the demo, reproducible for an examiner.
 
 **Tests**
-- [ ] Add `pytest` to a `backend/requirements-dev.txt`; move `check_models.py` into pytest style; `backend/tests/` covers repo, events, replay, predictor, monitor, grounding, tools, model selection
+- [x] `pytest` in `backend/requirements-dev.txt` (installed by `setup`); `backend/tests/` covers repo, events, replay, predictor, dashboard API, monitor, settings, insights, grounding, tools, history cap; `check_models.py` stays a plain-assert self-check for model selection
 - [ ] One end-to-end test: temp DB → seek to a known fault → step → assert prediction, work order and (with a stub model) an insight row
-- [x] A stub LLM (`services/advisor.py` test double returning fixed text) so tests never need Ollama or a key
-- [ ] Frontend: `tsc -b`, `oxlint`, `vite build` clean; optional Vitest for `lib/stream.ts` and the reducer
+- [x] A stub LLM (monkeypatched `advisor.complete` / `tool_round`) so tests never need Ollama or a key
+- [x] Frontend: `tsc -b`, `oxlint`, `vite build` clean (`./closed-loop.sh test`)
 
 **Robustness**
-- [ ] Clear UI states for: Ollama down, no model, models missing (`backend/ml/models/`), dataset missing, cloud key rejected, SSE disconnected ("reconnecting…")
-- [ ] Insight engine survives model errors (logs, publishes a notice, keeps running)
+- [~] Clear UI states for: Ollama down, no model, models missing (`backend/ml/models/`), dataset missing, cloud key rejected, SSE disconnected ("reconnecting…") — most exist; do a pass for each
+- [x] Insight engine survives model errors (logs, publishes one notice, keeps running)
 - [ ] Full 2,205-cycle replay at 0.05 s/cycle: no errors, memory flat, UI stays responsive (throttled refreshes)
 - [ ] DB writes never block the event loop (writes in `to_thread` or kept tiny)
+
+**Low-resource running** (added 2026-10-11)
+- [x] Ollama per-request limits from `.env` (`OLLAMA_CONTEXT_LENGTH`, `OLLAMA_NUM_PREDICT`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_NUM_THREAD`), server limits when the script starts Ollama (one model, one request, q8_0 KV cache), 300 s read timeout for slow model loads
+- [x] Predictor thread caps (`OMP_NUM_THREADS` etc.)
+- [x] Insight cooldown (`insights.cooldownSeconds`) and optional chat tools (`chat.tools`)
+- [x] `./closed-loop.sh start` serves the built UI from the backend (no Node process at run time)
 
 **Optional improvements from Known issues**
 - [ ] Server-side model downloads (pull runs in the backend, progress via `/api/stream`) so leaving the page doesn't cancel them
 - [ ] Embedding detection via `/api/show` capabilities
 
 **Packaging**
-- [x] `./closed-loop.sh setup` also runs `ml.evaluate` + `ml.train` (from `backend/`) if `backend/ml/models/` has no `.joblib` files (no download needed — the CSV is committed)
-- [~] Dockerfile: copy `backend/ml/` and `backend/data/`, train the models during the image build (done); test `./closed-loop.sh start` on a machine with Docker
-- [x] `.dockerignore` (node_modules, .venv, data, Daedalus, dist)
-- [ ] Keep every `requirements*.txt` unpinned (project rule); commit `pnpm-lock.yaml` changes
-- [ ] Delete the old root `node_modules/` and `dist/`
+- [x] `./closed-loop.sh setup` trains the models (from `backend/`) if `backend/ml/models/` has no `.joblib` files (no download needed — the CSV is committed)
+- [-] Dockerfile / compose / `.dockerignore` — **removed (2026-10-11)**: the app runs locally through `closed-loop.sh`; Docker Desktop's VM cost RAM the language model needs
+- [x] Keep every `requirements*.txt` unpinned (project rule)
+- [x] Config paths anchored to the repo (`config/` wherever the server is started from)
 
 **Docs**
-- [ ] `docs/ARCHITECTURE.md`: new data flow (replay → predictor → bus → monitor / insights / SSE), the five tables, the AI layer
-- [ ] `docs/API.md`: dashboard, replay, stream (event shapes), work orders, insights, study, chat confirm
-- [ ] `docs/DEVELOPMENT.md`: ML setup, data download, `reset-db`, running tests, running the evaluation
-- [ ] `README.md`: quick start from a fresh clone to a running live demo
+- [x] `docs/ARCHITECTURE.md`: the closed loop (replay → predictor → bus → monitor / insights / SSE), the five tables, the AI layer, chat and insight flows, limited-hardware table
+- [x] `docs/API.md`: every endpoint and event, including insights, settings, chat tools and confirm
+- [x] `docs/DEVELOPMENT.md`: setup, `.env`, runtime settings, model choice per machine, ML, `reset-db`, checks, recipes
+- [x] `README.md`: quick start from a fresh clone to a running live demo; low-resource section
+- [ ] Re-check all docs after M10/M11 (`eval/`, study mode, `/api/study`)
 
 **Done when:** a fresh clone, following only the README, reaches a running live replay with insights; `pytest` and the frontend checks pass.
 
@@ -717,26 +730,25 @@ CREATE TABLE tbl_Insight (
 ## Cross-cutting
 
 **Runtime settings** — `backend/app/services/settings.py` + `config/settings.json`
-- [x] One validated settings object (keys as built: `docs/API.md` Settings) (defaults in code, overrides from the file), read at startup and editable via `GET/PUT /api/settings`:
+- [x] One validated settings object (defaults in code, overrides from the file), read on every use and editable via `GET/PUT /api/settings`. As built:
   ```json
-  {"replay":    {"seconds_per_cycle": 2.0, "start_cycle": 1},
-   "monitor":   {"confirm_cycles": 1, "auto_close_on_recovery": false},
-   "insights":  {"enabled": true, "threshold": 0.7, "min_cycles_between": 5, "hide_unverified": false},
-   "grounding": {"enabled": true, "version": "v1"},
-   "chat":      {"max_turns": 10},
-   "study":     {"enabled": false, "condition": "dashboard_ai", "model": null}}
+  {"insights":  {"enabled": true, "threshold": 0.5, "cooldownSeconds": 10},
+   "grounding": {"enabled": true, "hideUnverified": false},
+   "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": true},
+   "chat":      {"maxTurns": 10, "tools": true}}
   ```
-- [x] A small Settings section (Models → Settings) (on the Models page or its own page) for the toggles you'll flip during evaluation
+  Still to add with their milestones: `study.*` (M11). Replay speed stays a replay control, not a setting.
+- [x] Settings tab (Models → Settings) for the toggles flipped during evaluation
 
 **Logging**
 - [ ] Python `logging` with one format; INFO for replay/monitor/insight events, DEBUG for prompts; no API keys ever logged
 
 **Conventions** (from `docs/DEVELOPMENT.md`)
 - [x] Services own logic and raise their own errors; routers only translate to HTTP (true of all current code)
-- [ ] All SQL in `repo.py`; all prompts in `prompts.py`; all events through `events.py`
+- [x] All SQL in `repo.py`; all prompts in `prompts.py`; all events through `events.py`
 - [ ] Update `docs/API.md` in the same commit as any endpoint change
-- [ ] Never edit `Daedalus/`; never commit `config/cloud.json`, the raw dataset (`data/raw/`), the trained models, or the database
-- [ ] Never pin versions in `requirements*.txt` — rebuild version-sensitive artefacts (the models) instead
+- [x] Never edit `Daedalus/`; never commit `config/cloud.json`, the trained models, or the database (gitignored)
+- [x] Never pin versions in `requirements*.txt` — rebuild version-sensitive artefacts (the models) instead
 
 ---
 
@@ -748,3 +760,4 @@ CREATE TABLE tbl_Insight (
 - [-] Teams / email notifications — in-app feed instead
 - [-] Remaining-useful-life regression
 - [-] Fine-tuning language models
+- [-] Docker / containers — removed 2026-10-11; `closed-loop.sh` runs everything locally

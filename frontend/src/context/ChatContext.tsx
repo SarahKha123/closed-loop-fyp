@@ -1,10 +1,13 @@
 // The Advisor conversation. The browser keeps the transcript and sends its
 // turns; the backend adds the live snapshot, picks the model (local or cloud),
-// caps the history, and grounding-checks each answer.
+// caps the history, runs the model's tool calls, and grounding-checks each
+// answer. A work order the model proposes waits here for the engineer's
+// Create / Cancel (`respond`).
 
 import { createContext, useCallback, useContext, useRef, useState } from "react"
 import type { ReactNode } from "react"
-import type { Validation } from "../lib/api"
+import { api } from "../lib/api"
+import type { ProposedAction, Validation } from "../lib/api"
 import { streamEvents } from "../lib/http"
 import type { EventStream } from "../lib/http"
 
@@ -17,9 +20,26 @@ export interface ChatMessage {
   /** The grounding check's verdict; null when it was off or there was no data yet. */
   grounded?: boolean | null
   validation?: Validation | null
+  /** What the model looked up before answering (tool names). */
+  lookups?: string[]
+  /** Proposed work orders and what became of them. */
+  actions?: ActionState[]
+  /** The model refused tools: it answered from the snapshot and can't propose actions. */
+  noTools?: boolean
 }
 
-type ChatEvent = { phase: "token"; text: string } | { phase: "done"; model: string; grounded: boolean | null; validation: Validation | null } | { phase: "error"; error: string }
+export interface ActionState extends ProposedAction {
+  state: "pending" | "busy" | "created" | "cancelled" | "failed"
+  workOrderId?: string
+  error?: string
+}
+
+type ChatEvent =
+  | { phase: "token"; text: string }
+  | { phase: "tool"; name: string; args: Record<string, unknown> }
+  | { phase: "confirm"; action: ProposedAction }
+  | { phase: "done"; model: string; tools: boolean; grounded: boolean | null; validation: Validation | null }
+  | { phase: "error"; error: string }
 
 interface ChatValue {
   /** Whether the Advisor panel is showing. Sending a message opens it. */
@@ -30,6 +50,8 @@ interface ChatValue {
   send: (text: string) => void
   stop: () => void
   clear: () => void
+  /** The engineer's answer to a proposed action. */
+  respond: (actionId: string, approve: boolean) => Promise<void>
 }
 
 const ChatContext = createContext<ChatValue | null>(null)
@@ -56,7 +78,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         { messages: [...history, { role: "user", content: trimmed }] },
         (e) => {
           if (e.phase === "token") patchLast((m) => ({ ...m, text: m.text + e.text }))
-          else if (e.phase === "done") patchLast((m) => ({ ...m, streaming: false, model: e.model, grounded: e.grounded, validation: e.validation }))
+          else if (e.phase === "tool") patchLast((m) => ({ ...m, lookups: [...(m.lookups ?? []), e.name] }))
+          else if (e.phase === "confirm") patchLast((m) => ({ ...m, actions: [...(m.actions ?? []), { ...e.action, state: "pending" }] }))
+          else if (e.phase === "done")
+            patchLast((m) => ({ ...m, streaming: false, model: e.model, grounded: e.grounded, validation: e.validation, noTools: !e.tools }))
           else patchLast((m) => ({ ...m, text: e.error, streaming: false, error: true }))
         },
       )
@@ -73,6 +98,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [messages, streaming],
   )
 
+  const respond = useCallback(async (actionId: string, approve: boolean) => {
+    const patchAction = (patch: Partial<ActionState>) =>
+      setMessages((ms) =>
+        ms.map((m) => (m.actions?.some((a) => a.id === actionId) ? { ...m, actions: m.actions.map((a) => (a.id === actionId ? { ...a, ...patch } : a)) } : m)),
+      )
+    patchAction({ state: "busy" })
+    try {
+      const r = await api.confirmAction(actionId, approve)
+      patchAction(r.status === "created" ? { state: "created", workOrderId: r.workOrder.id } : { state: "cancelled" })
+    } catch (err) {
+      patchAction({ state: "failed", error: err instanceof Error ? err.message : "could not reach the backend" })
+    }
+  }, [])
+
   const value: ChatValue = {
     open,
     setOpen,
@@ -81,6 +120,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     send,
     stop: () => stream.current?.cancel(),
     clear: () => setMessages([]),
+    respond,
   }
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
 }

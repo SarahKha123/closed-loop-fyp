@@ -120,9 +120,14 @@ export function SettingsTab() {
 
       {section(
         "Chat",
-        <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Small local models have short context windows.">
-          <NumberField key={s.chat.maxTurns} value={s.chat.maxTurns} min={1} max={50} onSave={(v) => void save({ chat: { maxTurns: v } })} />
-        </Row>,
+        <>
+          <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Small local models have short context windows.">
+            <NumberField key={s.chat.maxTurns} value={s.chat.maxTurns} min={1} max={50} onSave={(v) => void save({ chat: { maxTurns: v } })} />
+          </Row>
+          <Row label="Let the Advisor use tools" hint="Look up status and history, and propose work orders you confirm. Off: answers stream word by word from the dashboard values only — quicker on a slow machine.">
+            <input type="checkbox" className={toggle} checked={s.chat.tools} onChange={(e) => void save({ chat: { tools: e.target.checked } })} />
+          </Row>
+        </>,
       )}
     </div>
   )

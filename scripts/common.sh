@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 # Shared helpers for closed-loop.sh. Sourced, not run.
 #
-# Trimmed from Daedalus's scripts/common.sh: this project has one container
-# and one optional sidecar (Ollama), not five databases and a migration CLI,
-# so there is no migrate_cli, no host_py, no per-store status report. What's
-# kept is the part that generalises: coloured output, a working
-# `docker compose` on either v1 or v2, and a .env that never silently drifts
-# from .env.example.
+# Trimmed from Daedalus's scripts/common.sh: coloured output, a .env that
+# never silently drifts from .env.example, and an Ollama check.
 #
 # Callers must `cd` to the repo root before sourcing.
 
@@ -43,17 +39,6 @@ head_() { printf '\n%s%s%s\n' "$BOLD" "$*" "$RESET"; }
 fail()  { err "$*"; exit 1; }
 
 have()  { command -v "$1" >/dev/null 2>&1; }
-
-# Support both `docker compose` (v2) and the legacy `docker-compose`.
-COMPOSE_FILES=${COMPOSE_FILES:-}
-
-compose() {
-  # shellcheck disable=SC2086 — COMPOSE_FILES is a deliberate word-split list.
-  if docker compose version >/dev/null 2>&1; then docker compose $COMPOSE_FILES "$@"
-  elif have docker-compose; then docker-compose $COMPOSE_FILES "$@"
-  else err "docker compose is not installed or not on PATH."; exit 1
-  fi
-}
 
 # ── environment file ─────────────────────────────────────────────────────────
 env_missing_keys() {
@@ -93,8 +78,8 @@ ensure_env() {
 
 # load_env — .env's values, with anything already exported in this shell
 # winning. Plain `set -a; . ./.env` gets this backwards: a shell assignment
-# always beats the environment, so `CLOSED_LOOP_PORT=9000 ./closed-loop.sh
-# start` would silently publish 8000 instead.
+# always beats the environment, so `BACKEND_PORT=9000 ./closed-loop.sh
+# start` would silently use 8000 instead.
 load_env() {
   [ -f .env ] || return 0
   local preserved=() key
@@ -116,30 +101,13 @@ load_env() {
 ensure_dirs() { mkdir -p config; }
 
 # ── readiness ─────────────────────────────────────────────────────────────────
-wait_for_api() {
-  local port="${1:-${CLOSED_LOOP_PORT:-8000}}"
-  printf '  waiting for the API'
-  for _ in $(seq 1 60); do
-    if curl -fsS --max-time 2 "http://localhost:${port}/api/health" >/dev/null 2>&1; then
-      printf '\n'; return 0
-    fi
-    printf '.'; sleep 1
-  done
-  printf '\n'; return 1
-}
-
 check_ollama() {
   local url="${OLLAMA_BASE_URL:-http://localhost:11434}"
-  local u
-  # The default URL is the container's view of the host; on the host itself
-  # that name doesn't resolve, so try localhost too (the backend does the same).
-  for u in "$url" "${url/host.docker.internal/localhost}"; do
-    if curl -fsS --max-time 2 "${u}/api/tags" >/dev/null 2>&1; then
-      ok "Ollama reachable at ${u}"
-      return 0
-    fi
-  done
+  if curl -fsS --max-time 2 "${url}/api/tags" >/dev/null 2>&1; then
+    ok "Ollama reachable at ${url}"
+    return 0
+  fi
   warn "no Ollama reachable at ${url}"
-  info "start it with 'ollama serve', or run this project with --with-ollama"
+  info "install it from https://ollama.com, or use a cloud API on the Models page"
   return 1
 }

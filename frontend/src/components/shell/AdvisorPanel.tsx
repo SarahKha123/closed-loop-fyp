@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useChat } from "../../context/ChatContext"
+import type { ActionState } from "../../context/ChatContext"
 import { useLive } from "../../context/LiveContext"
 import { useModels } from "../../context/ModelsContext"
 import { api } from "../../lib/api"
@@ -52,6 +53,38 @@ function GroundingBadge({ grounded, validation }: { grounded?: boolean | null; v
         )}
       </ul>
     </details>
+  )
+}
+
+const LOOKUP: Record<string, string> = { get_equipment_status: "status", get_history: "history" }
+
+/** A work order the model proposed: nothing is created until the engineer presses Create. */
+function ActionCard({ action: a }: { action: ActionState }) {
+  const { respond } = useChat()
+  return (
+    <div className="mt-2 rounded-lg border border-line-strong bg-surface px-2.5 py-2 text-[12px] whitespace-normal text-ink">
+      <div className="font-semibold">Create a work order for the {a.component.toLowerCase()}?</div>
+      {a.note && <div className="mt-0.5 text-ink-muted">{a.note}</div>}
+      {a.alreadyOpen && a.state === "pending" && <div className="mt-0.5 text-warning-text">{a.alreadyOpen} is already open for it.</div>}
+      <div className="mt-1.5 flex items-center gap-1.5">
+        {a.state === "pending" || a.state === "busy" ? (
+          <>
+            <Button size="sm" variant="primary" disabled={a.state === "busy"} onClick={() => void respond(a.id, true)}>
+              Create
+            </Button>
+            <Button size="sm" variant="ghost" disabled={a.state === "busy"} onClick={() => void respond(a.id, false)}>
+              Cancel
+            </Button>
+          </>
+        ) : a.state === "created" ? (
+          <span className="font-medium text-good-text">✓ {a.workOrderId} created</span>
+        ) : a.state === "cancelled" ? (
+          <span className="text-ink-faint">Cancelled</span>
+        ) : (
+          <span className="text-critical-text">{a.error}</span>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -197,7 +230,14 @@ export function AdvisorPanel({ onClose }: { onClose: () => void }) {
                     : "self-start bg-surface-3 text-ink"
               }`}
             >
+              {m.lookups && m.lookups.length > 0 && (
+                <div className="mb-1 text-[10.5px] text-ink-faint">Looked up {[...new Set(m.lookups.map((l) => LOOKUP[l] ?? l))].join(", ")}</div>
+              )}
               {m.role === "assistant" && !m.error && m.text ? <Rich text={m.text} /> : m.text || (m.streaming ? <span className="animate-live text-ink-faint">Thinking…</span> : "")}
+              {m.actions?.map((a) => <ActionCard key={a.id} action={a} />)}
+              {m.noTools && !m.streaming && (
+                <div className="mt-1 text-[10.5px] text-ink-faint">This model can't look things up or raise work orders — answered from the dashboard values.</div>
+              )}
               {m.model && !m.streaming && (
                 <div className="mt-1.5 flex flex-wrap items-start gap-x-2 gap-y-1 text-[10.5px] text-ink-faint">
                   <GroundingBadge grounded={m.grounded} validation={m.validation} />

@@ -43,16 +43,22 @@ def retry_message(mismatches: list[str]) -> dict[str, str]:
     }
 
 
-CHAT_VERSION = "chat-v1"
+CHAT_VERSION = "chat-v2"
 
 CHAT_SYSTEM = """You are the Advisor in Closed Loop, a predictive-maintenance dashboard for a hydraulic test rig \
 (UCI Condition Monitoring of Hydraulic Systems dataset, replayed cycle by cycle). Answer briefly and concretely, \
 as a maintenance engineer's assistant. The JSON below is what the dashboard shows right now: use only its values, \
 with their units, and if something isn't in it, say you don't know. Mention work orders only by IDs in it."""
 
+CHAT_TOOLS = """You also have tools: get_equipment_status and get_history read live data the JSON may not hold \
+(use them for questions about trends or the past); create_work_order proposes a work order, which the engineer \
+must confirm in the dashboard — never say one was created, say it is waiting for their confirmation, and give \
+it no ID (it has none until confirmed). Only propose a work order when the engineer asks for one."""
 
-def chat_messages(snapshot: dict[str, Any], history: list[dict[str, str]]) -> list[dict[str, str]]:
+
+def chat_messages(snapshot: dict[str, Any], history: list[dict[str, str]], *, tools: bool = False) -> list[dict[str, str]]:
     """The system prompt with the live snapshot, then the conversation (user/assistant turns only)."""
     state = "No cycles have been replayed yet, so there are no readings." if snapshot["cycle"] is None \
         else json.dumps(snapshot, ensure_ascii=False)
-    return [{"role": "system", "content": f"{CHAT_SYSTEM}\n\n{state}"}, *history]
+    system = f"{CHAT_SYSTEM}\n\n{CHAT_TOOLS}" if tools else CHAT_SYSTEM
+    return [{"role": "system", "content": f"{system}\n\n{state}"}, *history]

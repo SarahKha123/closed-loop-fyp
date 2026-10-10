@@ -1,11 +1,13 @@
 # Backend API
 
-Base URL: `http://localhost:8000` (in dev the frontend reaches it through
-Vite's `/api` proxy). Interactive docs are generated at `/docs`.
+Base URL: `http://localhost:8000` (`BACKEND_PORT`). With `./closed-loop.sh
+start` the dashboard is served from the same origin; with `dev` the frontend
+reaches it through Vite's `/api` proxy. Interactive docs are generated at `/docs`.
 
 Errors use FastAPI's shape, `{"detail": "human-readable reason"}`, with
-`400` for bad input and `503` when what's needed (Ollama, a configured
-model) isn't available. Streamed endpoints use server-sent events: each
+`400` for bad input, `404` for an unknown id, `409` when the state doesn't
+allow it yet, `502` when a model failed, and `503` when what's needed
+(Ollama, a configured model, the dataset) isn't available. Streamed endpoints use server-sent events: each
 frame is `data: {json}\n\n`.
 
 ---
@@ -152,7 +154,7 @@ Calls the provider's `GET /models` with the saved key (costs nothing).
   "gpu":  {"name": "NVIDIA GeForce RTX 3050 Laptop GPU", "vram_bytes": 4294967296,
            "vram_used_bytes": 0, "driver_version": "571.96", "load_percent": 0.0},  // null if no NVIDIA GPU
   "disk": {"path": "/usr/share/ollama/.ollama/models", "total_bytes": …, "free_bytes": …},
-  "host": {"os": "Linux", "release": "…-WSL2", "wsl": true, "container": false},
+  "host": {"os": "Linux", "release": "…-WSL2", "wsl": true},
   "ollama": {"reachable": true, "version": "0.13.5"},
   "safe_ram_fraction": 0.6
 }
@@ -190,7 +192,8 @@ Body `{"secondsPerCycle": 0.5}` — between 0.05 and 60.
 
 ### `POST /api/replay/seek`
 Body `{"cycle": 600}` — between 1 and 2205. Seeking **back** deletes that cycle and
-everything after it (readings and their predictions); seeking forward skips ahead.
+everything after it (readings, their predictions, and insights about them);
+seeking forward skips ahead.
 
 ### `POST /api/replay/reset`
 Body optional, `{"cycle": 1665}` by default. Pauses, empties the data layer
@@ -305,17 +308,47 @@ the backend adds its own prompt with the live snapshot, `services/prompts.py`).
 The model is whatever `/api/models/active` resolves to; it can't be chosen per
 request. History is capped at `chat.maxTurns` exchanges.
 
+**With tools** (`chat.tools` on, a cycle scored, and a model that accepts
+tools) the model may call, up to 3 rounds:
+
+| Tool | Arguments | Returns to the model |
+|---|---|---|
+| `get_equipment_status` | `component` | condition, since-cycle, failure probability %, confidence, top drivers, open work order |
+| `get_history` | `component`, `last_cycles` (1–200, default 50) | runs of the same condition (`periods`), failure probability first/latest/min/max |
+| `create_work_order` | `component`, `note` | *nothing is created* — a pending proposal the engineer confirms |
+
 Frames:
 ```json
-{"phase": "token", "text": "Gas pre-charge"}
-{"phase": "token", "text": " pressure is…"}
-{"phase": "done", "model": "qwen3:1.7b", "grounded": true, "validation": {"grounded": true, "checked": [{"claim": "99.9%", "ok": true}], "mismatches": []}}
+{"phase": "tool", "name": "get_history", "args": {"component": "Cooler", "last_cycles": 50}}
+{"phase": "confirm", "action": {"id": "59e3f50e928f", "tool": "create_work_order", "component": "Pump",
+                                "note": "check the seals", "alreadyOpen": null}}
+{"phase": "token", "text": "The cooler has been Critical for the last 50 cycles…"}
+{"phase": "done", "model": "qwen3:1.7b", "tools": true, "grounded": true,
+ "validation": {"grounded": true, "checked": [{"claim": "96.9%", "ok": true}], "mismatches": []}}
 ```
+With tools the answer arrives as one `token` after the tool rounds; without
+tools it streams as many `token`s. `done.tools` is `false` only when the
+model refused tools (it then answered from the snapshot alone, and is asked
+without tools for the rest of the run). `alreadyOpen` names an open work
+order for the same component, if any.
+
 `grounded`/`validation` are `null` when the grounding check is off or nothing
-has been replayed yet. Each answer is logged to `tbl_Insight` with
-`TriggerType = "chat"`. `{"phase": "error", "error": "…"}` if the model fails
-mid-reply; `400` unless the last turn is a user message; `503` (before
+has been replayed yet; tool results count as data the model was given. Each
+answer is logged to `tbl_Insight` with `TriggerType = "chat"` (with the
+snapshot and tool results). `{"phase": "error", "error": "…"}` if the model
+fails mid-reply; `400` unless the last turn is a user message; `503` (before
 streaming) if no model can answer.
+
+### `POST /api/chat/confirm`
+The engineer's answer to a `confirm` frame. Body `{"id": "59e3f50e928f", "approve": true}`.
+```json
+{"status": "created", "workOrder": {"id": "WO-0002", "component": "Pump", "createdBy": "user", …}}
+{"status": "cancelled"}
+```
+Approving creates the work order with `createdBy: "user"` and publishes a
+`work_order` event. Each proposal can be answered once; `404` for an unknown
+or already-answered id (proposals are held in memory, so a restart forgets
+them).
 
 ---
 
@@ -350,16 +383,18 @@ on the stream). `503` no model · `409` nothing scored yet · `502` the model fa
 ## Settings
 
 Runtime toggles, saved to `config/settings.json` (overrides only) and applied
-to the next event — no restart.
+to the next event — no restart. What each one does: [DEVELOPMENT.md](DEVELOPMENT.md#runtime-settings-configsettingsjson).
 
 ### `GET /api/settings`
 ```json
 {"insights":  {"enabled": true, "threshold": 0.5, "cooldownSeconds": 10},
  "grounding": {"enabled": true, "hideUnverified": false},
  "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": true},
- "chat":      {"maxTurns": 10}}
+ "chat":      {"maxTurns": 10, "tools": true}}
 ```
 
 ### `PUT /api/settings`
 A partial patch, e.g. `{"insights": {"enabled": false}}`; returns the full
-settings. `400` on an unknown key, wrong type or out-of-range value (nothing is saved).
+settings. `400` on an unknown key, wrong type or out-of-range value (nothing
+is saved). Ranges: `insights.threshold` 0.05–0.95, `insights.cooldownSeconds`
+0–600, `monitor.confirmCycles` 1–20, `chat.maxTurns` 1–50.

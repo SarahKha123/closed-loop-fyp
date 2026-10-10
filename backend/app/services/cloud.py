@@ -135,6 +135,34 @@ def test(provider: str) -> list[str]:
     return sorted(str(m.get("id")) for m in items if isinstance(m, dict) and m.get("id"))
 
 
+def chat_once(provider: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+    """One non-streamed reply that may call tools: `choices[0].message` (`tool_calls` arguments as JSON strings)."""
+    cfg = get(provider)
+    if not (cfg["api_key"] and cfg["model"] and cfg["base_url"]):
+        raise CloudError(f"{PROVIDERS[provider][0]} is not fully configured (key, model and URL)")
+    try:
+        r = httpx.post(
+            f"{cfg['base_url']}/chat/completions",
+            headers=_headers(provider, cfg["api_key"]),
+            json={"model": cfg["model"], "messages": messages, "tools": tools, "tool_choice": "auto"},
+            timeout=httpx.Timeout(connect=10.0, read=CHAT_READ_TIMEOUT, write=10.0, pool=10.0),
+        )
+    except httpx.HTTPError as exc:
+        raise CloudError(f"lost connection to {cfg['base_url']} ({exc.__class__.__name__})") from exc
+    if r.status_code >= 400:
+        detail = r.text[:400]
+        try:
+            err = r.json().get("error")
+            detail = err.get("message", detail) if isinstance(err, dict) else str(err or detail)
+        except (ValueError, AttributeError):
+            pass
+        raise CloudError(f"{PROVIDERS[provider][0]}: {detail or f'HTTP {r.status_code}'}")
+    try:
+        return (r.json().get("choices") or [{}])[0].get("message") or {}
+    except (ValueError, AttributeError, IndexError) as exc:
+        raise CloudError(f"{PROVIDERS[provider][0]}: unreadable reply") from exc
+
+
 def chat_stream(provider: str, messages: list[dict[str, str]]) -> Iterator[str]:
     """Yield content deltas from `/chat/completions` with `stream: true`."""
     cfg = get(provider)

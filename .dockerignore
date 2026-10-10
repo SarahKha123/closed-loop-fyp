@@ -1,8 +1,0 @@
-**/node_modules
-**/.venv
-**/__pycache__
-**/dist
-.git
-Daedalus
-config
-backend/ml/models/*.joblib

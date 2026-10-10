@@ -33,6 +33,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "chat": {
         "maxTurns": 10,            # user/assistant exchanges sent to the model; small local models have short contexts
+        "tools": True,             # status/history lookups and work-order proposals; off = streamed, snapshot-only answers (faster on a slow CPU)
     },
 }
 

@@ -125,7 +125,6 @@ def _host() -> dict[str, Any]:
         "os": platform.system() or None,
         "release": release or None,
         "wsl": "microsoft" in release.lower(),
-        "container": Path("/.dockerenv").exists(),
     }
 
 

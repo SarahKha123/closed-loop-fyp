@@ -136,7 +136,17 @@ export interface Settings {
   insights: { enabled: boolean; threshold: number; cooldownSeconds: number }
   grounding: { enabled: boolean; hideUnverified: boolean }
   monitor: { confirmCycles: number; autoCloseOnRecovery: boolean }
-  chat: { maxTurns: number }
+  chat: { maxTurns: number; tools: boolean }
+}
+
+/** A work order the Advisor proposed in chat; nothing exists until the engineer confirms it. */
+export interface ProposedAction {
+  id: string
+  tool: "create_work_order"
+  component: ComponentName
+  note: string
+  /** An already-open work order for the same component, if any. */
+  alreadyOpen: string | null
 }
 
 type DeepPartial<T> = { [K in keyof T]?: Partial<T[K]> }
@@ -165,6 +175,11 @@ export const api = {
   insights: (limit = 30) => request<{ insights: Insight[] }>(`/api/insights?limit=${limit}`),
   // Waits for the model: allow a slow local one its time.
   generateInsight: () => request<Insight>("/api/insights/generate", { method: "POST", timeoutMs: 180000 }),
+  confirmAction: (id: string, approve: boolean) =>
+    request<{ status: "created"; workOrder: WorkOrder } | { status: "cancelled" }>("/api/chat/confirm", {
+      method: "POST",
+      body: JSON.stringify({ id, approve }),
+    }),
   settings: () => request<Settings>("/api/settings"),
   saveSettings: (patch: DeepPartial<Settings>) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),

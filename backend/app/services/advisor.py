@@ -7,10 +7,12 @@ clients only know how to talk to their own backend.
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Any
 
 from . import cloud, model_config, ollama_client
 
@@ -21,6 +23,10 @@ class NoModel(RuntimeError):
 
 class ReplyError(RuntimeError):
     """The model failed mid-reply."""
+
+
+class NoTools(ReplyError):
+    """The model refused a request with tools — it can't call them. Chat falls back to the snapshot only."""
 
 
 @dataclass(frozen=True)
@@ -83,3 +89,64 @@ def complete(target: Target, messages: list[dict[str, str]]) -> tuple[str, int |
         parts.append(delta)
     total = round((time.perf_counter() - start) * 1000)
     return _THINK.sub("", "".join(parts)).strip(), first, total
+
+
+# ── tool calls (M9) ──────────────────────────────────────────────────────────
+#
+# Ollama and OpenAI-compatible APIs describe tools the same way but differ in
+# the reply: Ollama gives `arguments` as a dict and matches results by tool
+# name; OpenAI gives a JSON string and matches by call id. Both are hidden here.
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    id: str
+    name: str
+    args: dict[str, Any]
+
+
+# Models that refused tools once this run; asked without tools from then on.
+NO_TOOLS: set[str] = set()
+
+
+def tool_round(target: Target, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> tuple[str, list[ToolCall], dict[str, Any]]:
+    """One non-streamed reply: (text, tool calls, the assistant message to append before the results).
+
+    Raises NoTools if the model can't take tools, ReplyError on any other failure.
+    """
+    try:
+        if target.cloud_provider:
+            msg = cloud.chat_once(target.cloud_provider, messages, tools)
+        else:
+            msg = ollama_client.chat_once(target.local_tag or "", messages, tools)
+    except ollama_client.OllamaError as exc:
+        if "support tools" in str(exc).lower():
+            NO_TOOLS.add(target.label)
+            raise NoTools(str(exc)) from exc
+        raise ReplyError(str(exc)) from exc
+    except (cloud.CloudError, ollama_client.OllamaUnavailable) as exc:
+        raise ReplyError(str(exc)) from exc
+
+    calls = []
+    for i, c in enumerate(msg.get("tool_calls") or []):
+        fn = c.get("function") or {}
+        args = fn.get("arguments") or {}
+        if isinstance(args, str):
+            try:
+                args = json.loads(args or "{}")
+            except ValueError:
+                args = {}
+        calls.append(ToolCall(id=str(c.get("id") or f"call_{i}"), name=str(fn.get("name") or ""),
+                              args=args if isinstance(args, dict) else {}))
+    assistant = {"role": "assistant", "content": msg.get("content") or ""}
+    if msg.get("tool_calls"):
+        assistant["tool_calls"] = msg["tool_calls"]
+    return _THINK.sub("", msg.get("content") or "").strip(), calls, assistant
+
+
+def tool_result(target: Target, call: ToolCall, result: Any) -> dict[str, Any]:
+    """The message that hands a tool's result back to the model."""
+    content = json.dumps(result, ensure_ascii=False)
+    if target.cloud_provider:
+        return {"role": "tool", "tool_call_id": call.id, "content": content}
+    return {"role": "tool", "tool_name": call.name, "content": content}

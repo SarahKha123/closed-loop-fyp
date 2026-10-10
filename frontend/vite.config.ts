@@ -12,11 +12,8 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      // The backend, in dev. `CLOSED_LOOP_API_URL` is set by
-      // docker-compose.dev.yml's frontend service (the service name resolves
-      // there); the default is a plain `npm run dev` on the host, where the
-      // backend is either the container stack's published port or
-      // `./closed-loop.sh dev --host` running uvicorn directly.
+      // The backend, in dev. `./closed-loop.sh dev` sets CLOSED_LOOP_API_URL
+      // to its BACKEND_PORT; a plain `pnpm dev` assumes :8000.
       '/api': process.env.CLOSED_LOOP_API_URL ?? 'http://localhost:8000',
     },
   },

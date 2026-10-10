@@ -1,9 +1,9 @@
 """Closed Loop backend — the live pipeline, the model picker's and the Advisor's API.
 
 Scoped-down sibling of Daedalus's `app/main.py`: one process serves the API,
-and in the built container it serves the Vite bundle too (same origin, no
-CORS, no separate web server). In development the static directory doesn't
-exist, Vite owns the UI, and its dev-server proxy forwards `/api` here.
+and with `./closed-loop.sh start` the built dashboard too (CLOSED_LOOP_STATIC_DIR
+= frontend/dist: same origin, no separate web server, no Node process). With
+`./closed-loop.sh dev` Vite owns the UI and its proxy forwards `/api` here.
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ app.include_router(insights.router)
 app.include_router(settings.router)
 
 
-_static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR", "static"))
+_static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR") or "/nonexistent")
 
 if _static_dir.is_dir():
     app.mount("/assets", StaticFiles(directory=_static_dir / "assets"), name="assets")

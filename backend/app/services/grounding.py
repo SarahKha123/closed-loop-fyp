@@ -5,8 +5,9 @@ v1 (docs/FYP_NEW_SCOPE.md, M8):
   text writes it ("97%" matches 97.3; "97.5%" does not);
 - every work order ID (WO-0003) must be in the snapshot;
 - a sentence about exactly one component may only call it the condition it is
-  in, or the one it changed from ("the accumulator is optimal" fails when the
-  snapshot says Critical).
+  in, the one it changed from, or one a chat tool reported for it (`toolResults`,
+  e.g. get_history's earlier periods) — "the accumulator is optimal" fails when
+  the snapshot says Critical and nothing says it ever was.
 
 Deliberately ignored: list numbering ("1."), sensor codes (PS2, TS1), and bare
 whole numbers up to 10 with no unit ("top 3 drivers", "Pressure 2").
@@ -76,13 +77,18 @@ def validate(text: str, snapshot: dict[str, Any]) -> dict[str, Any]:
         checked.append({"claim": written, "ok": any(abs(value - n) <= tolerance for n in nums)})
 
     states = {c["component"].lower(): c for c in snapshot.get("components", [])}
+    reported: dict[str, set[str]] = {}  # conditions tool results showed per component
+    for t in snapshot.get("toolResults", []):
+        r = t.get("result") or {}
+        conds = [r.get("condition")] + [p.get("condition") for p in r.get("periods", [])]
+        reported.setdefault(str(r.get("component", "")).lower(), set()).update(c.lower() for c in conds if c)
     for sentence in _SENTENCE.split(text):
         low = sentence.lower()
         named = [name for name in states if re.search(rf"\b{name}\b", low)]
         if len(named) != 1:
             continue
         c = states[named[0]]
-        allowed = {c["condition"].lower(), (c.get("changedFrom") or "").lower()}
+        allowed = {c["condition"].lower(), (c.get("changedFrom") or "").lower()} | reported.get(named[0], set())
         for cond in CONDITIONS:
             if re.search(rf"\b{cond}\b", low):
                 checked.append({"claim": f"{c['component']}: {cond.capitalize()}", "ok": cond in allowed})

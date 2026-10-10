@@ -18,7 +18,7 @@ interface HardwareInfo {
     load_percent: number | null
   } | null
   disk: { path: string; total_bytes: number | null; free_bytes: number | null }
-  host: { os: string | null; release: string | null; wsl: boolean; container: boolean }
+  host: { os: string | null; release: string | null; wsl: boolean }
   ollama: { reachable: boolean; version: string | null }
   safe_ram_fraction: number
 }
@@ -102,7 +102,6 @@ export function HardwareTab() {
       <div className="flex items-center justify-between">
         <div className="text-[12.5px] text-ink-faint">
           {hw.host.os} {hw.host.release}
-          {hw.host.container && " · in a container"}
           {" · "}Ollama {hw.ollama.reachable ? `${hw.ollama.version ?? ""} running` : "not reachable"}
         </div>
         <Button

@@ -1,10 +1,8 @@
 """The local LLM runtime (Ollama) — the only module that talks to it.
 
-Ollama may be reachable at different addresses depending on where the backend
-runs: a container reaches the host via `host.docker.internal`, which does not
-resolve when the backend runs directly on the host. So every call tries the
-configured URL first, then its localhost/127.0.0.1 variants, and remembers
-whichever answered. That fallback lives in two helpers, `_request` (one-shot
+`localhost` can resolve to IPv6 (::1) while Ollama listens on IPv4 only
+(common under WSL), so every call tries the configured URL first, then its
+localhost/127.0.0.1 variant, and remembers whichever answered. That fallback lives in two helpers, `_request` (one-shot
 calls) and `_stream` (NDJSON streams); the public functions only shape data.
 
 Public API:
@@ -49,9 +47,9 @@ class OllamaUnavailable(RuntimeError):
 
 def candidate_base_urls() -> list[str]:
     """Where to look for Ollama, best guess first — see the module docstring."""
-    base = os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434").rstrip("/")
+    base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     candidates = [base]
-    aliases = ("host.docker.internal", "localhost", "127.0.0.1")
+    aliases = ("localhost", "127.0.0.1")
     for alias in aliases:
         if alias in base:
             for replacement in aliases:
@@ -84,7 +82,7 @@ def _unavailable(last_error: Exception | None) -> OllamaUnavailable:
     if "Connect" in kind or "Timeout" in kind:
         hint = (
             "Check it is running (`ollama list` should answer). If Ollama runs on another "
-            "machine or in Docker, it binds 127.0.0.1 by default — start it with "
+            "machine, it binds 127.0.0.1 by default — start it with "
             "OLLAMA_HOST=0.0.0.0 and point OLLAMA_BASE_URL at it."
         )
     return OllamaUnavailable(f"no Ollama daemon answered on {tried} ({kind}). {hint}")
@@ -104,12 +102,12 @@ def _error_detail(response: httpx.Response) -> str:
 # ── transport: the URL fallback, written once ────────────────────────────────
 
 
-def _request(method: str, path: str, **kwargs: Any) -> httpx.Response:
+def _request(method: str, path: str, read_timeout: float = LIST_TIMEOUT, **kwargs: Any) -> httpx.Response:
     """One call against the first URL that answers. Raises OllamaUnavailable if none does."""
     last_error: Exception | None = None
     for base in candidate_base_urls():
         try:
-            response = httpx.request(method, f"{base}{path}", timeout=_timeout(LIST_TIMEOUT), **kwargs)
+            response = httpx.request(method, f"{base}{path}", timeout=_timeout(read_timeout), **kwargs)
         except httpx.HTTPError as exc:
             last_error = exc
             continue
@@ -211,6 +209,18 @@ def chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
             yield content
         if event.get("done"):
             return
+
+
+def chat_once(model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+    """One non-streamed reply that may call tools: the assistant message, `tool_calls` arguments as dicts.
+
+    Raises OllamaError (e.g. "… does not support tools") if Ollama refuses.
+    """
+    payload = {"model": model, "messages": messages, "tools": tools, "stream": False, **_chat_options()}
+    response = _request("POST", "/api/chat", read_timeout=CHAT_READ_TIMEOUT, json=payload)
+    if response.status_code >= 400:
+        raise OllamaError(_error_detail(response))
+    return response.json().get("message") or {}
 
 
 def pull(name: str) -> Iterator[dict[str, Any]]:

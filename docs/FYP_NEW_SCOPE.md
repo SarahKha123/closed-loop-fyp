@@ -393,7 +393,7 @@ treated as newly arrived data.
 | React, TypeScript, Vite, Tailwind CSS, TanStack Router | Web dashboard |
 | Ollama | Running local language models (e.g. Qwen3, Llama 3.2, Gemma 3) |
 | OpenAI-compatible APIs | Cloud language models (OpenAI, Anthropic, Gemini, Groq, OpenRouter, DeepSeek) |
-| Docker (optional) | One-command deployment |
+| Bash (`closed-loop.sh`) | One-command setup and start on a single machine; no containers, so it runs on a 4-core, 8 GB laptop |
 | Git / GitHub | Version control |
 
 **Justification paragraph (add):** a self-built stack removes licensing and

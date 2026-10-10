@@ -1,29 +1,17 @@
 #!/usr/bin/env bash
 # Closed Loop — single entry point for everything you'd want to run.
 #
-#   ./closed-loop.sh setup      one-time: install dependencies for local development
-#   ./closed-loop.sh start      build (if needed) and start the container stack
-#   ./closed-loop.sh dev        hot-reload dev stack, in containers
-#   ./closed-loop.sh stop       stop the stack
-#   ./closed-loop.sh logs       follow the stack's logs
-#   ./closed-loop.sh rebuild    force a clean image rebuild, then start
-#   ./closed-loop.sh status     what's running, and whether the API answers
+#   ./closed-loop.sh setup      one-time: dependencies, .env, trained models
+#   ./closed-loop.sh start      build the dashboard once and serve it with the API
+#                               on one port (lightest; use this for demos)
+#   ./closed-loop.sh dev        hot-reload backend + Vite dev server (for coding)
+#   ./closed-loop.sh test       backend tests + frontend type check and lint
+#   ./closed-loop.sh status     whether the API and Ollama answer
 #   ./closed-loop.sh reset-db   delete the database (recreated empty on next start)
 #
-# Flags:
-#   --with-ollama            run Ollama as a container too (default: use the host)
-#   --host                   dev only: run the two servers on the host, not in
-#                            containers (faster to attach a debugger to)
-#   --gpu / --no-gpu         force GPU passthrough on or off. The default is
-#                            auto: on when this host has an NVIDIA GPU
-#
-# The stack is one container serving both the API and the built dashboard.
-# `dev` layers docker-compose.dev.yml over it: same image, source bind-mounted,
-# uvicorn and vite reloading in place.
-#
-# Modelled on Daedalus's daedalus.sh (see ./Daedalus, reference only) — same
-# shape, scaled to one service and one optional sidecar instead of five
-# databases and a search engine.
+# Everything runs directly on this machine — no containers. Both `start` and
+# `dev` start `ollama serve` if Ollama is installed but not running (with the
+# low-resource limits from .env), and stop it again on Ctrl-C.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -33,74 +21,13 @@ cd "$(dirname "$0")"
 
 load_env
 
-PORT="${CLOSED_LOOP_PORT:-8000}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+PY=backend/.venv/bin/python
 
-usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
 
-# ── argument parsing ─────────────────────────────────────────────────────────
-CMD="${1:-start}"
-[ $# -gt 0 ] && shift || true
-
-PROFILE_ARGS=()
-DEV_ON_HOST=0
-GPU_MODE=auto
-
-for arg in "$@"; do
-  case "$arg" in
-    --with-ollama) PROFILE_ARGS+=(--profile with-ollama) ;;
-    --host)        DEV_ON_HOST=1 ;;
-    --gpu)         GPU_MODE=on ;;
-    --no-gpu)      GPU_MODE=off ;;
-    -h|--help)     usage; exit 0 ;;
-    *) err "unknown option '$arg' (try --help)"; exit 1 ;;
-  esac
-done
-
-# ── GPU passthrough ──────────────────────────────────────────────────────────
-gpu_overlay() {
-  case "$GPU_MODE" in
-    off) return 1 ;;
-    on)  printf -- '-f docker-compose.gpu.yml'; return 0 ;;
-  esac
-  if have nvidia-smi && nvidia-smi -L 2>/dev/null | grep -q '^GPU '; then
-    printf -- '-f docker-compose.gpu.yml'
-    return 0
-  fi
-  return 1
-}
-
-# `compose up`, with the GPU overlay dropped rather than fatal when Docker will
-# not honour it, and a failing build showing why.
-_compose_up_once() {
-  local log="$1"; shift
-  if [ "${COMPOSE_UP_QUIET:-0}" = "1" ]; then
-    compose "${PROFILE_ARGS[@]}" up "$@" >/dev/null 2>"$log"
-    return $?
-  fi
-  compose "${PROFILE_ARGS[@]}" up "$@" 2>&1 | tee "$log"
-  return "${PIPESTATUS[0]}"
-}
-
-compose_up() {
-  local log rc
-  log="$(mktemp)"
-  _compose_up_once "$log" "$@"
-  rc=$?
-  if [ $rc -ne 0 ] && [ -n "${GPU_FILES:-}" ] && [ "$GPU_MODE" != "on" ] \
-     && grep -qiE 'nvidia|could not select device driver|gpu' "$log"; then
-    warn "this host advertises a GPU but Docker will not pass it through — continuing without it"
-    say "  ${DIM}install the NVIDIA Container Toolkit, or pass --no-gpu to stop asking${RESET}"
-    GPU_FILES=""
-    export COMPOSE_FILES="$BASE_COMPOSE_FILES"
-    _compose_up_once "$log" "$@"
-    rc=$?
-  fi
-  [ $rc -eq 0 ] || [ "${COMPOSE_UP_QUIET:-0}" != "1" ] || tail -40 "$log" >&2
-  rm -f "$log"
-  return $rc
-}
+CMD="${1:-help}"
 
 # ── commands ─────────────────────────────────────────────────────────────────
 
@@ -111,9 +38,6 @@ cmd_setup() {
     if have "$tool"; then ok "$tool $($tool --version 2>/dev/null | head -1)"
     else err "$tool is not installed"; missing=1; fi
   done
-  # Optional: only `start`/`dev` need it; `dev --host` runs without.
-  if have docker; then ok "docker $(docker --version 2>/dev/null | head -1)"
-  else warn "docker not installed — use './closed-loop.sh dev --host'"; fi
   if have pnpm; then ok "pnpm $(pnpm --version)"
   elif have corepack; then warn "pnpm missing — enabling via corepack"; corepack enable || true
   else err "pnpm is not installed (npm i -g pnpm)"; missing=1; fi
@@ -121,6 +45,7 @@ cmd_setup() {
 
   head_ "Configuration"
   ensure_env
+  ensure_dirs
 
   head_ "Frontend dependencies"
   pnpm --dir frontend install
@@ -129,19 +54,19 @@ cmd_setup() {
   head_ "Backend virtualenv"
   # A venv whose Python was removed (e.g. an uninstalled conda) still has its
   # folder and scripts, so test the interpreter, not the directory.
-  if backend/.venv/bin/python -c "" 2>/dev/null; then
+  if $PY -c "" 2>/dev/null; then
     ok "backend/.venv already exists"
   else
     rm -rf backend/.venv
     python3 -m venv backend/.venv
     ok "created backend/.venv"
   fi
-  backend/.venv/bin/pip install --quiet --upgrade pip
-  backend/.venv/bin/pip install --quiet -r backend/requirements.txt
+  $PY -m pip install --quiet --upgrade pip
+  $PY -m pip install --quiet -r backend/requirements.txt -r backend/requirements-dev.txt
   ok "python packages installed"
 
   head_ "ML models"
-  # Trained models aren't committed; build them once from the committed dataset.
+  # Trained models aren't committed; build them once from the committed dataset (~2 min).
   if ls backend/ml/models/*.joblib >/dev/null 2>&1; then
     ok "trained models present"
   else
@@ -149,100 +74,60 @@ cmd_setup() {
     ok "models trained"
   fi
 
-  head_ "Runtime directories"
-  ensure_dirs
-  ok "config/ ready"
-
-  head_ "Optional"
-  check_ollama || true
+  head_ "Local language models (optional)"
+  if have ollama; then ok "ollama $(ollama --version 2>/dev/null | tail -1)"
+  else warn "Ollama not installed — get it from https://ollama.com, or use a cloud API on the Models page"; fi
 
   head_ "Done"
-  say "  ${DIM}Containers:${RESET}  ./closed-loop.sh start"
+  say "  ${DIM}Run it:${RESET}      ./closed-loop.sh start"
   say "  ${DIM}Hot reload:${RESET}  ./closed-loop.sh dev"
   say ""
 }
 
-cmd_start() {
-  ensure_env
-  ensure_dirs
-  [ ${#PROFILE_ARGS[@]} -gt 0 ] || check_ollama || true
-  BASE_COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
-  GPU_FILES="$(gpu_overlay || true)"
-  export COMPOSE_FILES="$BASE_COMPOSE_FILES${GPU_FILES:+ $GPU_FILES}"
-  head_ "Starting Closed Loop"
-  compose_up -d "$@" || fail "the stack did not start — the output above says why"
-  if wait_for_api "$PORT"; then
-    ok "dashboard   http://localhost:${PORT}"
-    ok "API docs    http://localhost:${PORT}/docs"
-    say ""
-    say "  ${DIM}Logs:${RESET} ./closed-loop.sh logs   ${DIM}Stop:${RESET} ./closed-loop.sh stop"
-    say ""
-  else
-    err "the API did not become healthy in 60s. Recent logs:"
-    compose "${PROFILE_ARGS[@]}" logs --tail=40 app >&2
-    exit 1
-  fi
-}
-
-cmd_dev() {
-  [ "$DEV_ON_HOST" = "1" ] && { cmd_dev_host; return; }
-
-  ensure_env
-  ensure_dirs
-  check_ollama || true
-
-  BASE_COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
-  GPU_FILES="$(gpu_overlay || true)"
-  export COMPOSE_FILES="$BASE_COMPOSE_FILES${GPU_FILES:+ $GPU_FILES}"
-
-  head_ "Starting dev stack"
-  say "  ${DIM}source is bind-mounted; uvicorn and vite both reload in place${RESET}"
-  [ -n "$GPU_FILES" ] \
-    && say "  ${DIM}GPU passed through — /api/hardware describes the real card${RESET}" \
-    || say "  ${DIM}no GPU passthrough; hardware detection will say so rather than report none${RESET}"
-  say ""
-  COMPOSE_UP_QUIET=1 compose_up -d --build app \
-    || fail "could not start the backend — the build output above says why"
-
-  if wait_for_api "$BACKEND_PORT"; then
-    ok "backend   http://localhost:${BACKEND_PORT}"
-  else
-    err "the API did not become healthy in 60s. Recent logs:"
-    compose logs --tail=40 app >&2
-    exit 1
-  fi
-  ok "frontend  http://localhost:${FRONTEND_PORT}  ${DIM}(starting — first run installs deps)${RESET}"
-  say ""
-  say "  ${DIM}Stop:${RESET} ./closed-loop.sh stop   ${DIM}Backend logs:${RESET} ./closed-loop.sh logs"
-  say ""
-  # Vite in the foreground, so Ctrl-C ends the session the way it always has.
-  # The backend keeps running — it is a container now, `stop` owns its
-  # lifetime, and killing it on every UI restart would be the wrong default.
-  compose up frontend
-}
-
-# The older path: two processes on the host. A debugger attaches to a local
-# process in one step, and a container that will not start is not a reason to
-# be unable to run anything.
-cmd_dev_host() {
-  backend/.venv/bin/python -c "import uvicorn" 2>/dev/null || fail "backend/.venv missing or broken — run './closed-loop.sh setup' first"
+need_setup() {
+  $PY -c "import uvicorn" 2>/dev/null || fail "backend/.venv missing or broken — run './closed-loop.sh setup' first"
   [ -d frontend/node_modules ] || fail "frontend/node_modules missing — run './closed-loop.sh setup' first"
   ensure_env
   ensure_dirs
-  # Start Ollama ourselves if it's installed but not running; leave an
-  # already-running one alone (it isn't ours to stop).
-  local ollama_pid=""
+}
+
+# Start Ollama ourselves if it's installed but not running; leave an
+# already-running one alone (it isn't ours to stop). Sets OLLAMA_PID.
+OLLAMA_PID=""
+maybe_start_ollama() {
   if ! check_ollama && have ollama; then
     ollama serve >/dev/null 2>&1 &
-    ollama_pid=$!
-    ok "started ollama serve (pid $ollama_pid)"
+    OLLAMA_PID=$!
+    ok "started ollama serve (pid $OLLAMA_PID)"
   fi
+}
 
-  head_ "Starting dev servers on the host"
-  CLOSED_LOOP_CONFIG_DIR=config backend/.venv/bin/uvicorn app.main:app --reload --reload-dir backend/app \
+cmd_start() {
+  need_setup
+  head_ "Building the dashboard"
+  pnpm --dir frontend build >/dev/null || fail "frontend build failed — run 'pnpm --dir frontend build' to see why"
+  ok "frontend/dist ready"
+  maybe_start_ollama
+
+  head_ "Starting Closed Loop"
+  ok "dashboard   http://localhost:${BACKEND_PORT}"
+  ok "API docs    http://localhost:${BACKEND_PORT}/docs"
+  say "  ${DIM}Ctrl-C stops it${RESET}"
+  say ""
+  trap '[ -n "$OLLAMA_PID" ] && kill $OLLAMA_PID 2>/dev/null || true' EXIT INT TERM
+  CLOSED_LOOP_STATIC_DIR=frontend/dist $PY -m uvicorn app.main:app --app-dir backend \
+    --port "$BACKEND_PORT" --timeout-graceful-shutdown 3
+}
+
+cmd_dev() {
+  need_setup
+  maybe_start_ollama
+
+  head_ "Starting dev servers"
+  $PY -m uvicorn app.main:app --reload --reload-dir backend/app \
     --port "$BACKEND_PORT" --app-dir backend --timeout-graceful-shutdown 3 &
   local api_pid=$!
-  trap 'kill $api_pid $ollama_pid 2>/dev/null || true' EXIT INT TERM
+  trap 'kill $api_pid ${OLLAMA_PID:-} 2>/dev/null || true' EXIT INT TERM
   ok "backend   http://localhost:${BACKEND_PORT}  (pid $api_pid)"
   ok "frontend  http://localhost:${FRONTEND_PORT}"
   say ""
@@ -250,12 +135,14 @@ cmd_dev_host() {
   CLOSED_LOOP_API_URL="http://localhost:${BACKEND_PORT}" pnpm --dir frontend dev --port "$FRONTEND_PORT"
 }
 
-# `--remove-orphans`: `dev` layers an overlay that adds a service (frontend)
-# and renames a container; without the flag a `down` from the base file alone
-# leaves those behind as containers compose no longer believes in.
-cmd_stop()    { compose "${PROFILE_ARGS[@]}" down --remove-orphans; }
-cmd_logs()    { compose "${PROFILE_ARGS[@]}" logs -f; }
-cmd_rebuild() { ensure_dirs; cmd_start --build --force-recreate; }
+cmd_test() {
+  need_setup
+  head_ "Backend tests"
+  (cd backend && .venv/bin/python -m pytest -q)
+  head_ "Frontend checks"
+  pnpm --dir frontend exec tsc -b && ok "types"
+  pnpm --dir frontend exec oxlint src && ok "lint"
+}
 
 # The backend recreates the tables on its next start (db.init_db). Stop it
 # first: a running server keeps the old file open.
@@ -265,28 +152,25 @@ cmd_reset_db() {
 }
 
 cmd_status() {
-  head_ "Containers"
-  compose ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || say "  none running"
-
   head_ "API"
-  if curl -fsS --max-time 3 "http://localhost:${PORT}/api/models/active" >/dev/null 2>&1; then
-    ok "reachable on :${PORT}"
-    curl -fsS --max-time 3 "http://localhost:${PORT}/api/models/active" | python3 -m json.tool 2>/dev/null | sed 's/^/  /'
+  if curl -fsS --max-time 3 "http://localhost:${BACKEND_PORT}/api/models/active" >/dev/null 2>&1; then
+    ok "reachable on :${BACKEND_PORT}"
+    curl -fsS --max-time 3 "http://localhost:${BACKEND_PORT}/api/models/active" | python3 -m json.tool 2>/dev/null | sed 's/^/  /'
   else
-    warn "API not reachable on :${PORT} — is it running?"
+    warn "API not reachable on :${BACKEND_PORT} — is it running?"
   fi
+  head_ "Ollama"
+  check_ollama || true
   say ""
 }
 
 case "$CMD" in
-  setup)        cmd_setup ;;
-  start|up)     cmd_start ;;
-  dev)          cmd_dev ;;
-  stop|down)    cmd_stop ;;
-  logs)         cmd_logs ;;
-  rebuild)      cmd_rebuild ;;
-  status)       cmd_status ;;
-  reset-db)     cmd_reset_db ;;
+  setup)    cmd_setup ;;
+  start)    cmd_start ;;
+  dev)      cmd_dev ;;
+  test)     cmd_test ;;
+  status)   cmd_status ;;
+  reset-db) cmd_reset_db ;;
   -h|--help|help) usage ;;
   *) err "unknown command '$CMD'"; say ""; usage; exit 1 ;;
 esac
