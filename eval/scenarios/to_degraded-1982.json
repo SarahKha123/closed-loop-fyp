@@ -1,0 +1,137 @@
+{
+ "id": "to_degraded-1982",
+ "category": "to_degraded",
+ "cycle": 1982,
+ "triggerType": "condition_change",
+ "events": [
+  "Pump changed from Critical to Degraded at cycle 1982"
+ ],
+ "snapshot": {
+  "cycle": 1982,
+  "events": [
+   "Pump changed from Critical to Degraded at cycle 1982"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1931,
+    "topDrivers": [
+     {
+      "name": "Volume flow 2 (mean)",
+      "value": 10.14,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (maximum)",
+      "value": 75.89,
+      "unit": "%"
+     },
+     {
+      "name": "Temperature 4 (mean)",
+      "value": 31.46,
+      "unit": "°C"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.1,
+    "confidence": "High",
+    "conditionSinceCycle": 1465,
+    "topDrivers": [
+     {
+      "name": "Cooling power (mean)",
+      "value": 2.12,
+      "unit": "kW"
+     },
+     {
+      "name": "Temperature 4 (minimum)",
+      "value": 31.37,
+      "unit": "°C"
+     },
+     {
+      "name": "Cooling efficiency (minimum)",
+      "value": 46.14,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Degraded",
+    "changedFrom": "Critical",
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1982,
+    "topDrivers": [
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.5,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 57.1,
+      "unit": "%"
+     },
+     {
+      "name": "Efficiency factor (variability)",
+      "value": 22.68,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 12.3,
+    "confidence": "Medium",
+    "conditionSinceCycle": 1972,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (variability)",
+      "value": 46.99,
+      "unit": "bar"
+     },
+     {
+      "name": "Pressure 1 (variability)",
+      "value": 14.09,
+      "unit": "bar"
+     },
+     {
+      "name": "Pressure 2 (mean)",
+      "value": 109.3,
+      "unit": "bar"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0045",
+    "component": "Pump",
+    "priority": "High",
+    "raisedBy": "system"
+   },
+   {
+    "id": "WO-0044",
+    "component": "Accumulator",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Pump",
+   "condition": "Degraded"
+  }
+ ]
+}

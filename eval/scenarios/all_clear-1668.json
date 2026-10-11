@@ -1,0 +1,119 @@
+{
+ "id": "all_clear-1668",
+ "category": "all_clear",
+ "cycle": 1668,
+ "triggerType": "manual",
+ "events": [
+  "The engineer asked for a summary of the current state"
+ ],
+ "snapshot": {
+  "cycle": 1668,
+  "events": [
+   "The engineer asked for a summary of the current state"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.1,
+    "confidence": "High",
+    "conditionSinceCycle": 1665,
+    "topDrivers": [
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 47.37,
+      "unit": "%"
+     },
+     {
+      "name": "Pressure 1 (variability)",
+      "value": 13.97,
+      "unit": "bar"
+     },
+     {
+      "name": "Volume flow 2 (mean)",
+      "value": 10.19,
+      "unit": "l/min"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.1,
+    "confidence": "High",
+    "conditionSinceCycle": 1465,
+    "topDrivers": [
+     {
+      "name": "Cooling power (mean)",
+      "value": 2.16,
+      "unit": "kW"
+     },
+     {
+      "name": "Temperature 4 (minimum)",
+      "value": 30.6,
+      "unit": "°C"
+     },
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 47.37,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.3,
+    "confidence": "High",
+    "conditionSinceCycle": 1424,
+    "topDrivers": [
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.71,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.03,
+      "unit": "%"
+     },
+     {
+      "name": "Pressure 3 (mean)",
+      "value": 2.01,
+      "unit": "bar"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 1.7,
+    "confidence": "High",
+    "conditionSinceCycle": 1455,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (mean)",
+      "value": 109.7,
+      "unit": "bar"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.71,
+      "unit": "l/min"
+     },
+     {
+      "name": "Pressure 1 (variability)",
+      "value": 13.97,
+      "unit": "bar"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": []
+ },
+ "expected": []
+}

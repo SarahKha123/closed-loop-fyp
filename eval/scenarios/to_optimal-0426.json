@@ -1,0 +1,133 @@
+{
+ "id": "to_optimal-0426",
+ "category": "to_optimal",
+ "cycle": 426,
+ "triggerType": "multiple",
+ "events": [
+  "Pump changed from Degraded to Optimal at cycle 426",
+  "Work order WO-0006 closed for Pump"
+ ],
+ "snapshot": {
+  "cycle": 426,
+  "events": [
+   "Pump changed from Degraded to Optimal at cycle 426",
+   "Work order WO-0006 closed for Pump"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Degraded",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 334,
+    "topDrivers": [
+     {
+      "name": "Pressure 1 (mean)",
+      "value": 156.1,
+      "unit": "bar"
+     },
+     {
+      "name": "Temperature 3 (mean)",
+      "value": 58.43,
+      "unit": "°C"
+     },
+     {
+      "name": "Pressure 3 (variability)",
+      "value": 0.884,
+      "unit": "bar"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Cooling power (minimum)",
+      "value": 1.44,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling power (mean)",
+      "value": 1.48,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 18.83,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Optimal",
+    "changedFrom": "Degraded",
+    "failureProbabilityPct": 1.3,
+    "confidence": "High",
+    "conditionSinceCycle": 426,
+    "topDrivers": [
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.86,
+      "unit": "%"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.58,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (variability)",
+      "value": 23.9,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 14.0,
+    "confidence": "Medium",
+    "conditionSinceCycle": 416,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (variability)",
+      "value": 45.46,
+      "unit": "bar"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.86,
+      "unit": "%"
+     },
+     {
+      "name": "Motor power (mean)",
+      "value": 2378.0,
+      "unit": "W"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0001",
+    "component": "Cooler",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Pump",
+   "condition": "Optimal"
+  }
+ ]
+}

@@ -1,0 +1,131 @@
+{
+ "id": "steady-0011",
+ "category": "steady",
+ "cycle": 11,
+ "triggerType": "manual",
+ "events": [
+  "The engineer asked for a summary of the current state"
+ ],
+ "snapshot": {
+  "cycle": 11,
+  "events": [
+   "The engineer asked for a summary of the current state"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.1,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Cooling power (mean)",
+      "value": 1.15,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling power (minimum)",
+      "value": 1.1,
+      "unit": "kW"
+     },
+     {
+      "name": "Temperature 3 (mean)",
+      "value": 45.37,
+      "unit": "°C"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Cooling power (minimum)",
+      "value": 1.1,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling power (mean)",
+      "value": 1.15,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 18.11,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.3,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.66,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.58,
+      "unit": "%"
+     },
+     {
+      "name": "Efficiency factor (variability)",
+      "value": 23.79,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 1.7,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.58,
+      "unit": "%"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.66,
+      "unit": "l/min"
+     },
+     {
+      "name": "Pressure 1 (variability)",
+      "value": 14.45,
+      "unit": "bar"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0001",
+    "component": "Cooler",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Cooler",
+   "condition": "Critical"
+  }
+ ]
+}

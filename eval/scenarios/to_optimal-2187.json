@@ -1,0 +1,133 @@
+{
+ "id": "to_optimal-2187",
+ "category": "to_optimal",
+ "cycle": 2187,
+ "triggerType": "multiple",
+ "events": [
+  "Valve changed from Degraded to Optimal at cycle 2187",
+  "Work order WO-0052 closed for Valve"
+ ],
+ "snapshot": {
+  "cycle": 2187,
+  "events": [
+   "Valve changed from Degraded to Optimal at cycle 2187",
+   "Work order WO-0052 closed for Valve"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 99.9,
+    "confidence": "High",
+    "conditionSinceCycle": 1931,
+    "topDrivers": [
+     {
+      "name": "Pressure 3 (maximum)",
+      "value": 9.5,
+      "unit": "bar"
+     },
+     {
+      "name": "Temperature 1 (maximum)",
+      "value": 35.59,
+      "unit": "°C"
+     },
+     {
+      "name": "Temperature 4 (mean)",
+      "value": 30.54,
+      "unit": "°C"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.1,
+    "confidence": "High",
+    "conditionSinceCycle": 1465,
+    "topDrivers": [
+     {
+      "name": "Cooling power (mean)",
+      "value": 2.15,
+      "unit": "kW"
+     },
+     {
+      "name": "Temperature 4 (minimum)",
+      "value": 30.45,
+      "unit": "°C"
+     },
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 46.22,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.3,
+    "confidence": "High",
+    "conditionSinceCycle": 2156,
+    "topDrivers": [
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.69,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.07,
+      "unit": "%"
+     },
+     {
+      "name": "Pressure 3 (mean)",
+      "value": 1.99,
+      "unit": "bar"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": "Degraded",
+    "failureProbabilityPct": 7.7,
+    "confidence": "High",
+    "conditionSinceCycle": 2187,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (mean)",
+      "value": 109.8,
+      "unit": "bar"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.69,
+      "unit": "l/min"
+     },
+     {
+      "name": "Pressure 2 (variability)",
+      "value": 47.21,
+      "unit": "bar"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0044",
+    "component": "Accumulator",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Valve",
+   "condition": "Optimal"
+  }
+ ]
+}

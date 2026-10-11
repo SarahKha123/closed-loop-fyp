@@ -1,0 +1,139 @@
+{
+ "id": "to_critical-0211",
+ "category": "to_critical",
+ "cycle": 211,
+ "triggerType": "multiple",
+ "events": [
+  "Pump changed from Optimal to Critical at cycle 211",
+  "Work order WO-0002 opened for Pump"
+ ],
+ "snapshot": {
+  "cycle": 211,
+  "events": [
+   "Pump changed from Optimal to Critical at cycle 211",
+   "Work order WO-0002 opened for Pump"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Cooling power (mean)",
+      "value": 1.55,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling power (minimum)",
+      "value": 1.51,
+      "unit": "kW"
+     },
+     {
+      "name": "Temperature 3 (mean)",
+      "value": 55.88,
+      "unit": "°C"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Cooling power (minimum)",
+      "value": 1.51,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling power (mean)",
+      "value": 1.55,
+      "unit": "kW"
+     },
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 19.99,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Critical",
+    "changedFrom": "Optimal",
+    "failureProbabilityPct": 99.7,
+    "confidence": "Medium",
+    "conditionSinceCycle": 211,
+    "topDrivers": [
+     {
+      "name": "Efficiency factor (variability)",
+      "value": 22.57,
+      "unit": "%"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.31,
+      "unit": "l/min"
+     },
+     {
+      "name": "Volume flow 1 (variability)",
+      "value": 2.85,
+      "unit": "l/min"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 16.7,
+    "confidence": "Medium",
+    "conditionSinceCycle": 1,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (variability)",
+      "value": 45.64,
+      "unit": "bar"
+     },
+     {
+      "name": "Volume flow 1 (variability)",
+      "value": 2.85,
+      "unit": "l/min"
+     },
+     {
+      "name": "Motor power (mean)",
+      "value": 2427.0,
+      "unit": "W"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0002",
+    "component": "Pump",
+    "priority": "High",
+    "raisedBy": "system"
+   },
+   {
+    "id": "WO-0001",
+    "component": "Cooler",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Pump",
+   "condition": "Critical"
+  }
+ ]
+}

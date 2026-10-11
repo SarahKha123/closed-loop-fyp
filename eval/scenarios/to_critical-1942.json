@@ -1,0 +1,145 @@
+{
+ "id": "to_critical-1942",
+ "category": "to_critical",
+ "cycle": 1942,
+ "triggerType": "multiple",
+ "events": [
+  "Valve changed from Optimal to Critical at cycle 1942",
+  "Work order WO-0046 opened for Valve"
+ ],
+ "snapshot": {
+  "cycle": 1942,
+  "events": [
+   "Valve changed from Optimal to Critical at cycle 1942",
+   "Work order WO-0046 opened for Valve"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1931,
+    "topDrivers": [
+     {
+      "name": "Volume flow 2 (mean)",
+      "value": 10.15,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (maximum)",
+      "value": 74.3,
+      "unit": "%"
+     },
+     {
+      "name": "Temperature 4 (mean)",
+      "value": 31.32,
+      "unit": "°C"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.1,
+    "confidence": "High",
+    "conditionSinceCycle": 1465,
+    "topDrivers": [
+     {
+      "name": "Cooling power (mean)",
+      "value": 2.14,
+      "unit": "kW"
+     },
+     {
+      "name": "Temperature 4 (minimum)",
+      "value": 31.26,
+      "unit": "°C"
+     },
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 47.05,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1941,
+    "topDrivers": [
+     {
+      "name": "Efficiency factor (variability)",
+      "value": 22.58,
+      "unit": "%"
+     },
+     {
+      "name": "Efficiency factor (maximum)",
+      "value": 74.3,
+      "unit": "%"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 54.85,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Critical",
+    "changedFrom": "Optimal",
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 1942,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (variability)",
+      "value": 47.52,
+      "unit": "bar"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 54.85,
+      "unit": "%"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.38,
+      "unit": "l/min"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0046",
+    "component": "Valve",
+    "priority": "High",
+    "raisedBy": "system"
+   },
+   {
+    "id": "WO-0045",
+    "component": "Pump",
+    "priority": "High",
+    "raisedBy": "system"
+   },
+   {
+    "id": "WO-0044",
+    "component": "Accumulator",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Valve",
+   "condition": "Critical"
+  }
+ ]
+}

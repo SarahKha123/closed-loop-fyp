@@ -1,0 +1,137 @@
+{
+ "id": "to_degraded-0733",
+ "category": "to_degraded",
+ "cycle": 733,
+ "triggerType": "condition_change",
+ "events": [
+  "Cooler changed from Critical to Degraded at cycle 733"
+ ],
+ "snapshot": {
+  "cycle": 733,
+  "events": [
+   "Cooler changed from Critical to Degraded at cycle 733"
+  ],
+  "components": [
+   {
+    "component": "Accumulator",
+    "condition": "Critical",
+    "changedFrom": null,
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 467,
+    "topDrivers": [
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.98,
+      "unit": "%"
+     },
+     {
+      "name": "Pressure 3 (variability)",
+      "value": 0.858,
+      "unit": "bar"
+     },
+     {
+      "name": "Volume flow 2 (variability)",
+      "value": 0.021,
+      "unit": "l/min"
+     }
+    ]
+   },
+   {
+    "component": "Cooler",
+    "condition": "Degraded",
+    "changedFrom": "Critical",
+    "failureProbabilityPct": 100.0,
+    "confidence": "High",
+    "conditionSinceCycle": 733,
+    "topDrivers": [
+     {
+      "name": "Cooling efficiency (mean)",
+      "value": 22.75,
+      "unit": "%"
+     },
+     {
+      "name": "Pressure 2 (mean)",
+      "value": 105.7,
+      "unit": "bar"
+     },
+     {
+      "name": "Pressure 1 (mean)",
+      "value": 156.4,
+      "unit": "bar"
+     }
+    ]
+   },
+   {
+    "component": "Pump",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 0.7,
+    "confidence": "High",
+    "conditionSinceCycle": 692,
+    "topDrivers": [
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.98,
+      "unit": "%"
+     },
+     {
+      "name": "Volume flow 1 (mean)",
+      "value": 6.58,
+      "unit": "l/min"
+     },
+     {
+      "name": "Efficiency factor (variability)",
+      "value": 23.83,
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "component": "Valve",
+    "condition": "Optimal",
+    "changedFrom": null,
+    "failureProbabilityPct": 7.7,
+    "confidence": "High",
+    "conditionSinceCycle": 723,
+    "topDrivers": [
+     {
+      "name": "Pressure 2 (variability)",
+      "value": 45.52,
+      "unit": "bar"
+     },
+     {
+      "name": "Efficiency factor (mean)",
+      "value": 59.98,
+      "unit": "%"
+     },
+     {
+      "name": "Volume flow 1 (variability)",
+      "value": 2.96,
+      "unit": "l/min"
+     }
+    ]
+   }
+  ],
+  "openWorkOrders": [
+   {
+    "id": "WO-0010",
+    "component": "Accumulator",
+    "priority": "Medium",
+    "raisedBy": "system"
+   },
+   {
+    "id": "WO-0001",
+    "component": "Cooler",
+    "priority": "Medium",
+    "raisedBy": "system"
+   }
+  ]
+ },
+ "expected": [
+  {
+   "component": "Cooler",
+   "condition": "Degraded"
+  }
+ ]
+}

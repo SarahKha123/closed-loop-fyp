@@ -40,19 +40,9 @@ def generate(trigger_type: str, trigger_events: list[str] | None = None) -> dict
     if snap["cycle"] is None:
         raise NoData("no cycle has been scored yet — start the replay")
 
-    no_think = bool(target.local_tag and target.local_tag.lower().startswith("qwen3"))
-    messages = prompts.insight_messages(snap, no_think=no_think)
-    text, first_ms, total_ms = advisor.complete(target, messages)
-    attempts, check = 1, None
-
     conf = settings.get()
-    if conf["grounding"]["enabled"]:
-        check = grounding.validate(text, snap)
-        if not check["grounded"]:
-            messages += [{"role": "assistant", "content": text}, prompts.retry_message(check["mismatches"])]
-            text, first_ms, retry_ms = advisor.complete(target, messages)
-            total_ms += retry_ms
-            attempts, check = 2, grounding.validate(text, snap)
+    w = write(target, snap, check=conf["grounding"]["enabled"])
+    text, first_ms, total_ms, attempts, check = w["text"], w["firstTokenMs"], w["totalMs"], w["attempts"], w["check"]
 
     insight_id = repo.insert_insight(
         trigger_type=trigger_type, trigger_ref="; ".join(trigger_events or []) or None,
@@ -66,6 +56,28 @@ def generate(trigger_type: str, trigger_events: list[str] | None = None) -> dict
     if not (check and not check["grounded"] and conf["grounding"]["hideUnverified"]):
         events.publish({"type": "insight", "insight": insight})
     return insight
+
+
+def write(target: advisor.Target, snap: dict[str, Any], *, check: bool) -> dict[str, Any]:
+    """Model → (grounding check → one retry with the mismatches). No storing, no events.
+
+    The insight engine and the evaluation (eval/run.py) both call this, so the
+    evaluation measures exactly what the app does. `firstCheck` is the verdict
+    on the first attempt (None with the check off).
+    """
+    no_think = bool(target.local_tag and target.local_tag.lower().startswith("qwen3"))
+    messages = prompts.insight_messages(snap, no_think=no_think)
+    text, first_ms, total_ms = advisor.complete(target, messages)
+    attempts, result, first_check = 1, None, None
+    if check:
+        result = first_check = grounding.validate(text, snap)
+        if not result["grounded"]:
+            messages += [{"role": "assistant", "content": text}, prompts.retry_message(result["mismatches"])]
+            text, _, retry_ms = advisor.complete(target, messages)  # first token stays the first request's
+            total_ms += retry_ms
+            attempts, result = 2, grounding.validate(text, snap)
+    return {"text": text, "firstTokenMs": first_ms, "totalMs": total_ms, "attempts": attempts,
+            "check": result, "firstCheck": first_check}
 
 
 class Engine:
