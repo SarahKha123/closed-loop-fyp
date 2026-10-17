@@ -1,10 +1,11 @@
-// The app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, toasts.
+// The app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, toasts, the no-model prompt.
 // Fixed to the viewport — the page itself never scrolls; a tall view scrolls inside its own column.
 // In study mode participants can't change the setup (no models page, model card or replay controls),
 // and the study condition decides the Advisor: hidden (dashboard only) or always open (dashboard + AI).
 
 import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router"
 import { AdvisorPanel } from "../components/shell/AdvisorPanel"
+import { NoModelDialog } from "../components/shell/NoModelDialog"
 import { Sidebar } from "../components/shell/Sidebar"
 import { ToastStack } from "../components/shell/ToastStack"
 import { TopBar } from "../components/shell/TopBar"
@@ -59,6 +60,7 @@ function Shell() {
         </div>
       </div>
       <ToastStack />
+      <NoModelDialog studyMode={studyMode} />
     </div>
   )
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Closed Loop — single entry point for everything you'd want to run.
 #
-#   ./closed-loop.sh setup      one-time: dependencies, .env, trained models
+#   ./closed-loop.sh setup      one-time: dependencies, .env, trained models,
+#                               and (if you agree) Ollama
 #   ./closed-loop.sh start      build the dashboard once and serve it with the API
 #                               on one port (lightest; use this for demos)
 #   ./closed-loop.sh dev        hot-reload backend + Vite dev server (for coding)
@@ -26,7 +27,7 @@ BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 PY=backend/.venv/bin/python
 
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
 
 CMD="${1:-help}"
 
@@ -54,10 +55,13 @@ cmd_setup() {
 
   head_ "Backend virtualenv"
   # A venv whose Python was removed (e.g. an uninstalled conda) still has its
-  # folder and scripts, so test the interpreter, not the directory.
-  if $PY -c "" 2>/dev/null; then
+  # folder and scripts, so test the interpreter, not the directory. Also test
+  # pip: without ensurepip, `python3 -m venv` leaves a venv that has no pip.
+  if $PY -m pip --version >/dev/null 2>&1; then
     ok "backend/.venv already exists"
   else
+    python3 -c "import ensurepip" 2>/dev/null \
+      || fail "python3 has no venv/ensurepip support — on Debian/Ubuntu run: sudo apt install python3-venv (or python3.$(python3 -c 'import sys; print(sys.version_info[1])')-venv)"
     rm -rf backend/.venv
     python3 -m venv backend/.venv
     ok "created backend/.venv"
@@ -76,13 +80,37 @@ cmd_setup() {
   fi
 
   head_ "Local language models (optional)"
-  if have ollama; then ok "ollama $(ollama --version 2>/dev/null | tail -1)"
-  else warn "Ollama not installed — get it from https://ollama.com, or use a cloud API on the Models page"; fi
+  install_ollama
+  # Models aren't pulled here: the dashboard asks for one on first open and
+  # downloads it from the Models page, where the catalogue shows what fits.
 
   head_ "Done"
   say "  ${DIM}Run it:${RESET}      ./closed-loop.sh start"
   say "  ${DIM}Hot reload:${RESET}  ./closed-loop.sh dev"
   say ""
+}
+
+# Offer to install Ollama with its official script (needs sudo). Optional: a
+# cloud API works without it, so declining or a failed install isn't fatal.
+install_ollama() {
+  if have ollama; then ok "ollama $(ollama --version 2>/dev/null | tail -1)"; return 0; fi
+  warn "Ollama not installed — the Advisor needs it to run models on this machine"
+  if [ ! -t 0 ]; then
+    info "install it from https://ollama.com, or use a cloud API on the Models page"
+    return 0
+  fi
+  local answer
+  read -r -p "    Install Ollama now? (uses sudo) [Y/n] " answer || answer=n
+  case "${answer:-y}" in
+    [yY]*) ;;
+    *) info "skipped — re-run setup later, or use a cloud API on the Models page"; return 0 ;;
+  esac
+  have curl || { err "curl is needed to install Ollama (sudo apt install curl)"; return 0; }
+  if curl -fsSL https://ollama.com/install.sh | sh; then
+    ok "ollama $(ollama --version 2>/dev/null | tail -1) installed"
+  else
+    err "Ollama install failed — the output above says why; setup continues without it"
+  fi
 }
 
 need_setup() {
