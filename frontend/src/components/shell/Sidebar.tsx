@@ -1,4 +1,5 @@
-// Left navigation: brand, pages, the four components with their live condition, and the active model.
+// Left navigation: brand, pages, the four components with their live condition, and the active model
+// (not in study mode: participants don't pick models).
 
 import { Link } from "@tanstack/react-router"
 import { useLive } from "../../context/LiveContext"
@@ -17,7 +18,7 @@ const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models"; label: string; i
 const navItem = "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink"
 const navActive = "!bg-accent-bg !text-accent-text"
 
-export function Sidebar() {
+export function Sidebar({ studyMode }: { studyMode: boolean }) {
   const { overview } = useLive()
   const byName = new Map(overview?.components.map((c) => [c.component, c]))
   const openOrders = overview?.kpis.openWorkOrders ?? 0
@@ -35,7 +36,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-0.5 p-3" aria-label="Main">
-        {NAV.map((item) => (
+        {NAV.filter((item) => !(studyMode && item.to === "/models")).map((item) => (
           <Link key={item.to} to={item.to} activeOptions={{ exact: item.to === "/" }} className={navItem} activeProps={{ className: navActive }}>
             <Icon name={item.icon} />
             <span className="grow">{item.label}</span>
@@ -78,7 +79,7 @@ export function Sidebar() {
       <div className="grow" />
 
       <div className="flex flex-col gap-3 border-t border-line p-3">
-        <ModelCard />
+        {!studyMode && <ModelCard />}
         <div className="px-1 text-[11px] text-ink-faint">FYP · Universiti Teknologi PETRONAS</div>
       </div>
     </aside>

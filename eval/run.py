@@ -7,7 +7,8 @@ validator *off* still get a hallucination score (the check just doesn't act).
 
     backend/.venv/bin/python eval/run.py --models qwen3:1.7b,cloud:openai --validator both
 
-Models: an Ollama tag, or `cloud:<provider>` (configured on the Models page;
+Models: an Ollama tag (a `-cloud` tag such as `gpt-oss:120b-cloud` is
+recorded as cloud), or `cloud:<provider>` (configured on the Models page;
 uses its saved model). Output: eval/results/<name>.csv plus <name>.config.json
 (models, prompt version, Ollama version, hardware, limits). Re-running with
 the same --out resumes: finished rows are skipped, failed ones retried.
@@ -130,7 +131,8 @@ def main() -> None:
             writer.writeheader()
         started, n = time.perf_counter(), 0
         for target in targets:
-            mode = "cloud" if target.cloud_provider else "local"
+            # Ollama's hosted tags (e.g. gpt-oss:120b-cloud) run remotely: they count as cloud
+            mode = "cloud" if target.cloud_provider or target.label.endswith("-cloud") else "local"
             if not all((target.label, s["id"], v, str(r)) in done
                        for s in scenarios for v in validators for r in range(1, args.repeats + 1)):
                 try:  # warm-up: load the model; not measured

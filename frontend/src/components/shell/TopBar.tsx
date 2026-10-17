@@ -1,4 +1,5 @@
 // The bar above every page: whether the feed is live, the replay controls, theme and Advisor toggles.
+// In study mode the researcher drives the replay, so participants see the position but no controls.
 
 import { useState } from "react"
 import { useLive } from "../../context/LiveContext"
@@ -15,12 +16,14 @@ export function TopBar({
   advisorOpen,
   onToggleAdvisor,
   showAdvisorToggle,
+  studyMode,
 }: {
   theme: { isDark: boolean; theme: Theme }
   onToggleTheme: () => void
   advisorOpen: boolean
   onToggleAdvisor: () => void
   showAdvisorToggle: boolean
+  studyMode: boolean
 }) {
   const { replay, connection, control, controlError } = useLive()
   const [seekTo, setSeekTo] = useState("")
@@ -54,6 +57,7 @@ export function TopBar({
             <span className="block h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
           </span>
         </div>
+        {!studyMode && <>
         <span className="h-4 w-px bg-line-strong" />
         {replay?.state === "playing" ? (
           <Button size="sm" variant="primary" onClick={() => void control.pause()} aria-label="Pause replay">
@@ -115,6 +119,7 @@ export function TopBar({
         >
           <Icon name="reset" size={13} />
         </Button>
+        </>}
       </div>
 
       {controlError && <span className="max-w-[220px] truncate text-[12px] text-critical-text" title={controlError}>{controlError}</span>}

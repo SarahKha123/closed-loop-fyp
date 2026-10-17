@@ -162,7 +162,8 @@ function InsightsFeed() {
   )
 }
 
-export function AdvisorPanel({ onClose }: { onClose: () => void }) {
+/** No `onClose`: the panel can't be hidden (study mode, AI condition). */
+export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
   const { messages, streaming, send, stop, clear } = useChat()
   const { overview } = useLive()
   const { active } = useModels()
@@ -203,9 +204,11 @@ export function AdvisorPanel({ onClose }: { onClose: () => void }) {
             Clear
           </Button>
         )}
-        <Button size="icon" variant="ghost" onClick={onClose} aria-label="Hide Advisor" className="!h-7 !w-7">
-          <Icon name="close" size={14} />
-        </Button>
+        {onClose && (
+          <Button size="icon" variant="ghost" onClick={onClose} aria-label="Hide Advisor" className="!h-7 !w-7">
+            <Icon name="close" size={14} />
+          </Button>
+        )}
       </header>
 
       <InsightsFeed />

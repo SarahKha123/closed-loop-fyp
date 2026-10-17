@@ -2,14 +2,15 @@
 // turns; the backend adds the live snapshot, picks the model (local or cloud),
 // caps the history, runs the model's tool calls, and grounding-checks each
 // answer. A work order the model proposes waits here for the engineer's
-// Create / Cancel (`respond`).
+// Create / Cancel (`respond`). A study task loading clears the conversation.
 
-import { createContext, useCallback, useContext, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { api } from "../lib/api"
 import type { ProposedAction, Validation } from "../lib/api"
 import { streamEvents } from "../lib/http"
 import type { EventStream } from "../lib/http"
+import { subscribe } from "../lib/stream"
 
 export interface ChatMessage {
   role: "user" | "assistant"
@@ -62,6 +63,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 1500)
   const stream = useRef<EventStream | null>(null)
   const streaming = messages[messages.length - 1]?.streaming ?? false
+
+  // Each study task starts with an empty conversation (the researcher's page triggers it).
+  useEffect(
+    () =>
+      subscribe((e) => {
+        if (e.type !== "study" || e.action !== "task_loading") return
+        stream.current?.cancel()
+        setMessages([])
+      }),
+    [],
+  )
 
   const patchLast = (patch: (m: ChatMessage) => ChatMessage) =>
     setMessages((ms) => (ms.length ? [...ms.slice(0, -1), patch(ms[ms.length - 1])] : ms))

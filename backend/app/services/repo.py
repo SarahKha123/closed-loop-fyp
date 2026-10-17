@@ -400,6 +400,64 @@ def _insight(r: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+# ── study log ────────────────────────────────────────────────────────────────
+
+STUDY_FIELDS = ("LogID", "ParticipantID", "Condition", "TaskSet", "TaskID", "StartedAt", "EndedAt",
+                "DurationMs", "Answer", "Correct", "ChatTurns", "InsightsShown")
+
+
+def _study_row(r: sqlite3.Row) -> dict[str, Any]:
+    return {(k[0].lower() + k[1:]).replace("ID", "Id"): r[k] for k in STUDY_FIELDS}  # LogID → logId
+
+
+def start_study_task(participant: str, condition: str, task_set: str, task_id: str) -> dict[str, Any]:
+    with db.write() as conn:
+        cur = conn.execute(
+            "INSERT INTO tbl_StudyLog (ParticipantID, Condition, TaskSet, TaskID, StartedAt) VALUES (?, ?, ?, ?, ?)",
+            (participant, condition, task_set, task_id, datetime.now(timezone.utc).isoformat(timespec="milliseconds")),
+        )
+        row = conn.execute("SELECT * FROM tbl_StudyLog WHERE LogID = ?", (cur.lastrowid,)).fetchone()
+    return _study_row(row)
+
+
+def active_study_task() -> dict[str, Any] | None:
+    with db.read() as conn:
+        row = conn.execute("SELECT * FROM tbl_StudyLog WHERE EndedAt IS NULL ORDER BY LogID DESC LIMIT 1").fetchone()
+    return _study_row(row) if row else None
+
+
+def end_study_task(log_id: int, answer: str, correct: int | None) -> dict[str, Any] | None:
+    """Close a running task: duration, answer, and how many chat turns and insights it saw.
+
+    Every task starts from an emptied tbl_Insight (the replay is reset), so the
+    counts are simply what is in it now; chat answers are logged there as 'chat'.
+    """
+    ended = datetime.now(timezone.utc)
+    with db.write() as conn:
+        row = conn.execute("SELECT StartedAt FROM tbl_StudyLog WHERE LogID = ? AND EndedAt IS NULL", (log_id,)).fetchone()
+        if row is None:
+            return None
+        chat, shown = conn.execute(
+            "SELECT COALESCE(SUM(TriggerType = 'chat'), 0), COALESCE(SUM(TriggerType != 'chat'), 0) FROM tbl_Insight"
+        ).fetchone()
+        duration = round((ended - datetime.fromisoformat(row["StartedAt"])).total_seconds() * 1000)
+        conn.execute(
+            "UPDATE tbl_StudyLog SET EndedAt = ?, DurationMs = ?, Answer = ?, Correct = ?, ChatTurns = ?, InsightsShown = ?"
+            " WHERE LogID = ?",
+            (ended.isoformat(timespec="milliseconds"), duration, answer, correct, chat, shown, log_id),
+        )
+        out = conn.execute("SELECT * FROM tbl_StudyLog WHERE LogID = ?", (log_id,)).fetchone()
+    return _study_row(out)
+
+
+def study_log(participant: str | None = None) -> list[dict[str, Any]]:
+    with db.read() as conn:
+        rows = conn.execute(
+            "SELECT * FROM tbl_StudyLog WHERE ? IS NULL OR ParticipantID = ? ORDER BY LogID", (participant, participant)
+        ).fetchall()
+    return [_study_row(r) for r in rows]
+
+
 # ── maintenance ──────────────────────────────────────────────────────────────
 
 
@@ -414,5 +472,5 @@ def counts() -> dict[str, int]:
     with db.read() as conn:
         return {
             t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]  # noqa: S608 — fixed table names
-            for t in ("tbl_Equipment", "tbl_SensorReading", "tbl_Prediction", "tbl_WorkOrder", "tbl_Insight")
+            for t in ("tbl_Equipment", "tbl_SensorReading", "tbl_Prediction", "tbl_WorkOrder", "tbl_Insight", "tbl_StudyLog")
         }

@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, cloud, dashboard, hardware, health, insights, models, replay, settings, stream, work_orders
+from .api import chat, cloud, dashboard, hardware, health, insights, models, replay, settings, stream, study, work_orders
 from .services import db, events, ingest, monitor, paths
 from .services import insights as insight_service
 from .services import replay as replay_service
@@ -110,6 +110,7 @@ app.include_router(work_orders.router)
 app.include_router(cloud.router)
 app.include_router(insights.router)
 app.include_router(settings.router)
+app.include_router(study.router)
 
 
 _static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR") or "/nonexistent")

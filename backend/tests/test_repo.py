@@ -37,7 +37,7 @@ def test_schema_and_seed(fresh_db):
     counts = repo.counts()
     assert counts["tbl_Equipment"] == 4
     assert {k: v for k, v in counts.items() if k != "tbl_Equipment"} == {
-        "tbl_SensorReading": 0, "tbl_Prediction": 0, "tbl_WorkOrder": 0, "tbl_Insight": 0,
+        "tbl_SensorReading": 0, "tbl_Prediction": 0, "tbl_WorkOrder": 0, "tbl_Insight": 0, "tbl_StudyLog": 0,
     }
     with sqlite3.connect(fresh_db) as conn:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
@@ -126,5 +126,5 @@ def test_reset_keeps_equipment(fresh_db):
     _predict(_reading(1), {c: "Optimal" for c in COMPONENTS})
     repo.reset()
     assert repo.counts() == {
-        "tbl_Equipment": 4, "tbl_SensorReading": 0, "tbl_Prediction": 0, "tbl_WorkOrder": 0, "tbl_Insight": 0,
+        "tbl_Equipment": 4, "tbl_SensorReading": 0, "tbl_Prediction": 0, "tbl_WorkOrder": 0, "tbl_Insight": 0, "tbl_StudyLog": 0,
     }

@@ -7,7 +7,8 @@
 #   ./closed-loop.sh dev        hot-reload backend + Vite dev server (for coding)
 #   ./closed-loop.sh test       backend tests + frontend type check and lint
 #   ./closed-loop.sh status     whether the API and Ollama answer
-#   ./closed-loop.sh reset-db   delete the database (recreated empty on next start)
+#   ./closed-loop.sh reset-db   delete the database (recreated empty on next start);
+#                               refuses while it holds user-study logs, unless --force
 #
 # Everything runs directly on this machine — no containers. Both `start` and
 # `dev` start `ollama serve` if Ollama is installed but not running (with the
@@ -147,6 +148,12 @@ cmd_test() {
 # The backend recreates the tables on its next start (db.init_db). Stop it
 # first: a running server keeps the old file open.
 cmd_reset_db() {
+  # The study log lives in the same database: never lose participants' data by accident.
+  local logged
+  logged=$($PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM tbl_StudyLog').fetchone()[0])" 2>/dev/null || echo 0)
+  if [[ "$logged" != "0" && "${2:-}" != "--force" ]]; then
+    fail "the database holds $logged user-study log rows — export them (GET /api/study/export) first, then: ./closed-loop.sh reset-db --force"
+  fi
   rm -f config/closed_loop.db config/closed_loop.db-wal config/closed_loop.db-shm
   ok "database removed — restart the backend to recreate it empty"
 }
@@ -170,7 +177,7 @@ case "$CMD" in
   dev)      cmd_dev ;;
   test)     cmd_test ;;
   status)   cmd_status ;;
-  reset-db) cmd_reset_db ;;
+  reset-db) cmd_reset_db "$@" ;;
   -h|--help|help) usage ;;
   *) err "unknown command '$CMD'"; say ""; usage; exit 1 ;;
 esac

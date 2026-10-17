@@ -1,0 +1,86 @@
+{
+  "startedAt": "2026-10-16T17:20:42+00:00",
+  "models": [
+    "gpt-oss:120b-cloud"
+  ],
+  "repeats": 3,
+  "validator": "both",
+  "promptVersion": "insight-v1",
+  "scenarios": [
+    "all_clear-1666",
+    "all_clear-1668",
+    "all_clear-1670",
+    "all_clear-1672",
+    "all_clear-1674",
+    "all_clear-1789",
+    "all_clear-1791",
+    "all_clear-1793",
+    "all_clear-1795",
+    "all_clear-1797",
+    "steady-0011",
+    "steady-0234",
+    "steady-0489",
+    "steady-0731",
+    "steady-0966",
+    "steady-1211",
+    "steady-1463",
+    "steady-1697",
+    "steady-1961",
+    "steady-2203",
+    "to_critical-0211",
+    "to_critical-0386",
+    "to_critical-0519",
+    "to_critical-0943",
+    "to_critical-1077",
+    "to_critical-1251",
+    "to_critical-1425",
+    "to_critical-1809",
+    "to_critical-1942",
+    "to_critical-2157",
+    "to_degraded-0232",
+    "to_degraded-0385",
+    "to_degraded-0539",
+    "to_degraded-0733",
+    "to_degraded-1097",
+    "to_degraded-1250",
+    "to_degraded-1445",
+    "to_degraded-1829",
+    "to_degraded-1982",
+    "to_degraded-2177",
+    "to_optimal-0242",
+    "to_optimal-0426",
+    "to_optimal-0590",
+    "to_optimal-0974",
+    "to_optimal-1148",
+    "to_optimal-1322",
+    "to_optimal-1465",
+    "to_optimal-1839",
+    "to_optimal-2013",
+    "to_optimal-2187"
+  ],
+  "ollamaVersion": "0.13.5",
+  "limits": {
+    "OLLAMA_CONTEXT_LENGTH": "4096",
+    "OLLAMA_NUM_PREDICT": "1024",
+    "OLLAMA_NUM_THREAD": null,
+    "OLLAMA_KV_CACHE_TYPE": "q8_0",
+    "OLLAMA_FLASH_ATTENTION": "1"
+  },
+  "hardware": {
+    "cpu": {
+      "cores_physical": 2,
+      "cores_logical": 4
+    },
+    "ram": {
+      "total_bytes": 8330493952,
+      "available_bytes": 5564276736
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+      "vram_bytes": 4294967296,
+      "vram_used_bytes": 0,
+      "driver_version": "571.96",
+      "load_percent": 0.0
+    }
+  }
+}

@@ -1,7 +1,8 @@
 """The shared data layer: one SQLite database, the hub every module reads and writes.
 
 The tables are the FYP1 interim report's four data contracts (Tables 3.1–3.3),
-plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4). Design notes:
+plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4) and
+`tbl_StudyLog` for the user study. Design notes:
 
 - One `tbl_SensorReading` row per *cycle*: the 17 sensors are shared by all
   four components, so the reading belongs to the cycle and the per-component
@@ -111,6 +112,22 @@ CREATE TABLE IF NOT EXISTS tbl_Insight (
   Attempts         INTEGER NOT NULL DEFAULT 1,
   LatencyMs        INTEGER,
   FirstTokenMs     INTEGER
+);
+
+-- The user study's task log (M11). Survives a replay reset, which empties the tables above.
+CREATE TABLE IF NOT EXISTS tbl_StudyLog (
+  LogID         INTEGER PRIMARY KEY,
+  ParticipantID TEXT NOT NULL,
+  Condition     TEXT NOT NULL CHECK (Condition IN ('dashboard_only', 'dashboard_ai')),
+  TaskSet       TEXT NOT NULL,
+  TaskID        TEXT NOT NULL,
+  StartedAt     TEXT NOT NULL,
+  EndedAt       TEXT,
+  DurationMs    INTEGER,
+  Answer        TEXT,
+  Correct       INTEGER,
+  ChatTurns     INTEGER,
+  InsightsShown INTEGER
 );
 """
 

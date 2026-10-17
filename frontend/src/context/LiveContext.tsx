@@ -3,12 +3,13 @@
 // Loaded once, then refreshed whenever the stream says something changed
 // (throttled, so a fast replay doesn't flood the API). Also turns condition
 // changes into toasts, and exposes the replay controls. Also holds the
-// Advisor's live insights (newest first) and its "insights paused" notice.
+// Advisor's live insights (newest first) and its "insights paused" notice,
+// and the runtime settings (study mode changes what the shell shows).
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { api } from "../lib/api"
-import type { ConditionEvent, Insight, Overview, ReplayState, Trend } from "../lib/api"
+import type { ConditionEvent, Insight, Overview, ReplayState, Settings, Trend } from "../lib/api"
 import { conditionRank } from "../lib/status"
 import { onStatus, subscribe } from "../lib/stream"
 import type { StreamStatus } from "../lib/stream"
@@ -35,6 +36,8 @@ interface LiveValue {
   insights: Insight[]
   /** "Insights paused: …" — set when the engine can't reach a model, cleared by the next insight. */
   insightNotice: string | null
+  /** null until loaded; kept current by `settings` events (a change in any tab). */
+  settings: Settings | null
   dismissToast: (id: number) => void
   control: {
     play: () => Promise<void>
@@ -62,6 +65,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
   const [insightNotice, setInsightNotice] = useState<string | null>(null)
+  const [settings, setSettings] = useState<Settings | null>(null)
 
   const pending = useRef<number | null>(null)
   const lastRun = useRef(0)
@@ -102,6 +106,15 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
+  const loadSettings = useCallback(() => {
+    api
+      .settings()
+      .then(setSettings)
+      .catch(() => {
+        /* as above */
+      })
+  }, [])
+
   const pushToast = useCallback((t: Omit<Toast, "id">) => {
     setToasts((ts) => [...ts.slice(-3), { ...t, id: ++toastSeq }])
   }, [])
@@ -109,6 +122,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh()
     loadInsights()
+    loadSettings()
     const offStatus = onStatus(setConnection)
     const off = subscribe((e) => {
       if (e.type === "replay") {
@@ -139,9 +153,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         setInsightNotice(null)
       } else if (e.type === "insight_notice") {
         setInsightNotice(e.text)
+      } else if (e.type === "settings") {
+        setSettings(e.settings)
       } else if (e.type === "reconnected") {
         void refresh()
         loadInsights()
+        loadSettings()
       }
     })
     return () => {
@@ -149,7 +166,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       offStatus()
       if (pending.current != null) window.clearTimeout(pending.current)
     }
-  }, [refresh, scheduleRefresh, pushToast, loadInsights])
+  }, [refresh, scheduleRefresh, pushToast, loadInsights, loadSettings])
 
   const run = useCallback(
     async (action: () => Promise<ReplayState>) => {
@@ -184,6 +201,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     toasts,
     insights,
     insightNotice,
+    settings,
     dismissToast: (id) => setToasts((ts) => ts.filter((t) => t.id !== id)),
     control,
     controlError,

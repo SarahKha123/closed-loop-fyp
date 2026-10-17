@@ -1,0 +1,73 @@
+{
+  "_about": "User-study tasks (M11). Each task: the replay is reset to `from` and stepped to `to`, then paused. Sets A and B are parallel (same kinds of question, different moments). `answer` is the researcher's reference, taken from the dashboard at `to` with the shipped models — re-check it in the dry run if the models are retrained.",
+  "taskSets": {
+    "A": [
+      {
+        "id": "A1",
+        "level": "lookup",
+        "from": 200,
+        "to": 214,
+        "prompt": "Which components are in Critical condition right now?",
+        "answer": "Cooler, Pump and Valve (the Accumulator is Optimal)."
+      },
+      {
+        "id": "A2",
+        "level": "lookup",
+        "from": 222,
+        "to": 234,
+        "prompt": "What is the valve's current failure probability, and since which cycle has it been in its current condition?",
+        "answer": "About 98 % (98.3 %); Degraded since cycle 232 (it improved from Critical)."
+      },
+      {
+        "id": "A3",
+        "level": "history",
+        "from": 1137,
+        "to": 1150,
+        "prompt": "Which work order was closed in this period, for which component, and why was it closed?",
+        "answer": "WO-0001 for the Valve; closed automatically at cycle 1148 because the valve recovered to Optimal."
+      },
+      {
+        "id": "A4",
+        "level": "diagnosis",
+        "from": 722,
+        "to": 736,
+        "prompt": "The cooler's condition changed. Why, and what should the maintenance team check?",
+        "answer": "Critical → Degraded at cycle 733; main driver is cooling efficiency (mean) ≈ 28 %, still low. Check the cooler / heat exchanger (cooling performance)."
+      }
+    ],
+    "B": [
+      {
+        "id": "B1",
+        "level": "lookup",
+        "from": 1066,
+        "to": 1080,
+        "prompt": "Which components are in Critical condition right now?",
+        "answer": "Pump and Valve (the Cooler and Accumulator are Degraded)."
+      },
+      {
+        "id": "B2",
+        "level": "lookup",
+        "from": 1435,
+        "to": 1447,
+        "prompt": "What is the valve's current failure probability, and since which cycle has it been in its current condition?",
+        "answer": "About 97 % (96.7 %); Degraded since cycle 1445 (it improved from Critical)."
+      },
+      {
+        "id": "B3",
+        "level": "history",
+        "from": 1311,
+        "to": 1324,
+        "prompt": "Which work order was closed in this period, for which component, and why was it closed?",
+        "answer": "WO-0001 for the Valve; closed automatically at cycle 1322 because the valve recovered to Optimal."
+      },
+      {
+        "id": "B4",
+        "level": "diagnosis",
+        "from": 1972,
+        "to": 1984,
+        "prompt": "The pump's condition changed. Why, and what should the maintenance team check?",
+        "answer": "Critical → Degraded at cycle 1982; main driver is volume flow 1 (mean) ≈ 6.5 l/min, below normal. Check the pump for internal leakage / reduced delivery."
+      }
+    ]
+  }
+}

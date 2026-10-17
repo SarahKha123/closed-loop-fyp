@@ -137,6 +137,40 @@ export interface Settings {
   grounding: { enabled: boolean; hideUnverified: boolean }
   monitor: { confirmCycles: number; autoCloseOnRecovery: boolean }
   chat: { maxTurns: number; tools: boolean }
+  study: { enabled: boolean; condition: StudyCondition }
+}
+
+// ── study mode (docs/API.md: Study) ──
+
+export type StudyCondition = "dashboard_only" | "dashboard_ai"
+
+export interface StudyTask {
+  id: string
+  level: string
+  from: number
+  to: number
+  prompt: string
+  answer: string
+}
+
+export interface StudyLogRow {
+  logId: number
+  participantId: string
+  condition: StudyCondition
+  taskSet: string
+  taskId: string
+  startedAt: string
+  endedAt: string | null
+  durationMs: number | null
+  answer: string | null
+  correct: number | null
+  chatTurns: number | null
+  insightsShown: number | null
+}
+
+export interface StudyPlan {
+  participant: string
+  blocks: { condition: StudyCondition; taskSet: string }[]
 }
 
 /** A work order the Advisor proposed in chat; nothing exists until the engineer confirms it. */
@@ -183,6 +217,18 @@ export const api = {
   settings: () => request<Settings>("/api/settings"),
   saveSettings: (patch: DeepPartial<Settings>) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
+  study: {
+    get: () => request<{ settings: Settings["study"]; taskSets: Record<string, StudyTask[]>; active: StudyLogRow | null }>("/api/study"),
+    plan: (n: number) => request<StudyPlan>(`/api/study/plan/${n}`),
+    // Loads the preset (a reset and a dozen scored cycles) before it answers.
+    start: (body: { participant: string; condition: StudyCondition; taskSet: string; taskId: string }) =>
+      request<StudyLogRow>("/api/study/tasks/start", { method: "POST", body: JSON.stringify(body), timeoutMs: 60000 }),
+    end: (answer: string, correct: boolean | null) =>
+      request<StudyLogRow>("/api/study/tasks/end", { method: "POST", body: JSON.stringify({ answer, correct }) }),
+    log: (participant?: string) =>
+      request<{ log: StudyLogRow[] }>(`/api/study/log${participant ? `?participant=${encodeURIComponent(participant)}` : ""}`),
+    exportUrl: (participant?: string) => `/api/study/export${participant ? `?participant=${encodeURIComponent(participant)}` : ""}`,
+  },
   replay: {
     play: () => request<ReplayState>("/api/replay/play", { method: "POST" }),
     pause: () => request<ReplayState>("/api/replay/pause", { method: "POST" }),

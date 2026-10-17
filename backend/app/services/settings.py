@@ -35,6 +35,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "maxTurns": 10,            # user/assistant exchanges sent to the model; small local models have short contexts
         "tools": True,             # status/history lookups and work-order proposals; off = streamed, snapshot-only answers (faster on a slow CPU)
     },
+    "study": {
+        "enabled": False,          # study mode (M11): participants can't change the setup; the researcher works at /study/admin
+        "condition": "dashboard_ai",  # dashboard_only hides the Advisor (and turns insights off); dashboard_ai shows it
+    },
 }
 
 # Numeric bounds, inclusive.
@@ -43,6 +47,11 @@ LIMITS: dict[tuple[str, str], tuple[float, float]] = {
     ("insights", "cooldownSeconds"): (0, 600),
     ("monitor", "confirmCycles"): (1, 20),
     ("chat", "maxTurns"): (1, 50),
+}
+
+# Allowed values of the text settings.
+CHOICES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("study", "condition"): ("dashboard_only", "dashboard_ai"),
 }
 
 
@@ -61,6 +70,10 @@ def _check(section: str, key: str, value: Any) -> Any:
     if isinstance(default, bool):
         if not isinstance(value, bool):
             raise SettingsError(f"{section}.{key} must be true or false")
+    elif isinstance(default, str):
+        if value not in CHOICES[(section, key)]:
+            raise SettingsError(f"{section}.{key} must be one of {', '.join(CHOICES[(section, key)])}")
+        return value
     elif isinstance(value, bool) or not isinstance(value, (int, float)):
         raise SettingsError(f"{section}.{key} must be a number")
     elif isinstance(default, int) and value != int(value):
