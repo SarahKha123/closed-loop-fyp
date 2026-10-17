@@ -6,6 +6,9 @@
     GET  /api/models/catalogue   suggested downloads, marked installed / fits
     POST /api/models/pull        download a model (SSE progress)
     POST /api/models/delete      remove a model
+    GET  /api/models/runtime     is Ollama installed / running
+    POST /api/models/runtime/install   install Ollama into config/ollama/ and start it (SSE progress)
+    POST /api/models/runtime/start     start an installed Ollama
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import StreamingResponse
 
-from ..services import catalogue, hardware, model_config, ollama_client
+from ..services import catalogue, hardware, model_config, ollama_client, ollama_runtime
 from .sse import sse_response
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -85,3 +88,29 @@ def delete_model(tag: str = Body(..., embed=True, min_length=1)) -> dict[str, An
     except ollama_client.OllamaError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True}
+
+
+@router.get("/runtime")
+def runtime_status() -> dict[str, Any]:
+    return ollama_runtime.status()
+
+
+@router.post("/runtime/install")
+def install_runtime() -> StreamingResponse:
+    """Frames are `{status, percent, done}`, or a final `{error}` — the same shape as a pull."""
+
+    def events() -> Iterator[dict[str, Any]]:
+        try:
+            yield from ollama_runtime.install()
+        except ollama_runtime.RuntimeSetupError as exc:
+            yield {"error": str(exc)}
+
+    return sse_response(events())
+
+
+@router.post("/runtime/start")
+def start_runtime() -> dict[str, Any]:
+    try:
+        return ollama_runtime.start()
+    except ollama_runtime.RuntimeSetupError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

@@ -93,24 +93,49 @@ cmd_setup() {
 # Offer to install Ollama with its official script (needs sudo). Optional: a
 # cloud API works without it, so declining or a failed install isn't fatal.
 install_ollama() {
-  if have ollama; then ok "ollama $(ollama --version 2>/dev/null | tail -1)"; return 0; fi
+  local bin
+  bin=$(ollama_bin)
+  if [ -n "$bin" ]; then ok "ollama $("$bin" --version 2>/dev/null | tail -1)"; return 0; fi
   warn "Ollama not installed — the Advisor needs it to run models on this machine"
   if [ ! -t 0 ]; then
     info "install it from https://ollama.com, or use a cloud API on the Models page"
     return 0
   fi
   local answer
-  read -r -p "    Install Ollama now? (uses sudo) [Y/n] " answer || answer=n
+  read -r -p "    Install Ollama now? (≈1.4 GB download, no sudo) [Y/n] " answer || answer=n
   case "${answer:-y}" in
     [yY]*) ;;
-    *) info "skipped — re-run setup later, or use a cloud API on the Models page"; return 0 ;;
+    *) info "skipped — install it later from the dashboard's popup, or use a cloud API on the Models page"; return 0 ;;
   esac
-  have curl || { err "curl is needed to install Ollama (sudo apt install curl)"; return 0; }
-  if curl -fsSL https://ollama.com/install.sh | sh; then
-    ok "ollama $(ollama --version 2>/dev/null | tail -1) installed"
+  # The same installer as the dashboard's popup: unpacks Ollama's release into
+  # config/ollama/ with Python (no sudo, no zstd tool needed).
+  if (cd backend && .venv/bin/python -c '
+import sys
+from app.services import ollama_runtime as r
+try:
+    for f in r.install(start_after=False):
+        print(f"\r    {f[\"status\"]:<60}", end="", flush=True)
+except r.RuntimeSetupError as e:
+    print(); sys.exit(f"    {e}")
+print()
+'); then
+    ok "ollama $(config/ollama/bin/ollama --version 2>/dev/null | tail -1) installed in config/ollama/"
+    link_ollama
   else
-    err "Ollama install failed — the output above says why; setup continues without it"
+    err "Ollama install failed — the message above says why; setup continues without it"
   fi
+}
+
+# Put the local copy on PATH via ~/.local/bin (Ubuntu adds it to PATH when it
+# exists), so `ollama list` / `ollama pull` work in a terminal too.
+link_ollama() {
+  [ -x config/ollama/bin/ollama ] && ! have ollama || return 0
+  mkdir -p "$HOME/.local/bin"
+  ln -sf "$PWD/config/ollama/bin/ollama" "$HOME/.local/bin/ollama"
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ok "linked ~/.local/bin/ollama — 'ollama list' works in this terminal" ;;
+    *) info "linked ~/.local/bin/ollama — open a new terminal for 'ollama list' to work" ;;
+  esac
 }
 
 need_setup() {
@@ -120,15 +145,37 @@ need_setup() {
   ensure_dirs
 }
 
+# The `ollama` to run: one on PATH, else the copy the dashboard installs into
+# config/ollama/ (no sudo needed — see backend/app/services/ollama_runtime.py).
+ollama_bin() {
+  if have ollama; then command -v ollama
+  elif [ -x config/ollama/bin/ollama ]; then echo config/ollama/bin/ollama; fi
+}
+
 # Start Ollama ourselves if it's installed but not running; leave an
 # already-running one alone (it isn't ours to stop). Sets OLLAMA_PID.
 OLLAMA_PID=""
 maybe_start_ollama() {
-  if ! check_ollama && have ollama; then
-    ollama serve >/dev/null 2>&1 &
+  local bin
+  bin=$(ollama_bin)
+  if ! check_ollama && [ -n "$bin" ]; then
+    "$bin" serve >/dev/null 2>&1 &
     OLLAMA_PID=$!
     ok "started ollama serve (pid $OLLAMA_PID)"
   fi
+}
+
+# Stop the Ollama we started, and one the dashboard started (config/ollama.pid).
+stop_ollama() {
+  [ -n "$OLLAMA_PID" ] && kill "$OLLAMA_PID" 2>/dev/null
+  if [ -f config/ollama.pid ]; then
+    local pid
+    pid=$(cat config/ollama.pid)
+    # Only if that pid is still an ollama: pids get reused.
+    grep -q ollama "/proc/$pid/cmdline" 2>/dev/null && kill "$pid" 2>/dev/null
+    rm -f config/ollama.pid
+  fi
+  return 0
 }
 
 cmd_start() {
@@ -143,7 +190,7 @@ cmd_start() {
   ok "API docs    http://localhost:${BACKEND_PORT}/docs"
   say "  ${DIM}Ctrl-C stops it${RESET}"
   say ""
-  trap '[ -n "$OLLAMA_PID" ] && kill $OLLAMA_PID 2>/dev/null || true' EXIT INT TERM
+  trap 'stop_ollama' EXIT INT TERM
   CLOSED_LOOP_STATIC_DIR=frontend/dist $PY -m uvicorn app.main:app --app-dir backend \
     --port "$BACKEND_PORT" --timeout-graceful-shutdown 3
 }
@@ -156,7 +203,7 @@ cmd_dev() {
   $PY -m uvicorn app.main:app --reload --reload-dir backend/app \
     --port "$BACKEND_PORT" --app-dir backend --timeout-graceful-shutdown 3 &
   local api_pid=$!
-  trap 'kill $api_pid ${OLLAMA_PID:-} 2>/dev/null || true' EXIT INT TERM
+  trap 'kill $api_pid 2>/dev/null; stop_ollama' EXIT INT TERM
   ok "backend   http://localhost:${BACKEND_PORT}  (pid $api_pid)"
   ok "frontend  http://localhost:${FRONTEND_PORT}"
   say ""

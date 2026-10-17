@@ -44,5 +44,11 @@ config/.cloud-*.tmp
 # The app database. (backend/data/hydraulic_condition_monitoring_summary.csv IS committed: it is the dataset.)
 config/closed_loop.db*
 
+# Ollama installed from the dashboard (Models popup), its log and pid
+config/ollama/
+config/ollama.partial/
+config/ollama.log
+config/ollama.pid
+
 # Trained models: rebuilt by `python -m ml.train` (from backend/) (~1.5 min); the manifest and results are committed
 backend/ml/models/*.joblib
