@@ -14,18 +14,23 @@
     │                       Ollama :11434        cloud provider APIs
     │                       (local models)       (OpenAI-compatible /chat/completions)
     │
-    └── config/   model_config.json   which model the Advisor uses (committable)
-                  settings.json       runtime toggles (insights, grounding, monitor, chat)
+    └── config/   model_config.json   which model the Advisor uses (committed)
+                  study_scenarios.json the user-study task sets A and B (committed)
+                  settings.json       runtime toggles (insights, grounding, monitor, chat, study)
                   cloud.json          cloud API keys (gitignored, 0600)
-                  closed_loop.db      SQLite: readings, predictions, work orders, insights (gitignored)
+                  closed_loop.db      SQLite: readings, predictions, work orders, insights, study log (gitignored)
+                  ollama/             Ollama installed by the dashboard, no sudo (gitignored; + ollama.pid, ollama.log)
 ```
 
 Everything runs directly on the machine — no containers. `./closed-loop.sh
 start` builds the frontend once and the backend serves it from
 `frontend/dist` (one port, one origin, no Node process at run time — the
 lightest way to run it). `./closed-loop.sh dev` runs Vite with hot reload
-next to a reloading backend, and Vite proxies `/api` (`frontend/vite.config.ts`).
-Both start `ollama serve` if Ollama is installed but not running.
+next to a reloading backend, and Vite proxies `/api` (`frontend/vite.config.ts`);
+it waits for `GET /api/health` before starting Vite, so the first page load
+never hits a backend that is still loading the models. Both start `ollama
+serve` if Ollama is installed but not running, and Ctrl-C stops everything
+they started (the backend, and an Ollama the script or the dashboard started).
 
 ### The closed loop
 
@@ -67,7 +72,7 @@ services never import from `api`.
 | `main.py` | Creates the app, starts the live-pipeline tasks in `lifespan`, mounts routers, serves `frontend/dist` when `CLOSED_LOOP_STATIC_DIR` is set |
 | **api/** | |
 | `api/health.py` | `GET /api/health` liveness check |
-| `api/models.py` | Local models: list, active, select, catalogue, pull, delete |
+| `api/models.py` | Local models: list, active, select, catalogue, pull, delete; the Ollama runtime: status, install, start |
 | `api/cloud.py` | Cloud provider settings: list, save, clear, test |
 | `api/hardware.py` | Hardware report for the Hardware tab |
 | `api/replay.py` | Replay controls |
@@ -76,11 +81,12 @@ services never import from `api`.
 | `api/work_orders.py` | List, raise by hand, close |
 | `api/insights.py` | List insights, one with its snapshot, "summarise now" |
 | `api/chat.py` | The Advisor chat (SSE) and `POST /api/chat/confirm` for proposed work orders |
-| `api/settings.py` | `GET/PUT /api/settings` |
+| `api/settings.py` | `GET/PUT /api/settings` (publishes a `settings` event) |
+| `api/study.py` | Study mode: task sets, counterbalanced plan, condition, start/end a task, log, CSV export |
 | `api/sse.py` | `sse_response()` — the single way anything is streamed |
 | **services/ — the live pipeline** | |
 | `services/paths.py` | Where config and the database live (repo `config/`, or `CLOSED_LOOP_CONFIG_DIR`) |
-| `services/db.py` | SQLite schema (5 tables), connections, the write lock |
+| `services/db.py` | SQLite schema (6 tables), connections, the write lock |
 | `services/repo.py` | Every SQL query, in one place |
 | `services/ingest.py` | The dataset in memory, one record per cycle |
 | `services/replay.py` | Plays the cycles as a live feed; play / pause / step / speed / seek / reset |
@@ -89,6 +95,7 @@ services never import from `api`.
 | `services/monitor.py` | Reacts to each prediction: opens a work order on Critical, closes it on recovery |
 | `services/work_orders.py` | Opening and closing work orders, with who raised them and why |
 | `services/settings.py` | Runtime settings: defaults in code, overrides in `config/settings.json`, validated |
+| `services/study.py` | The user study: conditions, task presets (reset + step the replay), counterbalancing, the task clock, CSV export |
 | **services/ — the AI layer** | |
 | `services/advisor.py` | The only code that knows local vs cloud: picks the model, streams, `complete()`, tool rounds |
 | `services/snapshot.py` | What the dashboard shows right now, as the AI sees it (never the true labels) |
@@ -98,6 +105,7 @@ services never import from `api`.
 | `services/tools.py` | Chat tools (status, history, propose a work order), the tool loop, pending confirmations |
 | `services/model_config.py` | The model choice: read/write the file, and the policy that resolves it |
 | `services/ollama_client.py` | Everything that talks to Ollama (URL fallback, low-resource request options) |
+| `services/ollama_runtime.py` | Ollama itself: is it installed / running, install it into `config/ollama/` without sudo (Linux), start it |
 | `services/cloud.py` | Cloud providers: stored settings, key masking, test, streamed and tool-calling chat |
 | `services/catalogue.py` | The short list of suggested local models |
 | `services/hardware.py` | CPU / RAM / GPU / disk probes, each independently guarded |
@@ -116,9 +124,12 @@ scoring share one feature implementation. See [`backend/ml/README.md`](../backen
 | `tbl_Prediction` | component per cycle: condition, class probabilities, failure probability, SHAP top 3, `TrueCondition` (evaluation only) | predictor |
 | `tbl_WorkOrder` | work order: who raised it (`system:monitor` / `user`), triggering prediction, open/closed | work_orders |
 | `tbl_Insight` | AI text: trigger, model, mode, prompt version, the exact snapshot, grounding result, attempts, latency | insight engine, chat |
+| `tbl_StudyLog` | study task: participant, condition, task set and id, start/end, duration, answer, correct, chat turns, insights shown | study |
 
 Seeking the replay back deletes later readings (predictions cascade) and
-insights, so the timeline stays consistent.
+insights, so the timeline stays consistent. A replay reset empties every
+table except `tbl_Equipment` and `tbl_StudyLog`; `./closed-loop.sh reset-db`
+refuses to delete a database that holds study log rows unless given `--force`.
 
 ### Model selection
 
@@ -195,6 +206,42 @@ numbering, sensor codes (PS2) and small bare counts (≤ 10) are ignored. Not
 checked (v2, optional): that a number belongs to the component its sentence
 names.
 
+### Flow: a study task
+
+```
+/study/admin  ── POST /api/study/tasks/start {participant, condition, taskSet, taskId}
+                   │ a task already running → 400
+                   ▼
+          study.set_condition()        study.condition + insights on/off → "settings" event
+                                       (participant's screen shows or hides the Advisor)
+          publish "study" task_loading (participant's chat clears)
+          replay.reset(from) → step() … until `to`   (the same replay, predictor, monitor and
+                                                      insight engine as normal: history included)
+          wait until cycle `to` is scored
+          repo.start_study_task() → publish "study" task_started   ← the clock starts here
+                   ▼
+           participant answers (on paper / aloud); the researcher types it in
+                   ▼
+/study/admin  ── POST /api/study/tasks/end {answer, correct}
+          repo.end_study_task(): duration, chat turns and insights shown (counted from tbl_Insight,
+          which the task's reset emptied) → publish "study" task_ended
+```
+
+Study mode (`study.enabled`) only changes what the participant's shell
+offers: no Models page, no replay controls, no model card, no first-run model
+dialog; in the `dashboard_ai` condition the Advisor is pinned open, in
+`dashboard_only` it isn't rendered at all.
+
+### Flow: first run without a model
+
+`NoModelDialog` opens when `/api/models/active` can't resolve a model and the
+mode isn't cloud. It reads `GET /api/models/runtime` and offers the next step:
+install Ollama (`POST /api/models/runtime/install`, streamed progress — the
+same release archive as Ollama's own installer, unpacked into
+`config/ollama/`), start it (`/runtime/start`), or go to **Models → Download**
+to pull a model; or switch to a cloud API instead. Dismissed per browser
+session. `./closed-loop.sh setup` offers the same install from the terminal.
+
 ### Request flow: downloading a model
 
 `POST /api/models/pull {tag}` streams Ollama's pull progress, normalised to
@@ -251,17 +298,20 @@ routes/               one file per page (TanStack file-based routing)
   work-orders.tsx       "/work-orders" — the maintenance queue (System / User badges, trigger cycle)
   sensors.tsx           "/sensors" — all 17 channels for the current cycle (?component= highlights)
   models.tsx            "/models" — AI models and settings (?tab=download|cloud|hardware|settings)
+  study.admin.tsx       "/study/admin" — the researcher's study console (not in the nav; open in a second window)
 components/
   ui/                   primitives: Card, Button, ConditionBadge, Meter, EmptyState, Icon
   charts/               LineChart (multi-series, crosshair tooltip, legend, end labels), Sparkline
   shell/                Sidebar, TopBar (replay controls), AdvisorPanel (insights feed, chat,
                         grounding badges, work-order confirmation cards), ModelCard, ToastStack
+                        (bottom-right of the page column, never over the Advisor), ProfileMenu
+                        (name, role, theme), NoModelDialog (first-run Ollama / model setup)
   PageHeader.tsx
 features/
   dashboard/            KpiTiles, ComponentCard, TrendPanel (chart + table), ActivityFeed, StatusBanner, NewWorkOrder
   models/               ActiveModelBanner, LocalModelsTab, CloudTab, HardwareTab, SettingsTab, types.ts
 context/              React state shared across pages
-  LiveContext.tsx       replay state, overview, trend, activity, insights; refreshed from /api/stream; toasts; replay controls
+  LiveContext.tsx       replay state, overview, trend, activity, insights, runtime settings; refreshed from /api/stream; toasts; replay controls
   ChatContext.tsx       the Advisor conversation, tool lookups, proposed actions (respond); panel open/closed
   ModelsContext.tsx     installed models + the active model
 lib/
@@ -294,13 +344,20 @@ lib/
   activity and insights on start, then refreshes on `prediction`, `replay`
   and `work_order` events and after a reconnect; `insight` events are
   prepended to the feed, `insight_notice` shows "insights paused". Condition
-  changes become toasts (worse = warning/critical, better = good).
+  changes and work orders become toasts (worse = warning/critical, better =
+  good), at most four at a time, each gone after 5 s. It also holds the
+  runtime settings (updated by `settings` events), which is how the shell
+  knows it is in study mode and which condition is running.
 - `ChatContext` keeps the transcript and sends only the user/assistant turns;
-  the backend adds the snapshot. It records each answer's grounding verdict,
+  the backend adds the snapshot. A `study`/`task_loading` event clears it. It records each answer's grounding verdict,
   the tools the model used, and proposed work orders with their state
   (pending → created / cancelled).
 - `ModelsContext` caches `/api/models` and `/api/models/active` so the
   sidebar card and the AI models page agree.
+- Per-browser conveniences live in `localStorage` / `sessionStorage`, never
+  on the server: the theme (`lib/theme.ts`), the profile name and role
+  (`ProfileMenu`) and the dismissed first-run dialog. There is no login; the
+  profile is a label for whoever sits at the dashboard.
 
 ---
 
@@ -341,6 +398,10 @@ lib/
   Ollama's model list has no capability field.
 - Proposed work orders are held in memory: a backend restart forgets
   unanswered proposals.
+- The in-app Ollama install is Linux only (x86-64 / arm64); on macOS and
+  Windows install Ollama's own app.
+- The profile is per browser, not an account: it isn't sent to the backend
+  or written to any log.
 - With tools on, chat answers arrive whole rather than word by word (the tool
   rounds are non-streamed); turn tools off for streaming.
 - The grounding check is v1: it doesn't check that a number belongs to the

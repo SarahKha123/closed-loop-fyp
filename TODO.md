@@ -13,7 +13,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 
 ---
 
-## Status at a glance (updated 2026-10-11)
+## Status at a glance (updated 2026-10-19)
 
 | Area | Built | Partial | Not started |
 |---|---|---|---|
@@ -29,13 +29,15 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` cut
 | Grounding check (M8) | ✅ v1, one retry, verified badge with checked values | | v2 (optional) |
 | Advisor chat (M9) | ✅ live snapshot, tools, confirm-before-create, no-tools fallback, grounding badge | | |
 | Runtime settings + low-resource tuning | ✅ `config/settings.json` + Settings tab; `.env` limits | | |
-| Evaluation (M10) | | | ⬜ |
-| Study mode (M11) | | | ⬜ |
-| Hardening + packaging (M12) | ✅ local-only setup/start/test, models trained on setup, 56 tests, docs | 🟡 robustness pass | end-to-end test, long-replay soak |
+| Evaluation (M10) | ✅ harness: 50 frozen scenarios, runner, analysis, rating sheets, system perf | 🟡 official runs: `gpt-oss:120b-cloud` 246/300 rows | local models, ratings, Part D run |
+| Study mode (M11) | ✅ conditions, presets, counterbalancing, `/study/admin`, task log, CSV export | | dry run, in-app SUS / NASA-TLX (optional) |
+| Ollama setup from the app | ✅ install (no sudo) + start from the first-run dialog and `setup` | | |
+| Hardening + packaging (M12) | ✅ local-only setup/start/dev/test, models trained on setup, 62 tests, docs | 🟡 robustness pass | end-to-end test, long-replay soak |
 
-**Milestones:** 9 of 12 complete (M1–M9). Docker was removed (2026-10-11):
-everything runs directly on the machine through `closed-loop.sh`.
-Next: **M10** (evaluation harness).
+**Milestones:** M1–M9 complete; M10 and M11 built and waiting on their runs
+(the official evaluation runs and the study dry run). Docker was removed
+(2026-10-11): everything runs directly on the machine through `closed-loop.sh`.
+Next: finish the M10 runs, the M11 dry run, then M12.
 
 ## Feature map
 
@@ -58,7 +60,7 @@ Status: **Built** · **Partial** · **—** not started.
 
 | Feature | Status | Milestone |
 |---|---|---|
-| SQLite data layer (5 tables) + query module | Built | M2 |
+| SQLite data layer (5 tables, + `tbl_StudyLog` in M11) + query module | Built | M2 |
 | Cycle replay with play / pause / step / speed / seek | Built | M3 |
 | Event bus + live SSE stream to the browser | Built | M3 |
 | CSV ingest in the same schema (stretch) | — | M3 |
@@ -75,7 +77,8 @@ Status: **Built** · **Partial** · **—** not started.
 | Risk trend chart (with table view) | Built | M5 |
 | SHAP "why" bars per component, component pages | Built | M5 |
 | Sensor Feed page | Built | M5 |
-| Alert banner and toasts | Built | M5, M6 |
+| Alert banner and toasts (in the page column, clear of the Advisor) | Built | M5, M6 |
+| Profile menu (name, role, theme; per browser, no login) | Built | — |
 
 **Work orders**
 
@@ -90,6 +93,7 @@ Status: **Built** · **Partial** · **—** not started.
 | Feature | Status | Milestone |
 |---|---|---|
 | Local models: list, download, delete, pin, auto-select | Built | — |
+| Install / start Ollama from the dashboard (Linux, no sudo) | Built | — |
 | Cloud models: providers, keys, test, use | Built | — |
 | Hardware report and "what fits" | Built | — |
 | Streaming Advisor chat (local or cloud) | Built | — |
@@ -103,37 +107,35 @@ Status: **Built** · **Partial** · **—** not started.
 
 | Feature | Status | Milestone |
 |---|---|---|
-| Scenario set, runner, metrics, charts (Part B) | — | M10 |
-| System performance run (Part D) | — | M10 |
-| Study mode: conditions, presets, task log, export (Part C) | — | M11 |
+| Scenario set, runner, metrics, charts (Part B) | Built — official runs in progress | M10 |
+| System performance run (Part D) | Built — not run yet | M10 |
+| Study mode: conditions, presets, task log, export (Part C) | Built — dry run to do | M11 |
 
 **Platform**
 
 | Feature | Status | Milestone |
 |---|---|---|
-| `./closed-loop.sh setup / start / dev / test / status / reset-db` (local, starts Ollama) | Built | M12 |
+| `./closed-loop.sh setup / start / dev / test / status / reset-db` (local, starts Ollama; `dev` waits for the API) | Built | M12 |
 | Low-resource limits (`.env`: Ollama context/threads/keep-alive, predictor threads) | Built | Cross-cutting |
 | Runtime settings file + API + Settings tab | Built | Cross-cutting |
 | Docs (README, ARCHITECTURE, API, DEVELOPMENT, DATASET) | Built | updated each milestone |
-| Tests | Built — pytest, 56 tests with stub models; `check_models.py` self-check | M12 |
+| Tests | Built — pytest, 62 tests with stub models; `check_models.py` self-check | M12 |
 | Docker / compose | Cut (2026-10-11) — not needed to run, cost RAM on low-end machines | — |
 
 ## Start here
 
-**Done:** M1–M9 — the full closed loop runs live: replay → prediction + SHAP →
+**Done:** M1–M9, and the M10 harness and M11 study mode — the full closed loop runs live: replay → prediction + SHAP →
 automatic work orders → AI insights checked against the data → chat that can
 look things up and propose work orders the engineer confirms. Checked live on
 a 4-core / 7 GB CPU-only laptop with `qwen3:1.7b`.
 
 **Next, in order:**
 
-1. **M10 — evaluation harness:** frozen scenario set from the replay,
-   `eval/run.py` calling `insights.generate`'s path directly for each model ×
-   scenario × validator on/off, then `eval/analyse.py` for grounding accuracy,
-   hallucination rate, coverage, latency and the trade-off chart. First:
-   decide the models (below) — on this laptop, local candidates are
-   `qwen3:0.6b`, `qwen3:1.7b`, and `qwen3:4b` if it fits.
-2. **M11 — study mode.**
+1. **M10 — the official runs:** finish `official-gpt-oss-120b-cloud`
+   (re-run with the same `--out` to resume), then the local candidates
+   (`qwen3:0.6b`, `qwen3:1.7b`, and `qwen3:4b` if it fits), `eval/analyse.py`,
+   the rating sheets, and the Part D `system_perf.py` run.
+2. **M11 — dry run:** a full mock session in both conditions; check the export.
 3. **M12 — the rest of hardening:** end-to-end test, long-replay soak.
 
 ---
@@ -156,15 +158,18 @@ closed-loop-fyp/
 │       ├── snapshot.py · insights.py · prompts.py   M7
 │       ├── grounding.py          M8
 │       ├── tools.py              M9  chat tools
-│       └── settings.py           runtime settings
-├── eval/                       M10 scenarios, runner, analysis
+│       ├── settings.py           runtime settings
+│       ├── study.py              M11 conditions, presets, task log
+│       └── ollama_runtime.py     install / start Ollama without sudo
+├── eval/                       M10 scenarios, runner, analysis, rating sheets, system perf
 ├── frontend/src/
 │   ├── lib/stream.ts             one EventSource for live events
 │   ├── features/dashboard/       KPIs, cards, trend, activity, new work order
 │   ├── features/models/          model tabs + Settings tab
 │   ├── components/shell/AdvisorPanel.tsx   insights feed, chat, grounding badges, confirm cards
-│   └── features/study/           M11
-└── config/                     settings.json, model_config.json, cloud.json, closed_loop.db (last two gitignored)
+│   └── routes/study.admin.tsx    M11 the researcher's console (one page: no features/study/ needed)
+└── config/                     settings.json, model_config.json, study_scenarios.json, cloud.json, closed_loop.db, ollama/
+                                (cloud.json, the database and ollama/ gitignored)
 ```
 
 ## Technical decisions to make
@@ -636,29 +641,30 @@ CREATE TABLE tbl_Insight (
 **Goal:** reproducible measurements for RQ2 (local vs cloud) and RQ3 (validator effect), plus system latency.
 
 **Scenarios** — `eval/scenarios/`
-- [ ] `eval/make_scenarios.py`: replay through the dataset and save snapshots at chosen events → `eval/scenarios/<id>.json` (snapshot + the expected component and condition)
-- [ ] 30–50 scenarios covering: each component → Degraded, → Critical; recovery to Optimal; two components changing at once; all clear; work order opened; work order closed
-- [ ] Freeze the set (commit it); never change it after the first official run
+- [x] `eval/make_scenarios.py`: replay through the dataset and save snapshots at chosen events → `eval/scenarios/<id>.json` (snapshot + the expected component and condition)
+- [x] 30–50 scenarios covering: each component → Degraded, → Critical; recovery to Optimal; two components changing at once; all clear; work order opened; work order closed — 50 built; "two at once" and "threshold only" never happen in this dataset, so those categories are empty, and work-order events ride along with Critical / recovery
+- [x] Freeze the set (commit it); never change it after the first official run (`make_scenarios.py` refuses to overwrite without `--force`)
 
 **Runner** — `eval/run.py`
-- [ ] Inputs: model list, `--repeats 3`, `--validator on|off|both`, prompt version
-- [ ] For each model × scenario × validator setting × repeat: run the insight generation path (same code as M7/M8, called directly — not through the UI); record text, first-token ms, total ms, attempts, validation detail
-- [ ] Write one row per run to `eval/results/<timestamp>.csv`; save the exact config next to it (`config.json`: models, versions, prompt version, Ollama version, hardware snapshot)
-- [ ] Resume support (skip rows already done) — local runs are slow
-- [ ] Unload/warm-up: one discarded warm-up call per model so load time doesn't count as latency
+- [x] Inputs: model list, `--repeats 3`, `--validator on|off|both`, `--limit`, `--out` (the prompt version is recorded, not chosen)
+- [x] For each model × scenario × validator setting × repeat: run the insight generation path (same code as M7/M8, called directly — not through the UI); record text, first-token ms, total ms, attempts, validation detail
+- [x] Write one row per run to `eval/results/<timestamp>.csv`; save the exact config next to it (`config.json`: models, versions, prompt version, Ollama version, hardware snapshot)
+- [x] Resume support (skip rows already done) — local runs are slow
+- [x] Unload/warm-up: one discarded warm-up call per model so load time doesn't count as latency
 
 **Metrics** — `eval/analyse.py` (or a notebook) → `eval/results/report.md` + PNG charts
-- [ ] **Grounding accuracy** = matched values / checked values (per insight, then mean ± sd per model)
-- [ ] **Hallucination rate** = share of insights with ≥ 1 mismatch
-- [ ] **Coverage** = names the expected component and condition (automatic)
-- [ ] **Latency**: first token and total, median and p90 per model
-- [ ] **Validator effect** (RQ3): accuracy and hallucination rate with vs without; regeneration rate
-- [ ] **Trade-off chart** (RQ2): hallucination rate vs median latency, one point per model, local vs cloud marked
-- [ ] Usefulness rating support: `eval/rate.py` exports a random sample of ~60 insights (model hidden) to CSV with rubric columns; `analyse.py` reads the filled ratings and reports mean score and inter-rater agreement (Cohen's κ)
+- [x] **Grounding accuracy** = matched values / checked values (per insight, then mean ± sd per model)
+- [x] **Hallucination rate** = share of insights with ≥ 1 mismatch
+- [x] **Coverage** = names the expected component and condition (automatic)
+- [x] **Latency**: first token and total, median and p90 per model
+- [x] **Validator effect** (RQ3): accuracy and hallucination rate with vs without; regeneration rate
+- [x] **Trade-off chart** (RQ2): hallucination rate vs median latency, one point per model, local vs cloud marked
+- [x] Usefulness rating support: `eval/rate.py` exports a random sample of ~60 insights (model hidden) to CSV with rubric columns; `analyse.py` reads the filled ratings and reports mean score and inter-rater agreement (Cohen's κ)
 
 **Part D — system performance**
-- [ ] `eval/system_perf.py`: full 2,205-cycle replay at a fixed speed; log per cycle: replay → prediction stored (ms), prediction → event delivered to an SSE client (ms), insight latency when triggered; process memory every 100 cycles
-- [ ] Report median/p90 per stage and the memory curve (should be flat)
+- [x] `eval/system_perf.py`: full 2,205-cycle replay at a fixed speed; log per cycle: replay → prediction stored (ms), prediction → event delivered to an SSE client (ms), insight latency when triggered; process memory every 100 cycles
+- [x] Report median/p90 per stage and the memory curve (should be flat) — written by `system_perf.py`
+- [ ] Official runs: `gpt-oss:120b-cloud` (246 of 300 rows — resume), local models, then `analyse.py`, the rating sheets, and the Part D run
 
 **Done when:** `python eval/run.py --models qwen3:1.7b,qwen3:4b,<cloud> --validator both` produces a CSV, and `python eval/analyse.py` turns it into `report.md` with the tables and charts.
 
@@ -668,15 +674,15 @@ CREATE TABLE tbl_Insight (
 
 **Goal:** the app can run the within-subjects study: two conditions, fixed scenarios, logged tasks. (Recruitment, ethics and forms are outside this file.)
 
-- [ ] `settings.study.enabled` and `?study=1` → **study mode**:
-  - hides the Models page, replay controls and the model card (participants can't change the setup)
-  - fixed model (from settings)
-- [ ] **Condition toggle**: `dashboard_only` (Advisor panel hidden entirely, insights off) vs `dashboard_ai` (insights + chat)
-- [ ] **Scenario presets**: `config/study_scenarios.json` — named states (cycle to seek to, replay paused or playing at a set speed); the researcher picks one per task
-- [ ] Task runner panel (researcher-only, behind a key or a separate URL `/study/admin`): participant ID, condition, task set A/B, start/stop task, record the participant's answer and correctness
-- [ ] `tbl_StudyLog` (ParticipantID, Condition, TaskSet, TaskID, StartedAt, EndedAt, DurationMs, Answer, Correct, ChatTurns, InsightsShown) and `GET /api/study/export` → CSV
-- [ ] Reset between participants: one button → `reset-db` + seek to the scenario + clear the chat
-- [ ] Counterbalancing helper: given a participant number, returns the condition order and task set order
+- [x] `settings.study.enabled` → **study mode** (toggled on `/study/admin`; no `?study=1` URL switch — one setting is enough):
+  - hides the Models page, replay controls, the model card and the first-run model dialog (participants can't change the setup)
+  - fixed model: whatever is selected when study mode is turned on
+- [x] **Condition toggle**: `dashboard_only` (Advisor panel not rendered, insights off) vs `dashboard_ai` (insights + chat, panel pinned open) — `POST /api/study/condition`, also switched by each task start
+- [x] **Scenario presets**: `config/study_scenarios.json` — sets A and B, four parallel tasks each (`from` → `to` cycles, question, reference answer); the replay is reset to `from`, stepped to `to` and left paused, so history is included
+- [x] Task runner panel at `/study/admin` (separate URL, not in the nav): participant number, the plan's blocks, start/end task, answer and correctness, live timer, per-participant log
+- [x] `tbl_StudyLog` (ParticipantID, Condition, TaskSet, TaskID, StartedAt, EndedAt, DurationMs, Answer, Correct, ChatTurns, InsightsShown) and `GET /api/study/export` → CSV
+- [x] Reset between participants: every task start resets the replay to its preset (data layer emptied, study log kept) and clears the participant's chat; `reset-db` refuses to delete study logs without `--force`
+- [x] Counterbalancing helper: `GET /api/study/plan/{n}` returns the condition order and task set order (four orders in rotation)
 - [ ] Optional: SUS and NASA-TLX as in-app forms saved to `tbl_StudyLog` (otherwise paper/Google Forms)
 - [ ] Dry run: a full session end to end with yourself as the participant; export works
 
@@ -721,7 +727,7 @@ CREATE TABLE tbl_Insight (
 - [x] `docs/API.md`: every endpoint and event, including insights, settings, chat tools and confirm
 - [x] `docs/DEVELOPMENT.md`: setup, `.env`, runtime settings, model choice per machine, ML, `reset-db`, checks, recipes
 - [x] `README.md`: quick start from a fresh clone to a running live demo; low-resource section
-- [ ] Re-check all docs after M10/M11 (`eval/`, study mode, `/api/study`)
+- [x] Re-check all docs after M10/M11 (`eval/`, study mode, `/api/study`, `/api/models/runtime`) — done 2026-10-19; also added a troubleshooting table to DEVELOPMENT.md
 
 **Done when:** a fresh clone, following only the README, reaches a running live replay with insights; `pytest` and the frontend checks pass.
 
@@ -735,9 +741,10 @@ CREATE TABLE tbl_Insight (
   {"insights":  {"enabled": true, "threshold": 0.5, "cooldownSeconds": 10},
    "grounding": {"enabled": true, "hideUnverified": false},
    "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": true},
-   "chat":      {"maxTurns": 10, "tools": true}}
+   "chat":      {"maxTurns": 10, "tools": true},
+   "study":     {"enabled": false, "condition": "dashboard_ai"}}
   ```
-  Still to add with their milestones: `study.*` (M11). Replay speed stays a replay control, not a setting.
+  Replay speed stays a replay control, not a setting.
 - [x] Settings tab (Models → Settings) for the toggles flipped during evaluation
 
 **Logging**
@@ -746,7 +753,7 @@ CREATE TABLE tbl_Insight (
 **Conventions** (from `docs/DEVELOPMENT.md`)
 - [x] Services own logic and raise their own errors; routers only translate to HTTP (true of all current code)
 - [x] All SQL in `repo.py`; all prompts in `prompts.py`; all events through `events.py`
-- [ ] Update `docs/API.md` in the same commit as any endpoint change
+- [ ] Update `docs/API.md` in the same commit as any endpoint change (the M10/M11/runtime endpoints were documented late, 2026-10-19)
 - [x] Never edit `Daedalus/`; never commit `config/cloud.json`, the trained models, or the database (gitignored)
 - [x] Never pin versions in `requirements*.txt` — rebuild version-sensitive artefacts (the models) instead
 

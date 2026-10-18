@@ -67,7 +67,9 @@ cmd_setup() {
     ok "created backend/.venv"
   fi
   $PY -m pip install --quiet --upgrade pip
-  $PY -m pip install --quiet -r backend/requirements.txt -r backend/requirements-dev.txt
+  # --upgrade: requirements are unpinned and the committed models are trained on
+  # the latest releases, so a stale venv would warn about version mismatches.
+  $PY -m pip install --quiet --upgrade -r backend/requirements.txt -r backend/requirements-dev.txt
   ok "python packages installed"
 
   head_ "ML models"
@@ -190,9 +192,32 @@ cmd_start() {
   ok "API docs    http://localhost:${BACKEND_PORT}/docs"
   say "  ${DIM}Ctrl-C stops it${RESET}"
   say ""
-  trap 'stop_ollama' EXIT INT TERM
+  trap 'stop_ollama' EXIT
+  trap 'exit 130' INT TERM
   CLOSED_LOOP_STATIC_DIR=frontend/dist $PY -m uvicorn app.main:app --app-dir backend \
     --port "$BACKEND_PORT" --timeout-graceful-shutdown 3
+}
+
+# Global, not `local`: the EXIT trap runs after cmd_dev has returned, where a
+# local is gone and `set -u` turns it into "unbound variable".
+API_PID=""
+stop_dev() {
+  if [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null; then
+    wait "$API_PID" 2>/dev/null || true # let uvicorn finish logging before the prompt returns
+  fi
+  stop_ollama
+}
+
+# Block until the backend answers, so Vite's first proxied requests don't hit
+# a closed port while the models load. Fails fast if the backend dies.
+wait_for_api() {
+  local _
+  for _ in $(seq 1 120); do
+    curl -fsS --max-time 1 "http://localhost:${BACKEND_PORT}/api/health" >/dev/null 2>&1 && return 0
+    kill -0 "$API_PID" 2>/dev/null || fail "the backend exited during startup — the output above says why"
+    sleep 0.5
+  done
+  fail "the backend didn't answer on :${BACKEND_PORT} within 60 s"
 }
 
 cmd_dev() {
@@ -200,11 +225,13 @@ cmd_dev() {
   maybe_start_ollama
 
   head_ "Starting dev servers"
+  trap 'stop_dev' EXIT
+  trap 'exit 130' INT TERM # → the EXIT trap, so cleanup runs exactly once
   $PY -m uvicorn app.main:app --reload --reload-dir backend/app \
     --port "$BACKEND_PORT" --app-dir backend --timeout-graceful-shutdown 3 &
-  local api_pid=$!
-  trap 'kill $api_pid 2>/dev/null; stop_ollama' EXIT INT TERM
-  ok "backend   http://localhost:${BACKEND_PORT}  (pid $api_pid)"
+  API_PID=$!
+  wait_for_api
+  ok "backend   http://localhost:${BACKEND_PORT}  (pid $API_PID)"
   ok "frontend  http://localhost:${FRONTEND_PORT}"
   say ""
   # Point Vite's /api proxy at this backend, whatever port it's on.

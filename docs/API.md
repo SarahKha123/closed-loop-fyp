@@ -100,6 +100,26 @@ Closing the connection cancels the download.
 Body `{"tag": "qwen3:1.7b"}` → `{"ok": true}`. `400` if it isn't installed,
 `503` if Ollama is unreachable.
 
+### `GET /api/models/runtime`
+Is Ollama itself installed and running (for the first-run dialog).
+```json
+{"installed": true, "running": false, "binary": "/home/…/config/ollama/bin/ollama", "can_install": true}
+```
+`binary` is the `ollama` on PATH if there is one, else the copy installed
+into `config/ollama/`. `can_install` is `true` on Linux x86-64 / arm64 only.
+
+### `POST /api/models/runtime/install` (SSE)
+Downloads Ollama's Linux release and unpacks it into `config/ollama/` (no
+sudo), then starts it. Frames are the same shape as a pull —
+`{"status": "Downloading Ollama — 512 / 1,400 MB", "percent": 37.0, "done": false}` … `{"status": "Ollama is running", "percent": 100, "done": true}`
+— or a final `{"error": "…"}`. One install at a time.
+
+### `POST /api/models/runtime/start`
+Starts `ollama serve` if it's installed but not answering, waits up to 20 s,
+and returns the `/runtime` object. Its output goes to `config/ollama.log`;
+`closed-loop.sh` stops it on Ctrl-C (via `config/ollama.pid`). `503` if it
+isn't installed or doesn't come up.
+
 ---
 
 ## Cloud providers
@@ -216,6 +236,11 @@ sent after 15 s of silence to keep the connection open.
 | `work_order` | a work order opened or closed | `{"action": "opened" \| "closed", "workOrder": {...}}` | M6 |
 | `insight` | the AI produced an insight | the insight (as in `GET /api/insights`) | M7 |
 | `insight_notice` | the insight engine can't reach a model (sent once, until an insight succeeds) | `{"text": "Insights paused: …"}` | M7 |
+| `settings` | runtime settings changed (`PUT /api/settings`, or a study condition switch) | `{"settings": {…}}` — the `GET /api/settings` object | M11 |
+| `study` | a study task is loading, has started or has ended | `{"action": "task_loading" \| "task_started" \| "task_ended", "taskId": "A1"}` (`task_loading` has no `taskId`) | M11 |
+
+After the stream reconnects, the browser re-fetches everything (it may have
+missed events); there is no replay of missed frames.
 
 ```
 data: {"type": "replay", "state": "playing", "cycle": 1665, "nextCycle": 1666, "first": 1, "total": 2205, "secondsPerCycle": 0.5}
@@ -390,11 +415,76 @@ to the next event — no restart. What each one does: [DEVELOPMENT.md](DEVELOPME
 {"insights":  {"enabled": true, "threshold": 0.5, "cooldownSeconds": 10},
  "grounding": {"enabled": true, "hideUnverified": false},
  "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": true},
- "chat":      {"maxTurns": 10, "tools": true}}
+ "chat":      {"maxTurns": 10, "tools": true},
+ "study":     {"enabled": false, "condition": "dashboard_ai"}}
 ```
 
 ### `PUT /api/settings`
 A partial patch, e.g. `{"insights": {"enabled": false}}`; returns the full
 settings. `400` on an unknown key, wrong type or out-of-range value (nothing
 is saved). Ranges: `insights.threshold` 0.05–0.95, `insights.cooldownSeconds`
-0–600, `monitor.confirmCycles` 1–20, `chat.maxTurns` 1–50.
+0–600, `monitor.confirmCycles` 1–20, `chat.maxTurns` 1–50; `study.condition`
+is `dashboard_only` or `dashboard_ai`. Every change is also published as a
+`settings` event, so open dashboards apply it at once.
+
+---
+
+## Study
+
+The technical side of the user study (M11, `services/study.py`). Study mode
+itself is `study.enabled` in the settings; the researcher works at
+`/study/admin`. Tasks come from `config/study_scenarios.json`: two parallel
+sets, `A` and `B`, of four tasks each. `400` (with the reason) for anything
+that can't be carried out — an unknown task, a task already running, no task
+running, a bad participant number.
+
+### `GET /api/study`
+```json
+{"settings": {"enabled": true, "condition": "dashboard_ai"},
+ "taskSets": {"A": [{"id": "A1", "level": "lookup", "from": 200, "to": 214,
+                     "prompt": "Which components are in Critical condition right now?",
+                     "answer": "Cooler, Pump and Valve (the Accumulator is Optimal)."}, …],
+              "B": [ … ]},
+ "active": null}                     // the running task's log row, or null
+```
+`answer` is the researcher's reference answer; the participant's screen never shows it.
+
+### `GET /api/study/plan/{n}`
+Counterbalancing: participant `n` (1, 2, …) gets one of the four orders of
+condition × task set, in rotation.
+```json
+{"participant": "P03",
+ "blocks": [{"condition": "dashboard_ai", "taskSet": "A"}, {"condition": "dashboard_only", "taskSet": "B"}]}
+```
+
+### `POST /api/study/condition`
+Body `{"condition": "dashboard_only"}`. Sets `study.condition` and turns
+insights off (`dashboard_only`) or on (`dashboard_ai`) together; returns the
+full settings and publishes a `settings` event.
+
+### `POST /api/study/tasks/start`
+Body `{"participant": "P03", "condition": "dashboard_ai", "taskSet": "A", "taskId": "A1"}`.
+Switches the condition, publishes `study`/`task_loading` (the participant's
+chat clears), resets the replay to the task's `from` cycle (emptying the data
+layer — `tbl_StudyLog` is kept), steps to `to`, waits until that cycle is
+scored, and only then starts the clock. Returns the new log row:
+```json
+{"logId": 7, "participantId": "P03", "condition": "dashboard_ai", "taskSet": "A", "taskId": "A1",
+ "startedAt": "2026-10-18T09:12:03.120+00:00", "endedAt": null, "durationMs": null,
+ "answer": null, "correct": null, "chatTurns": null, "insightsShown": null}
+```
+Can take a few seconds (the preset replays up to ~15 cycles).
+
+### `POST /api/study/tasks/end`
+Body `{"answer": "Cooler and pump", "correct": true}` (`correct` may be
+`null` — mark it later from the export). Stops the clock and fills
+`endedAt`, `durationMs`, `chatTurns` (chat answers during the task) and
+`insightsShown`. Returns the finished row and publishes `study`/`task_ended`.
+
+### `GET /api/study/log?participant=P03`
+`{"log": [ …rows as above… ]}` — all participants, or one.
+
+### `GET /api/study/export?participant=P03`
+The same rows as CSV (`study-log.csv` / `study-log-P03.csv`), with the
+columns `LogID, ParticipantID, Condition, TaskSet, TaskID, StartedAt,
+EndedAt, DurationMs, Answer, Correct, ChatTurns, InsightsShown`.

@@ -20,15 +20,26 @@ closes it on recovery. An AI **Advisor** closes the loop for people:
 
 The Advisor runs on a **local model** (Ollama) or a **cloud API** (OpenAI,
 Anthropic, Gemini, Groq, OpenRouter, DeepSeek, or any OpenAI-compatible
-endpoint), chosen on the **Models** page.
+endpoint), chosen on the **Models** page. With nothing set up yet, the
+dashboard offers to install and start Ollama for you (Linux, no sudo).
+
+For the FYP's evaluation it also has:
+
+- **Study mode** — a researcher console at `/study/admin` for the user
+  study: two conditions (dashboard only / dashboard + AI), fixed task
+  presets, counterbalancing, a timed task log and CSV export.
+- **Evaluation harness** — `eval/` measures grounding accuracy,
+  hallucination rate and latency per model, with the validator on and off,
+  plus a whole-system performance run.
 
 ## Quick start
 
-Needs Python 3.11+, Node 22+, pnpm, and [Ollama](https://ollama.com) for local
-models. Everything runs directly on your machine — no Docker.
+Needs Python 3.11+, Node 22+ and pnpm. [Ollama](https://ollama.com) is
+optional: `setup` offers to install it (no sudo), or use a cloud API.
+Everything runs directly on your machine — no Docker.
 
 ```bash
-./closed-loop.sh setup    # once: packages, .env, trains the ML models (~2 min)
+./closed-loop.sh setup    # once: packages, .env, trains the ML models (~2 min), offers Ollama
 ./closed-loop.sh start    # http://localhost:8000 — starts Ollama if needed
 ```
 
@@ -37,12 +48,15 @@ add a key under **Cloud APIs**, and press play in the top bar.
 
 | Command | What it does |
 |---|---|
-| `./closed-loop.sh setup` | Install dependencies, create `.env`, train the models if missing |
+| `./closed-loop.sh setup` | Install / upgrade dependencies, create `.env`, train the models if missing, offer to install Ollama. Safe to re-run |
 | `./closed-loop.sh start` | Build the dashboard once and serve it with the API on one port (lightest; for demos) |
-| `./closed-loop.sh dev` | Hot-reload backend (:8000) + Vite (:5173), for editing code |
+| `./closed-loop.sh dev` | Hot-reload backend (:8000) + Vite (:5173), for editing code; Vite starts once the API answers |
 | `./closed-loop.sh test` | Backend tests, frontend type check and lint |
 | `./closed-loop.sh status` | Does the API answer, which model is active, is Ollama up |
-| `./closed-loop.sh reset-db` | Delete the database (recreated empty on the next start) |
+| `./closed-loop.sh reset-db` | Delete the database (recreated empty on the next start); refuses while it holds study logs unless `--force` |
+
+Ctrl-C stops everything the command started. Something not working? See
+[Troubleshooting](docs/DEVELOPMENT.md#troubleshooting).
 
 ### Low-resource machines
 
@@ -72,7 +86,9 @@ closed-loop-fyp/
 │   ├── ml/              FYP1 ML pipeline: features, labels, evaluation, training, SHAP, saved models
 │   ├── data/            the dataset (hydraulic_condition_monitoring_summary.csv)
 │   └── tests/           pytest (stub models — no Ollama or key needed)
-├── config/            Runtime config, settings and the SQLite database (keys and DB gitignored)
+├── eval/              Evaluation harness: scenarios, runner, analysis, rating sheets, system performance
+├── config/            Model choice, study tasks, settings, the SQLite database, a local Ollama
+│                      (keys, DB and Ollama gitignored)
 ├── docs/              Architecture, API reference, development guide, dataset, scope
 ├── scripts/common.sh  Shell helpers for closed-loop.sh
 ├── closed-loop.sh     The one entry point for running anything
@@ -84,7 +100,7 @@ closed-loop-fyp/
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the pieces fit, the closed loop, request flows, design decisions
 - [docs/API.md](docs/API.md) — every backend endpoint and live event, with request and response shapes
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, configuration, settings, checks, and how to extend it
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, configuration, settings, study mode, evaluation, checks, troubleshooting, and how to extend it
 - [docs/DATASET.md](docs/DATASET.md) — the hydraulic dataset: sensors, labels, structure, verification
 - [docs/FYP_NEW_SCOPE.md](docs/FYP_NEW_SCOPE.md) — the revised FYP topic, chapter by chapter
 - [backend/ml/README.md](backend/ml/README.md) — the ML pipeline and its results
