@@ -6,16 +6,14 @@ import { Icon, type IconName } from "../../components/ui/Icon"
 
 function Tile({ label, value, sub, icon, tone }: { label: string; value: string; sub: string; icon: IconName; tone: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 shadow-card">
+    <div className="flex min-w-0 flex-1 basis-[200px] items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 shadow-card">
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
         <Icon name={icon} size={20} />
       </div>
       <div className="min-w-0">
-        <div className="text-sm text-ink-muted">{label}</div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl leading-tight font-semibold text-ink">{value}</span>
-          <span className="truncate text-sm text-ink-faint">{sub}</span>
-        </div>
+        <div className="text-sm font-medium text-ink-muted">{label}</div>
+        <div className="tabular text-3xl font-semibold text-ink">{value}</div>
+        <div className="text-sm text-ink-faint">{sub}</div>
       </div>
     </div>
   )
@@ -26,7 +24,7 @@ export function KpiTiles({ overview }: { overview: Overview | null }) {
   const has = Boolean(overview?.cycle)
   const v = (n: number | undefined) => (has && n != null ? String(n) : "—")
   return (
-    <div className="grid grid-cols-2 gap-4 @3xl:grid-cols-3 @5xl:grid-cols-5">
+    <div className="flex flex-wrap gap-4">
       <Tile label="Critical" value={v(k?.critical)} sub={`of ${k?.monitored ?? 4} components`} icon="octagon" tone="bg-critical-bg text-critical-text" />
       <Tile label="Degraded" value={v(k?.degraded)} sub="need attention soon" icon="alert" tone="bg-warning-bg text-warning-text" />
       <Tile label="Optimal" value={v(k?.optimal)} sub="healthy" icon="check" tone="bg-good-bg text-good-text" />

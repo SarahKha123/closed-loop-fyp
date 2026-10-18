@@ -137,7 +137,7 @@ function ComponentPage() {
                       <div className="h-1.5 grow overflow-hidden rounded-full bg-surface-3">
                         <div className="h-full rounded-full bg-accent" style={{ width: `${(Math.abs(d.contribution) / maxContribution) * 100}%` }} />
                       </div>
-                      <span className="tabular w-14 text-right font-mono text-xs text-ink-faint">{d.feature}</span>
+                      <span className="tabular min-w-16 shrink-0 text-right font-mono text-xs whitespace-nowrap text-ink-faint">{d.feature}</span>
                     </div>
                   </li>
                 ))}
