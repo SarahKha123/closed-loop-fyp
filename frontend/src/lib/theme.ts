@@ -33,5 +33,5 @@ export function useTheme() {
   }, [theme])
   const isDark =
     theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-  return { theme, isDark, toggle: () => setTheme(isDark ? "light" : "dark") }
+  return { theme, isDark, setTheme, toggle: () => setTheme(isDark ? "light" : "dark") }
 }

@@ -1,12 +1,14 @@
-// Left navigation: brand, pages, the four components with their live condition, and the active model
-// (not in study mode: participants don't pick models).
+// Left navigation: brand, pages, the four components with their live condition, the active model
+// (not in study mode: participants don't pick models) and the operator's profile menu.
 
 import { Link } from "@tanstack/react-router"
 import { useLive } from "../../context/LiveContext"
 import { COMPONENTS } from "../../lib/api"
 import { ConditionDot } from "../ui/ConditionBadge"
 import { Icon, type IconName } from "../ui/Icon"
+import type { useTheme } from "../../lib/theme"
 import { ModelCard } from "./ModelCard"
+import { ProfileMenu } from "./ProfileMenu"
 
 const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models"; label: string; icon: IconName }[] = [
   { to: "/", label: "Overview", icon: "overview" },
@@ -18,7 +20,7 @@ const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models"; label: string; i
 const navItem = "flex h-10 items-center gap-3 rounded-lg px-3 text-base font-medium text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink"
 const navActive = "!bg-accent-bg !text-accent-text"
 
-export function Sidebar({ studyMode }: { studyMode: boolean }) {
+export function Sidebar({ studyMode, theme }: { studyMode: boolean; theme: ReturnType<typeof useTheme> }) {
   const { overview } = useLive()
   const byName = new Map(overview?.components.map((c) => [c.component, c]))
   const openOrders = overview?.kpis.openWorkOrders ?? 0
@@ -80,7 +82,7 @@ export function Sidebar({ studyMode }: { studyMode: boolean }) {
 
       <div className="flex flex-col gap-3 border-t border-line p-3">
         {!studyMode && <ModelCard />}
-        <div className="px-1 text-xs text-ink-faint">FYP · Universiti Teknologi PETRONAS</div>
+        <ProfileMenu studyMode={studyMode} theme={theme} />
       </div>
     </aside>
   )

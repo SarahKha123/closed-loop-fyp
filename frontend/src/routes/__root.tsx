@@ -41,7 +41,7 @@ function Shell() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-canvas text-ink">
-      <Sidebar studyMode={studyMode} />
+      <Sidebar studyMode={studyMode} theme={theme} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           theme={theme}
@@ -53,13 +53,16 @@ function Shell() {
         />
         <div className="flex min-h-0 flex-1 gap-5 p-6">
           {/* @container: page grids reflow on the column's width (it shrinks when the Advisor is open). */}
-          <main className="@container min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-            <Outlet />
-          </main>
+          {/* relative: toasts anchor to this column's corner, clear of the Advisor's composer. */}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <main className="@container h-full overflow-x-hidden overflow-y-auto">
+              <Outlet />
+            </main>
+            <ToastStack />
+          </div>
           {(advisor === "open" || advisor === "pinned") && <AdvisorPanel onClose={advisor === "open" ? () => setOpen(false) : undefined} />}
         </div>
       </div>
-      <ToastStack />
       <NoModelDialog studyMode={studyMode} />
     </div>
   )
