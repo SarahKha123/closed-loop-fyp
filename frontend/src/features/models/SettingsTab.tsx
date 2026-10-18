@@ -12,8 +12,8 @@ function Row({ label, hint, children }: { label: string; hint: string; children:
   return (
     <label className="flex items-center justify-between gap-6 px-4 py-3">
       <span className="min-w-0">
-        <span className="block text-[13px] font-medium text-ink">{label}</span>
-        <span className="block text-[12px] text-ink-faint">{hint}</span>
+        <span className="block text-base font-medium text-ink">{label}</span>
+        <span className="block text-sm text-ink-faint">{hint}</span>
       </span>
       {children}
     </label>
@@ -21,7 +21,7 @@ function Row({ label, hint, children }: { label: string; hint: string; children:
 }
 
 const toggle = "h-4 w-4 shrink-0 accent-[var(--accent)]"
-const number = "tabular h-8 w-20 shrink-0 rounded-lg border border-line-strong bg-surface px-2 text-right text-[13px] text-ink"
+const number = "tabular h-9 w-24 shrink-0 rounded-lg border border-line-strong bg-surface px-2 text-right text-base text-ink"
 
 /** A number that saves on blur or Enter, so typing "15" doesn't first save "1". */
 function NumberField({ value, min, max, step = 1, onSave }: { value: number; min: number; max: number; step?: number; onSave: (v: number) => void }) {
@@ -63,21 +63,21 @@ export function SettingsTab() {
     }
   }
 
-  if (!s) return <div className="text-[13px] text-ink-faint">{error ?? "Loading settings…"}</div>
+  if (!s) return <div className="text-base text-ink-faint">{error ?? "Loading settings…"}</div>
 
   const section = (title: string, rows: ReactNode) => (
     <section className="flex flex-col gap-2">
-      <h2 className="text-[13px] font-semibold text-ink">{title}</h2>
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
       <div className={`${card} divide-y divide-line`}>{rows}</div>
     </section>
   )
 
   return (
     <div className="flex max-w-3xl flex-col gap-5">
-      <p className="text-[12.5px] text-ink-faint">
+      <p className="text-base text-ink-faint">
         Saved to <code className="font-mono">config/settings.json</code> and applied to the next event — no restart.
       </p>
-      {error && <div className="text-[12.5px] text-critical-text">{error}</div>}
+      {error && <div className="text-base text-critical-text">{error}</div>}
 
       {section(
         "Live insights",

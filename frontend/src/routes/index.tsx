@@ -26,7 +26,7 @@ function OverviewPage() {
   const hasData = Boolean(overview?.cycle)
 
   return (
-    <div className="flex h-full min-h-[640px] flex-col gap-4">
+    <div className="flex h-full min-h-[680px] flex-col gap-5">
       <PageHeader
         title="System overview"
         subtitle={
@@ -48,7 +48,7 @@ function OverviewPage() {
               title="The replay hasn't started"
               action={
                 <Button variant="primary" onClick={() => void control.play()} disabled={!replay}>
-                  <Icon name="play" size={12} /> Start the live replay
+                  <Icon name="play" size={14} /> Start the live replay
                 </Button>
               }
             >
@@ -59,14 +59,14 @@ function OverviewPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 @5xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 @5xl:grid-cols-4">
             {COMPONENTS.map((c) => {
               const state = overview!.components.find((s) => s.component === c.name)
               const history = trend?.series[c.name].failureProbability.slice(-SPARK_POINTS) ?? []
               return state ? <ComponentCard key={c.key} state={state} history={history} /> : null
             })}
           </div>
-          <div className="grid min-h-[300px] flex-1 grid-cols-1 gap-3 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid min-h-[320px] flex-1 grid-cols-1 gap-4 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <TrendPanel trend={trend} />
             <ActivityFeed events={events} />
           </div>

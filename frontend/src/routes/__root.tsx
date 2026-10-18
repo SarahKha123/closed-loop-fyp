@@ -51,7 +51,7 @@ function Shell() {
           showAdvisorToggle={advisor === "open" || advisor === "closed"}
           studyMode={studyMode}
         />
-        <div className="flex min-h-0 flex-1 gap-4 p-5">
+        <div className="flex min-h-0 flex-1 gap-5 p-6">
           {/* @container: page grids reflow on the column's width (it shrinks when the Advisor is open). */}
           <main className="@container min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
             <Outlet />

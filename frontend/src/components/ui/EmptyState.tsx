@@ -19,8 +19,8 @@ export function EmptyState({
       <div className="rounded-full bg-surface-3 p-2.5 text-ink-faint">
         <Icon name={icon} size={18} />
       </div>
-      <div className="text-[13px] font-semibold text-ink">{title}</div>
-      {children && <div className="max-w-sm text-[12.5px] text-ink-faint">{children}</div>}
+      <div className="text-lg font-semibold text-ink">{title}</div>
+      {children && <div className="max-w-md text-base text-ink-muted">{children}</div>}
       {action && <div className="mt-1">{action}</div>}
     </div>
   )

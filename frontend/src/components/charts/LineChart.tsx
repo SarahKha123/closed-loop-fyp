@@ -24,8 +24,8 @@ interface Props {
   legend?: boolean
 }
 
-const PAD = { top: 10, right: 118, bottom: 24, left: 40 }
-const LABEL_GAP = 13
+const PAD = { top: 10, right: 136, bottom: 28, left: 46 }
+const LABEL_GAP = 17
 
 function niceTicks(min: number, max: number, count: number): number[] {
   if (max <= min) return [min]
@@ -106,12 +106,12 @@ export function LineChart({
   }
 
   const tipLeft = hover != null ? sx(x[hover]) : 0
-  const tipOnLeft = tipLeft > w - 220
+  const tipOnLeft = tipLeft > w - 240
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {legend && series.length > 1 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 pb-2 text-[12px] text-ink-muted">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 pb-2 text-sm text-ink-muted">
           {series.map((s) => (
             <span key={s.name} className="inline-flex items-center gap-1.5">
               <span className="inline-block h-[3px] w-3 rounded-full" style={{ background: s.color }} />
@@ -126,14 +126,14 @@ export function LineChart({
             {yTicks.map((t) => (
               <g key={t}>
                 <line x1={PAD.left} x2={PAD.left + innerW} y1={sy(t)} y2={sy(t)} stroke="var(--grid)" strokeWidth={1} />
-                <text x={PAD.left - 8} y={sy(t)} dy="0.32em" textAnchor="end" className="tabular fill-ink-faint text-[11px]">
+                <text x={PAD.left - 8} y={sy(t)} dy="0.32em" textAnchor="end" className="tabular fill-ink-faint text-xs">
                   {yFormat(t)}
                 </text>
               </g>
             ))}
             <line x1={PAD.left} x2={PAD.left + innerW} y1={sy(0)} y2={sy(0)} stroke="var(--baseline)" strokeWidth={1} />
             {xTicks.map((t) => (
-              <text key={t} x={sx(t)} y={h - 6} textAnchor="middle" className="tabular fill-ink-faint text-[11px]">
+              <text key={t} x={sx(t)} y={h - 7} textAnchor="middle" className="tabular fill-ink-faint text-xs">
                 {xFormat(t)}
               </text>
             ))}
@@ -146,7 +146,7 @@ export function LineChart({
               <circle key={s.name} cx={sx(x[i])} cy={y} r={4} fill={s.color} stroke="var(--surface)" strokeWidth={2} />
             ))}
             {endLabels.labelled.map(({ s, i, y }) => (
-              <text key={s.name} x={sx(x[i]) + 9} y={y} dy="0.32em" className="fill-ink-muted text-[11.5px]">
+              <text key={s.name} x={sx(x[i]) + 9} y={y} dy="0.32em" className="fill-ink-muted text-sm">
                 {s.name} <tspan className="tabular fill-ink-faint">{yFormat(s.values[i] as number)}</tspan>
               </text>
             ))}
@@ -174,7 +174,7 @@ export function LineChart({
         )}
         {hover != null && (
           <div
-            className="pointer-events-none absolute top-2 z-10 min-w-[180px] rounded-lg border border-line bg-surface px-3 py-2 text-[12px] shadow-pop"
+            className="pointer-events-none absolute top-2 z-10 min-w-[200px] rounded-lg border border-line bg-surface px-3 py-2 text-sm shadow-pop"
             style={tipOnLeft ? { right: w - tipLeft + 12 } : { left: tipLeft + 12 }}
           >
             <div className="mb-1 font-semibold text-ink">Cycle {xFormat(x[hover])}</div>

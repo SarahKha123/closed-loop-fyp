@@ -31,14 +31,14 @@ export function ActivityFeed({ events, className = "" }: { events: ConditionEven
                   >
                     <span className="inline-block h-2 w-2 shrink-0 rounded-sm" style={{ background: componentByName(e.component)?.series }} />
                     <div className="min-w-0 grow">
-                      <div className="text-[12.5px] font-medium text-ink">{e.component}</div>
-                      <div className="flex items-center gap-1 text-[11.5px] text-ink-faint">
+                      <div className="text-base font-medium text-ink">{e.component}</div>
+                      <div className="flex items-center gap-1 text-sm text-ink-faint">
                         <ConditionBadge condition={e.fromCondition} size="sm" />
-                        <Icon name="arrowRight" size={11} />
+                        <Icon name="arrowRight" size={13} />
                         <ConditionBadge condition={e.toCondition} size="sm" />
                       </div>
                     </div>
-                    <span className="tabular shrink-0 text-[11.5px] text-ink-faint">#{num(e.cycle)}</span>
+                    <span className="tabular shrink-0 text-sm text-ink-faint">#{num(e.cycle)}</span>
                   </Link>
                 </li>
               )

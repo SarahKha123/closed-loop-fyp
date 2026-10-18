@@ -88,14 +88,14 @@ function WorkOrdersPage() {
             type="button"
             onClick={() => setFilter(f)}
             aria-pressed={filter === f}
-            className={`rounded-md px-3 py-1 text-[12.5px] font-medium ${filter === f ? "bg-accent-bg text-accent-text" : "text-ink-muted hover:text-ink"}`}
+            className={`rounded-md px-3 py-1 text-base font-medium ${filter === f ? "bg-accent-bg text-accent-text" : "text-ink-muted hover:text-ink"}`}
           >
             {f === "all" ? "All" : f}
           </button>
         ))}
       </div>
 
-      {actionError && <div className="text-[12.5px] text-critical-text">{actionError}</div>}
+      {actionError && <div className="text-base text-critical-text">{actionError}</div>}
 
       <Card>
         {error ? (
@@ -108,8 +108,8 @@ function WorkOrdersPage() {
             prediction that triggered it.
           </EmptyState>
         ) : (
-          <table className="tabular w-full text-[12.5px]">
-            <thead className="border-b border-line bg-surface-2 text-[11.5px] text-ink-muted">
+          <table className="tabular w-full text-base">
+            <thead className="border-b border-line bg-surface-2 text-sm text-ink-muted">
               <tr>
                 <th className="py-2 pl-4 text-left font-medium">ID</th>
                 <th className="py-2 text-left font-medium">Component</th>
@@ -124,7 +124,7 @@ function WorkOrdersPage() {
             <tbody>
               {orders.map((w) => (
                 <tr key={w.id} className="border-t border-line first:border-t-0">
-                  <td className="py-2 pl-4 font-mono text-[12px] font-medium text-ink">{w.id}</td>
+                  <td className="py-2 pl-4 font-mono text-sm font-medium text-ink">{w.id}</td>
                   <td className="py-2">
                     <Link
                       to="/components/$component"
@@ -136,7 +136,7 @@ function WorkOrdersPage() {
                     </Link>
                   </td>
                   <td className="py-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${priorityStyle[w.priority]}`}>{w.priority}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-sm font-semibold ${priorityStyle[w.priority]}`}>{w.priority}</span>
                   </td>
                   <td className="py-2">
                     <span className={`inline-flex items-center gap-1.5 ${w.status === "Open" ? "font-medium text-ink" : "text-ink-faint"}`}>
@@ -146,7 +146,7 @@ function WorkOrdersPage() {
                   </td>
                   <td className="py-2">
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                      className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
                         w.createdBy.startsWith("system") ? "bg-accent-bg text-accent-text" : "bg-surface-3 text-ink-muted"
                       }`}
                       title={w.createdBy}
@@ -160,7 +160,7 @@ function WorkOrdersPage() {
                       {w.note ?? "—"}
                     </div>
                     {w.closedNote && (
-                      <div className="truncate text-[11.5px] text-ink-faint" title={w.closedNote}>
+                      <div className="truncate text-sm text-ink-faint" title={w.closedNote}>
                         Closed: {w.closedNote}
                       </div>
                     )}
@@ -183,7 +183,7 @@ function WorkOrdersPage() {
                             placeholder="What was done? (optional)"
                             aria-label={`Closing note for ${w.id}`}
                             maxLength={500}
-                            className="h-7 w-[220px] rounded-md border border-line-strong bg-surface px-2 text-[12px] text-ink"
+                            className="h-8 w-[240px] rounded-md border border-line-strong bg-surface px-2 text-sm text-ink"
                           />
                           <Button size="sm" variant="primary" type="submit">
                             Close

@@ -157,10 +157,10 @@ function Dialog({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-start gap-3">
           <div className="min-w-0 grow">
-            <h2 id="no-model-title" className="text-[15px] font-semibold text-ink">
+            <h2 id="no-model-title" className="text-lg font-semibold text-ink">
               Choose how the Advisor runs
             </h2>
-            <p className="mt-1 text-[13px] text-ink-muted">
+            <p className="mt-1 text-base text-ink-muted">
               The Advisor's chat and insights need a language model, and none is set up yet.
             </p>
           </div>
@@ -181,7 +181,7 @@ function Dialog({ onClose }: { onClose: () => void }) {
                     style={busy.percent == null ? undefined : { width: `${busy.percent}%` }}
                   />
                 </div>
-                <div className="mt-1.5 text-[12px] text-ink-faint">{busy.status}</div>
+                <div className="mt-1.5 text-sm text-ink-faint">{busy.status}</div>
               </div>
             ) : (
               local?.action && (
@@ -199,7 +199,7 @@ function Dialog({ onClose }: { onClose: () => void }) {
           </Choice>
         </div>
 
-        {error && <div className="mt-3 rounded-lg bg-critical-bg px-3 py-2 text-[12px] text-critical-text">{error}</div>}
+        {error && <div className="mt-3 rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical-text">{error}</div>}
 
         <div className="mt-4 flex justify-end">
           <Button variant="ghost" disabled={Boolean(busy)} onClick={onClose}>
@@ -216,8 +216,8 @@ function Choice({ icon, title, detail, children }: { icon: "models" | "external"
     <div className="flex gap-3 rounded-lg border border-line p-3.5">
       <Icon name={icon} size={16} className="mt-0.5 shrink-0 text-accent-text" />
       <div className="min-w-0 grow">
-        <div className="text-[13px] font-semibold text-ink">{title}</div>
-        <div className="mt-0.5 text-[12.5px] text-ink-muted">{detail}</div>
+        <div className="text-base font-semibold text-ink">{title}</div>
+        <div className="mt-0.5 text-base text-ink-muted">{detail}</div>
         {children}
       </div>
     </div>

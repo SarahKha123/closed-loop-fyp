@@ -104,7 +104,7 @@ function StudyAdminPage() {
         subtitle="Researcher controls. Open the dashboard for the participant in another window; this page is not linked from the menu."
         actions={
           <>
-            <label className="flex items-center gap-2 text-[13px] text-ink">
+            <label className="flex items-center gap-2 text-base text-ink">
               <input
                 type="checkbox"
                 className="h-4 w-4 accent-[var(--accent)]"
@@ -114,7 +114,7 @@ function StudyAdminPage() {
               />
               Study mode
             </label>
-            <a href={api.study.exportUrl()} className="inline-flex h-8 items-center rounded-lg border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-2">
+            <a href={api.study.exportUrl()} className="inline-flex h-9 items-center rounded-lg border border-line-strong bg-surface px-3 text-base font-medium text-ink hover:bg-surface-2">
               Export all (CSV)
             </a>
           </>
@@ -122,11 +122,11 @@ function StudyAdminPage() {
       />
 
       {!studyOn && settings && (
-        <p className="rounded-lg bg-warning-bg px-3 py-2 text-[12.5px] text-warning-text">
+        <p className="rounded-lg bg-warning-bg px-3 py-2 text-base text-warning-text">
           Study mode is off: participants would see the replay controls and the AI models page. Pin the study's model on the Models page first, then switch it on.
         </p>
       )}
-      {error && <p className="rounded-lg bg-critical-bg px-3 py-2 text-[12.5px] text-critical-text">{error}</p>}
+      {error && <p className="rounded-lg bg-critical-bg px-3 py-2 text-base text-critical-text">{error}</p>}
 
       <div className="grid gap-4 @4xl:grid-cols-[1fr_380px]">
         <Card>
@@ -161,18 +161,18 @@ function StudyAdminPage() {
             <ol className="divide-y divide-line border-t border-line">
               {(taskSets[current.taskSet] ?? []).map((task) => (
                 <li key={task.id} className="flex items-start gap-3 px-4 py-3">
-                  <span className="tabular w-7 shrink-0 pt-0.5 text-[12px] font-semibold text-ink-muted">{task.id}</span>
+                  <span className="tabular w-7 shrink-0 pt-0.5 text-sm font-semibold text-ink-muted">{task.id}</span>
                   <div className="min-w-0 grow">
-                    <div className="text-[13px] text-ink">{task.prompt}</div>
-                    <div className="mt-0.5 text-[12px] text-ink-faint">
+                    <div className="text-base text-ink">{task.prompt}</div>
+                    <div className="mt-0.5 text-sm text-ink-faint">
                       <span className="font-medium">Reference:</span> {task.answer}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-ink-faint">
+                    <div className="mt-0.5 text-xs text-ink-faint">
                       {task.level} · cycles {task.from}–{task.to}
                     </div>
                   </div>
                   {done.has(task.id) ? (
-                    <span className="shrink-0 pt-0.5 text-[12px] font-medium text-good-text">Done</span>
+                    <span className="shrink-0 pt-0.5 text-sm font-medium text-good-text">Done</span>
                   ) : (
                     <Button size="sm" variant="primary" onClick={() => void start(task)} disabled={Boolean(active) || loading != null}>
                       {loading === task.id ? "Loading…" : "Start"}
@@ -194,10 +194,10 @@ function StudyAdminPage() {
             {active ? (
               <div className="flex flex-col gap-3 px-4 pb-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-[13px] font-semibold text-ink">{active.taskId}</span>
-                  <span className="tabular text-[22px] font-semibold text-ink">{seconds(now - Date.parse(active.startedAt))}</span>
+                  <span className="text-base font-semibold text-ink">{active.taskId}</span>
+                  <span className="tabular text-3xl font-semibold text-ink">{seconds(now - Date.parse(active.startedAt))}</span>
                 </div>
-                <div className="text-[12.5px] text-ink-muted">
+                <div className="text-base text-ink-muted">
                   {Object.values(taskSets).flat().find((t) => t.id === active.taskId)?.prompt}
                 </div>
                 <textarea
@@ -219,7 +219,7 @@ function StudyAdminPage() {
                 </Button>
               </div>
             ) : (
-              <p className="px-4 pb-4 text-[12.5px] text-ink-faint">
+              <p className="px-4 pb-4 text-base text-ink-faint">
                 {loading && loading !== "mode" ? "Loading the task's preset…" : "No task running. Start one from the list."}
               </p>
             )}
@@ -229,13 +229,13 @@ function StudyAdminPage() {
             <CardHeader
               title={participant ? `Log · ${participant}` : "Log"}
               actions={participant && log.length > 0 && (
-                <a href={api.study.exportUrl(participant)} className="text-[12px] font-medium text-accent-text hover:underline">
+                <a href={api.study.exportUrl(participant)} className="text-sm font-medium text-accent-text hover:underline">
                   CSV
                 </a>
               )}
             />
             {log.length ? (
-              <table className="w-full text-[12px]">
+              <table className="w-full text-sm">
                 <thead className="text-left text-ink-faint">
                   <tr className="border-y border-line">
                     <th className="px-4 py-1.5 font-medium">Task</th>
@@ -256,7 +256,7 @@ function StudyAdminPage() {
                 </tbody>
               </table>
             ) : (
-              <p className="px-4 pb-4 text-[12.5px] text-ink-faint">Nothing logged for this participant yet.</p>
+              <p className="px-4 pb-4 text-base text-ink-faint">Nothing logged for this participant yet.</p>
             )}
           </Card>
         </div>

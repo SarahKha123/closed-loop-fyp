@@ -24,11 +24,11 @@ export function TrendPanel({ trend, className = "" }: { trend: Trend | null; cla
         subtitle={`Failure probability per component · last ${TREND_WINDOW} cycles`}
         actions={
           <div className="flex rounded-lg border border-line p-0.5">
-            <Button size="sm" variant={view === "chart" ? "secondary" : "ghost"} onClick={() => setView("chart")} aria-pressed={view === "chart"} className="!h-6 !border-0">
-              <Icon name="chart" size={13} /> Chart
+            <Button size="sm" variant={view === "chart" ? "secondary" : "ghost"} onClick={() => setView("chart")} aria-pressed={view === "chart"} className="!h-7 !border-0">
+              <Icon name="chart" size={14} /> Chart
             </Button>
-            <Button size="sm" variant={view === "table" ? "secondary" : "ghost"} onClick={() => setView("table")} aria-pressed={view === "table"} className="!h-6 !border-0">
-              <Icon name="table" size={13} /> Table
+            <Button size="sm" variant={view === "table" ? "secondary" : "ghost"} onClick={() => setView("table")} aria-pressed={view === "table"} className="!h-7 !border-0">
+              <Icon name="table" size={14} /> Table
             </Button>
           </div>
         }
@@ -42,7 +42,7 @@ export function TrendPanel({ trend, className = "" }: { trend: Trend | null; cla
           <LineChart x={trend!.cycles} series={series} />
         ) : (
           <div className="h-full overflow-auto rounded-lg border border-line">
-            <table className="tabular w-full text-[12px]">
+            <table className="tabular w-full text-sm">
               <thead className="sticky top-0 bg-surface-2 text-ink-muted">
                 <tr>
                   <th className="px-3 py-1.5 text-left font-medium">Cycle</th>

@@ -89,18 +89,18 @@ function ComponentPage() {
               <div className="flex flex-col gap-3 px-4 pb-4">
                 <div className="flex items-center justify-between">
                   <ConditionBadge condition={state.condition} />
-                  {state.changedFrom && <span className="text-[12px] text-ink-faint">changed from {state.changedFrom}</span>}
+                  {state.changedFrom && <span className="text-sm text-ink-faint">changed from {state.changedFrom}</span>}
                 </div>
                 <div>
-                  <div className="text-[12px] text-ink-muted">Failure probability</div>
-                  <div className="tabular mt-0.5 mb-1.5 text-[30px] leading-none font-semibold text-ink">{pct(state.failureProbability)}</div>
+                  <div className="text-sm text-ink-muted">Failure probability</div>
+                  <div className="tabular mt-0.5 mb-1.5 text-4xl leading-none font-semibold text-ink">{pct(state.failureProbability)}</div>
                   <Meter value={state.failureProbability} label="Failure probability" />
                 </div>
                 <div className="flex flex-col gap-1.5 border-t border-line pt-3">
-                  <div className="text-[12px] text-ink-muted">Class probabilities</div>
+                  <div className="text-sm text-ink-muted">Class probabilities</div>
                   {CONDITIONS.map((c) => (
-                    <div key={c} className="flex items-center gap-2 text-[12px]">
-                      <span className={`w-[68px] ${conditionStyle[c].text} font-medium`}>{c}</span>
+                    <div key={c} className="flex items-center gap-2 text-sm">
+                      <span className={`w-[84px] ${conditionStyle[c].text} font-medium`}>{c}</span>
                       <div className="h-2 grow overflow-hidden rounded-full bg-surface-3">
                         <div className={`h-full rounded-full ${conditionStyle[c].dot}`} style={{ width: `${state.classProbabilities[c] * 100}%` }} />
                       </div>
@@ -108,7 +108,7 @@ function ComponentPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between border-t border-line pt-3 text-[12px]">
+                <div className="flex justify-between border-t border-line pt-3 text-sm">
                   <span className="text-ink-faint">Open work order</span>
                   {state.openWorkOrder ? (
                     <Link to="/work-orders" className="font-medium text-critical-text">
@@ -126,7 +126,7 @@ function ComponentPage() {
               <ol className="flex flex-col gap-3 px-4 pb-4">
                 {state.shap.map((d, i) => (
                   <li key={d.feature}>
-                    <div className="flex items-baseline justify-between gap-2 text-[12.5px]">
+                    <div className="flex items-baseline justify-between gap-2 text-base">
                       <span className="min-w-0 truncate text-ink">
                         <span className="mr-1.5 text-ink-faint">{i + 1}</span>
                         {d.label}
@@ -137,11 +137,11 @@ function ComponentPage() {
                       <div className="h-1.5 grow overflow-hidden rounded-full bg-surface-3">
                         <div className="h-full rounded-full bg-accent" style={{ width: `${(Math.abs(d.contribution) / maxContribution) * 100}%` }} />
                       </div>
-                      <span className="tabular w-14 text-right font-mono text-[11px] text-ink-faint">{d.feature}</span>
+                      <span className="tabular w-14 text-right font-mono text-xs text-ink-faint">{d.feature}</span>
                     </div>
                   </li>
                 ))}
-                <li className="text-[11.5px] text-ink-faint">
+                <li className="text-sm text-ink-faint">
                   Bar length is each feature's SHAP contribution relative to the strongest; values are this cycle's readings.
                 </li>
               </ol>
@@ -152,23 +152,23 @@ function ComponentPage() {
                 title="Related sensors"
                 subtitle="Most associated with this component"
                 actions={
-                  <Link to="/sensors" search={{ component: meta.key }} className="text-[12px] font-medium">
+                  <Link to="/sensors" search={{ component: meta.key }} className="text-sm font-medium">
                     All sensors
                   </Link>
                 }
               />
-              <table className="tabular w-full text-[12.5px]">
+              <table className="tabular w-full text-base">
                 <tbody>
                   {related.map((s) => (
                     <tr key={s.sensor} className="border-t border-line">
-                      <td className="py-1.5 pl-4 font-mono text-[11.5px] text-ink-faint">{s.sensor}</td>
+                      <td className="py-1.5 pl-4 font-mono text-sm text-ink-faint">{s.sensor}</td>
                       <td className="py-1.5 text-ink">{s.name}</td>
                       <td className="py-1.5 pr-4 text-right text-ink">{reading(s.mean, s.unit)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="px-4 py-2 text-[11.5px] text-ink-faint">Cycle means.</div>
+              <div className="px-4 py-2 text-sm text-ink-faint">Cycle means.</div>
             </Card>
           </div>
 
@@ -191,17 +191,17 @@ function ComponentPage() {
               <CardHeader title="Condition changes" subtitle="Recent, newest first" />
               <div className="max-h-[276px] overflow-y-auto px-4 pb-3">
                 {changes.length === 0 ? (
-                  <p className="py-6 text-center text-[12.5px] text-ink-faint">No changes in the recent window.</p>
+                  <p className="py-6 text-center text-base text-ink-faint">No changes in the recent window.</p>
                 ) : (
                   <ol className="flex flex-col">
                     {changes.map((e) => (
                       <li key={e.cycle} className="flex items-center justify-between gap-2 border-t border-line py-2 first:border-t-0">
                         <span className="inline-flex items-center gap-1">
                           <ConditionBadge condition={e.fromCondition} size="sm" />
-                          <Icon name="arrowRight" size={11} className="text-ink-faint" />
+                          <Icon name="arrowRight" size={13} className="text-ink-faint" />
                           <ConditionBadge condition={e.toCondition} size="sm" />
                         </span>
-                        <span className="tabular text-[12px] text-ink-faint">cycle {num(e.cycle)}</span>
+                        <span className="tabular text-sm text-ink-faint">cycle {num(e.cycle)}</span>
                       </li>
                     ))}
                   </ol>

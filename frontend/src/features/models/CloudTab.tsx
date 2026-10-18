@@ -18,12 +18,12 @@ export function CloudTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-[12.5px] text-ink-faint">
+      <div className="text-base text-ink-faint">
         Keys are stored on this machine in <code className="font-mono">config/cloud.json</code> (gitignored) and are
         never sent back to the browser. Cloud models send the Advisor's prompt, including the current readings, to
         the provider.
       </div>
-      {error && <div className="text-[12.5px] text-critical-text">{error}</div>}
+      {error && <div className="text-base text-critical-text">{error}</div>}
       <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
         {providers.map((p) => (
           <ProviderCard key={p.id} provider={p} onChange={setProviders} />
@@ -100,9 +100,9 @@ function ProviderCard({
   return (
     <div className={`${card} flex flex-col gap-2.5 p-4 ${inUse ? "!border-accent-border" : ""}`}>
       <div className="flex items-center justify-between">
-        <div className="text-[14px] font-semibold">{p.label}</div>
+        <div className="text-lg font-semibold">{p.label}</div>
         <span
-          className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
+          className={`rounded-full px-2 py-0.5 text-sm font-semibold ${
             inUse
               ? "bg-accent-bg text-accent-text"
               : p.ready
@@ -116,7 +116,7 @@ function ProviderCard({
         </span>
       </div>
 
-      <label className="flex flex-col gap-1 text-[12px] text-ink-faint">
+      <label className="flex flex-col gap-1 text-sm text-ink-faint">
         API key
         <input
           type="password"
@@ -127,7 +127,7 @@ function ProviderCard({
           className={input}
         />
       </label>
-      <label className="flex flex-col gap-1 text-[12px] text-ink-faint">
+      <label className="flex flex-col gap-1 text-sm text-ink-faint">
         Model
         <input
           value={model}
@@ -142,17 +142,17 @@ function ProviderCard({
           ))}
         </datalist>
       </label>
-      <label className="flex flex-col gap-1 text-[12px] text-ink-faint">
+      <label className="flex flex-col gap-1 text-sm text-ink-faint">
         Base URL
         <input
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           placeholder="https://…/v1"
-          className={`${input} font-mono text-[12px]`}
+          className={`${input} font-mono text-sm`}
         />
       </label>
 
-      {note && <div className={`text-[12px] ${note.ok ? "text-good-text" : "text-critical-text"}`}>{note.text}</div>}
+      {note && <div className={`text-sm ${note.ok ? "text-good-text" : "text-critical-text"}`}>{note.text}</div>}
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <Button variant="primary" disabled={busy || !dirty} onClick={() => void save()}>
@@ -174,7 +174,7 @@ function ProviderCard({
         )}
         <div className="grow" />
         {p.docs && (
-          <a href={p.docs} target="_blank" rel="noreferrer" className="text-[12px]">
+          <a href={p.docs} target="_blank" rel="noreferrer" className="text-sm">
             Get a key ↗
           </a>
         )}

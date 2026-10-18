@@ -19,12 +19,12 @@ export function ActiveModelBanner() {
         }`}
       />
       <div className="min-w-0">
-        <div className="text-[12px] tracking-wide text-ink-faint uppercase">Advisor is using</div>
-        <div className="truncate font-mono text-[15px] font-semibold">{active?.tag ?? "nothing yet"}</div>
+        <div className="text-sm font-medium text-ink-muted">Advisor is using</div>
+        <div className="truncate font-mono text-lg font-semibold">{active?.tag ?? "nothing yet"}</div>
       </div>
       <div className="ml-auto text-right">
-        <div className="text-[13px] font-medium text-ink-muted">{modeText}</div>
-        {active && <div className="text-[12px] text-ink-faint">{active.reason}</div>}
+        <div className="text-base font-medium text-ink-muted">{modeText}</div>
+        {active && <div className="text-sm text-ink-faint">{active.reason}</div>}
       </div>
     </div>
   )

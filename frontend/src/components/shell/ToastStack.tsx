@@ -19,16 +19,16 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
   }, [toast.id, onDismiss])
   const tone = tones[toast.tone]
   return (
-    <div role="status" className="animate-toast-in flex w-[300px] overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
+    <div role="status" className="animate-toast-in flex w-[360px] overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
       <span className={`w-1 shrink-0 ${tone.bar}`} />
       <div className="flex grow items-start gap-2.5 px-3 py-2.5">
         <Icon name={tone.icon} size={15} className={`mt-0.5 ${tone.iconColor}`} />
         <div className="min-w-0 grow">
-          <div className="text-[13px] font-semibold text-ink">{toast.title}</div>
-          {toast.detail && <div className="text-[12px] text-ink-faint">{toast.detail}</div>}
+          <div className="text-base font-semibold text-ink">{toast.title}</div>
+          {toast.detail && <div className="text-sm text-ink-faint">{toast.detail}</div>}
         </div>
         <button type="button" onClick={() => onDismiss(toast.id)} className="text-ink-faint hover:text-ink" aria-label="Dismiss">
-          <Icon name="close" size={13} />
+          <Icon name="close" size={14} />
         </button>
       </div>
     </div>

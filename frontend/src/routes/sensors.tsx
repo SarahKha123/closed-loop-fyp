@@ -18,7 +18,7 @@ export const Route = createFileRoute("/sensors")({
   component: SensorsPage,
 })
 
-const chip = "rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors"
+const chip = "rounded-full border px-2.5 py-1 text-sm font-medium transition-colors"
 
 function SensorsPage() {
   const { component } = Route.useSearch()
@@ -67,8 +67,8 @@ function SensorsPage() {
             Start the replay from the top bar to see each cycle's sensor values.
           </EmptyState>
         ) : (
-          <table className="tabular w-full text-[12.5px]">
-            <thead className="border-b border-line bg-surface-2 text-[11.5px] text-ink-muted">
+          <table className="tabular w-full text-base">
+            <thead className="border-b border-line bg-surface-2 text-sm text-ink-muted">
               <tr>
                 <th className="py-2 pl-4 text-left font-medium">Sensor</th>
                 <th className="py-2 text-left font-medium">Measures</th>
@@ -85,7 +85,7 @@ function SensorsPage() {
                 const dim = focus && !s.relatedComponents.includes(focus.name)
                 return (
                   <tr key={s.sensor} className={`border-t border-line first:border-t-0 ${dim ? "opacity-40" : ""} ${focus && !dim ? "bg-accent-bg/40" : ""}`}>
-                    <td className="py-2 pl-4 font-mono text-[12px] font-medium text-ink">{s.sensor}</td>
+                    <td className="py-2 pl-4 font-mono text-sm font-medium text-ink">{s.sensor}</td>
                     <td className="py-2 text-ink">
                       {s.name} <span className="text-ink-faint">· {s.unit}</span>
                     </td>
@@ -97,7 +97,7 @@ function SensorsPage() {
                     <td className="py-2 pr-4 pl-6">
                       <span className="inline-flex flex-wrap gap-1.5">
                         {s.relatedComponents.map((n) => (
-                          <span key={n} className="inline-flex items-center gap-1 text-[11.5px] text-ink-muted">
+                          <span key={n} className="inline-flex items-center gap-1 text-sm text-ink-muted">
                             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: componentByName(n)?.series }} />
                             {n}
                           </span>
@@ -111,7 +111,7 @@ function SensorsPage() {
           </table>
         )}
       </Card>
-      <p className="text-[12px] text-ink-faint">
+      <p className="text-sm text-ink-faint">
         Each value summarises the sensor over one 60-second load cycle. "Related to" comes from the dataset analysis
         (rank correlations and the models' SHAP rankings), see docs/DATASET.md §7.
       </p>

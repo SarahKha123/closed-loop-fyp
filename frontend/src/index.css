@@ -20,7 +20,7 @@
   --border-strong: light-dark(rgba(11, 11, 11, 0.16), rgba(255, 255, 255, 0.16));
   --ink: light-dark(#0b0b0b, #ffffff);
   --ink-muted: light-dark(#52514e, #c3c2b7);
-  --ink-faint: #898781;
+  --ink-faint: light-dark(#6b6a65, #9c9b92); /* ≥4.5:1 on every surface (WCAG AA) */
   --grid: light-dark(#e1e0d9, #2c2c2a);
   --baseline: light-dark(#c3c2b7, #383835);
   --accent: light-dark(#2a78d6, #3987e5);
@@ -59,6 +59,31 @@
 @theme inline {
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /*
+   * The one type scale. rem-based (1rem = the browser's 16px), so it follows the user's
+   * font-size setting. Nothing below 13px; components use these names, never text-[Npx].
+   *   xs   13  badges, axis ticks, timestamps     lg  17  card titles, component names
+   *   sm   14  secondary text, labels, tables     xl  20  section headings
+   *   base 15  body, nav, buttons, inputs         2xl 24  page titles
+   *   3xl  28  headline numbers                   4xl 36  the one big number on a detail page
+   */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: 1.15;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.1;
 
   --color-canvas: var(--canvas);
   --color-paper: var(--canvas);
@@ -108,7 +133,8 @@
   body {
     background: var(--canvas);
     color: var(--ink);
-    font-size: 14px;
+    font-size: 0.9375rem; /* text-base */
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -164,4 +190,14 @@
 
 .animate-live {
   animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

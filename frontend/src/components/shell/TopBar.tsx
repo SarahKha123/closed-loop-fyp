@@ -41,19 +41,19 @@ export function TopBar({
   const progress = replay?.cycle ? (replay.cycle / replay.total) * 100 : 0
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-5">
+    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-surface px-5">
       <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 py-1 pr-1 pl-3">
-        <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold ${statusStyle.tone}`}>
+        <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${statusStyle.tone}`}>
           <span className={`h-2 w-2 rounded-full ${statusStyle.dot}`} />
           {statusStyle.text}
         </span>
         <span className="h-4 w-px bg-line-strong" />
         <div className="flex flex-col justify-center" title="Replay position">
-          <span className="tabular text-[12px] text-ink">
+          <span className="tabular text-sm text-ink">
             Cycle <b className="font-semibold">{num(replay?.cycle ?? null)}</b>
             <span className="text-ink-faint"> / {num(replay?.total ?? 2205)}</span>
           </span>
-          <span className="mt-0.5 h-1 w-[120px] overflow-hidden rounded-full bg-surface-3">
+          <span className="mt-0.5 h-1 w-[140px] overflow-hidden rounded-full bg-surface-3">
             <span className="block h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
           </span>
         </div>
@@ -61,15 +61,15 @@ export function TopBar({
         <span className="h-4 w-px bg-line-strong" />
         {replay?.state === "playing" ? (
           <Button size="sm" variant="primary" onClick={() => void control.pause()} aria-label="Pause replay">
-            <Icon name="pause" size={12} /> Pause
+            <Icon name="pause" size={14} /> Pause
           </Button>
         ) : (
           <Button size="sm" variant="primary" onClick={() => void control.play()} disabled={!replay || replay.state === "finished"} aria-label="Play replay">
-            <Icon name="play" size={12} /> Play
+            <Icon name="play" size={14} /> Play
           </Button>
         )}
         <Button size="sm" variant="ghost" onClick={() => void control.step()} disabled={!replay || replay.state !== "paused"} title="Step one cycle" aria-label="Step one cycle">
-          <Icon name="step" size={12} />
+          <Icon name="step" size={14} />
         </Button>
         <label className="sr-only" htmlFor="replay-speed">
           Seconds per cycle
@@ -79,7 +79,7 @@ export function TopBar({
           value={replay?.secondsPerCycle ?? 2}
           onChange={(e) => void control.speed(Number(e.target.value))}
           disabled={!replay}
-          className="h-7 rounded-md border border-line-strong bg-surface px-1.5 text-[12px] text-ink"
+          className="h-8 rounded-md border border-line-strong bg-surface px-1.5 text-sm text-ink"
           title="Seconds per cycle"
         >
           {/* Include the current speed even if it was set elsewhere (e.g. through the API). */}
@@ -103,7 +103,7 @@ export function TopBar({
             onChange={(e) => setSeekTo(e.target.value.replace(/\D/g, ""))}
             placeholder="Go to cycle"
             aria-label="Go to cycle"
-            className="tabular h-7 w-[92px] rounded-md border border-line-strong bg-surface px-2 text-[12px] text-ink"
+            className="tabular h-8 w-[120px] rounded-md border border-line-strong bg-surface px-2 text-sm text-ink"
             disabled={!replay}
           />
         </form>
@@ -117,12 +117,12 @@ export function TopBar({
           title="Reset replay"
           aria-label="Reset replay"
         >
-          <Icon name="reset" size={13} />
+          <Icon name="reset" size={14} />
         </Button>
         </>}
       </div>
 
-      {controlError && <span className="max-w-[220px] truncate text-[12px] text-critical-text" title={controlError}>{controlError}</span>}
+      {controlError && <span className="max-w-[260px] truncate text-sm text-critical-text" title={controlError}>{controlError}</span>}
 
       <div className="grow" />
 

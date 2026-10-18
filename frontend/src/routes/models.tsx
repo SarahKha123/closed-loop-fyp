@@ -42,7 +42,7 @@ function ModelsView() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => navigate({ search: { tab: t === "installed" ? undefined : t } })}
-            className={`-mb-px border-b-2 px-3 py-2.5 text-[13px] font-medium transition-colors ${
+            className={`-mb-px border-b-2 px-3 py-2.5 text-base font-medium transition-colors ${
               tab === t ? "border-accent text-accent-text" : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >

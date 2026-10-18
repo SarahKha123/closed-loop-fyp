@@ -32,9 +32,9 @@ export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDo
         void submit()
       }}
     >
-      <label className="flex flex-col gap-1 text-[11.5px] font-medium text-ink-muted">
+      <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
         Component
-        <select value={component} onChange={(e) => setComponent(e.target.value as ComponentKey)} className={`${input} h-8 py-0`}>
+        <select value={component} onChange={(e) => setComponent(e.target.value as ComponentKey)} className={`${input} h-9 py-0`}>
           {COMPONENTS.map((c) => (
             <option key={c.key} value={c.key}>
               {c.name}
@@ -42,9 +42,9 @@ export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDo
           ))}
         </select>
       </label>
-      <label className="flex min-w-[260px] grow flex-col gap-1 text-[11.5px] font-medium text-ink-muted">
+      <label className="flex min-w-[280px] grow flex-col gap-1 text-sm font-medium text-ink-muted">
         Note
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should maintenance do?" className={`${input} h-8 py-0`} maxLength={500} />
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should maintenance do?" className={`${input} h-9 py-0`} maxLength={500} />
       </label>
       <Button type="submit" variant="primary" disabled={busy}>
         Raise work order
@@ -52,7 +52,7 @@ export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDo
       <Button onClick={onDone} variant="ghost">
         Cancel
       </Button>
-      {error && <div className="w-full text-[12px] text-critical-text">{error}</div>}
+      {error && <div className="w-full text-sm text-critical-text">{error}</div>}
     </form>
   )
 }

@@ -21,15 +21,15 @@ export function ModelCard() {
       className="group block rounded-lg border border-line bg-surface-2 px-3 py-2 transition-colors hover:border-accent-border"
       activeProps={{ className: "!border-accent-border !bg-accent-bg" }}
     >
-      <div className="flex items-center justify-between text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
+      <div className="flex items-center justify-between text-sm font-semibold text-ink-muted">
         Advisor model
         <span className="font-normal normal-case">{active ? `${active.mode} · ${where}` : ""}</span>
       </div>
-      <div className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-medium text-ink">
+      <div className="mt-1 flex min-w-0 items-center gap-2 text-base font-medium text-ink">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${modelsLoading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"}`}
         />
-        <span className="truncate font-mono text-[12.5px]">{label}</span>
+        <span className="truncate font-mono text-base">{label}</span>
       </div>
     </Link>
   )

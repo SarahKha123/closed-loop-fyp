@@ -18,35 +18,35 @@ export function ComponentCard({ state, history }: { state: ComponentState; histo
     <Link
       to="/components/$component"
       params={{ component: state.key }}
-      className={`group flex min-w-0 flex-col gap-2.5 rounded-xl border bg-surface p-4 shadow-card transition-colors hover:border-accent-border ${
+      className={`group flex min-w-0 flex-col gap-3 rounded-xl border bg-surface p-5 shadow-card transition-colors hover:border-accent-border ${
         state.condition === "Optimal" ? "border-line" : conditionStyle[state.condition].border
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: meta?.series }} />
-          <span className="text-[14px] font-semibold text-ink">{state.component}</span>
+          <span className="text-lg font-semibold text-ink">{state.component}</span>
         </div>
         <ConditionBadge condition={state.condition} />
       </div>
 
       <div>
         <div className="flex items-baseline justify-between">
-          <span className="text-[12px] text-ink-muted">Failure probability</span>
+          <span className="text-sm text-ink-muted">Failure probability</span>
           {delta != null && Math.abs(delta) >= 0.005 && (
-            <span className={`tabular inline-flex items-center gap-0.5 text-[11.5px] font-medium ${delta > 0 ? "text-critical-text" : "text-good-text"}`}>
-              <Icon name={delta > 0 ? "arrowUp" : "arrowDown"} size={11} />
+            <span className={`tabular inline-flex items-center gap-0.5 text-sm font-medium ${delta > 0 ? "text-critical-text" : "text-good-text"}`}>
+              <Icon name={delta > 0 ? "arrowUp" : "arrowDown"} size={13} />
               {pct(Math.abs(delta))}
             </span>
           )}
         </div>
-        <div className="tabular mt-0.5 mb-1.5 text-[24px] leading-none font-semibold text-ink">{pct(state.failureProbability)}</div>
+        <div className="tabular mt-0.5 mb-1.5 text-3xl leading-none font-semibold text-ink">{pct(state.failureProbability)}</div>
         <Meter value={state.failureProbability} label={`${state.component} failure probability`} />
       </div>
 
       <Sparkline values={history} color={meta?.series ?? "var(--accent)"} height={34} />
 
-      <div className="flex flex-col gap-1 border-t border-line pt-2 text-[12px]">
+      <div className="flex flex-col gap-1 border-t border-line pt-2 text-sm">
         <div className="flex justify-between gap-2">
           <span className="text-ink-faint">{state.condition} since</span>
           <span className="tabular text-ink">

@@ -9,7 +9,7 @@ export function ConditionBadge({ condition, size = "md" }: { condition: Conditio
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full font-semibold ${s.bg} ${s.text} ${
-        size === "sm" ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-0.5 text-[12px]"
+        size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-0.5 text-sm"
       }`}
     >
       <Icon name={s.icon} size={size === "sm" ? 11 : 12} />

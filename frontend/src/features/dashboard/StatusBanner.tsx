@@ -18,7 +18,7 @@ export function StatusBanner({ overview }: { overview: Overview | null }) {
       {problems.map((p) => (
         <div
           key={p.text}
-          className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-[12.5px] ${
+          className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-base ${
             p.tone === "critical" ? "border-critical/30 bg-critical-bg text-critical-text" : "border-warning/40 bg-warning-bg text-warning-text"
           }`}
         >
