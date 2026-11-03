@@ -297,17 +297,49 @@ def work_order(wo_id: str) -> dict[str, Any] | None:
     return _work_order(row) if row else None
 
 
-def close_work_order(wo_id: str, note: str | None = None) -> dict[str, Any] | None:
-    """Close an open work order; returns None if it doesn't exist or is already closed."""
+def close_work_order(wo_id: str, note: str | None = None, outcome: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Close an open work order, and log its outcome in the same transaction.
+
+    `outcome` holds the tbl_WorkOrderOutcome columns that aren't copied from the
+    work order itself. Returns None if it doesn't exist or is already closed.
+    """
+    closed_at = _now()
     with db.write() as conn:
         cur = conn.execute(
             "UPDATE tbl_WorkOrder SET Status = 'Closed', ClosedAt = ?, ClosedNote = ?"
             " WHERE WorkOrderID = ? AND Status = 'Open'",
-            (_now(), note, wo_id),
+            (closed_at, note, wo_id),
         )
         if cur.rowcount == 0:
             return None
+        if outcome is not None:
+            wo = conn.execute(_WORK_ORDER_SELECT + " WHERE w.WorkOrderID = ?", (wo_id,)).fetchone()
+            row = {
+                "WorkOrderID": wo_id, "EquipmentID": wo["EquipmentID"], "Component": wo["ComponentType"],
+                "WorkOrderCreatedBy": wo["CreatedBy"], "WorkOrderNote": wo["Note"], "Priority": wo["Priority"],
+                "OpenedAt": wo["CreatedAt"], "ClosedAt": closed_at, **outcome,
+            }
+            conn.execute(
+                f"INSERT INTO tbl_WorkOrderOutcome ({', '.join(row)}) VALUES ({', '.join('?' * len(row))})",  # noqa: S608 — fixed column names
+                tuple(row.values()),
+            )
     return work_order(wo_id)
+
+
+def prediction(prediction_id: int) -> dict[str, Any] | None:
+    with db.read() as conn:
+        row = conn.execute(_PREDICTION_SELECT + " WHERE p.PredictionID = ?", (prediction_id,)).fetchone()
+    return _prediction(row) if row else None
+
+
+def prediction_before(equipment_id: str, at: str) -> dict[str, Any] | None:
+    """The asset's latest prediction made at or before `at` (an ISO timestamp)."""
+    with db.read() as conn:
+        row = conn.execute(
+            _PREDICTION_SELECT + " WHERE p.EquipmentID = ? AND p.PredictedAt <= ? ORDER BY p.PredictionID DESC LIMIT 1",
+            (equipment_id, at),
+        ).fetchone()
+    return _prediction(row) if row else None
 
 
 def open_work_order_for(equipment_id: str) -> dict[str, Any] | None:
@@ -327,6 +359,59 @@ def list_work_orders(status: str | None = None) -> list[dict[str, Any]]:
     with db.read() as conn:
         rows = conn.execute(query + " ORDER BY w.CreatedAt DESC, w.WorkOrderID DESC", args).fetchall()
     return [_work_order(r) for r in rows]
+
+
+# ── work-order outcomes (the closed loop's evidence) ─────────────────────────
+
+
+def _outcome(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["OutcomeID"],
+        "workOrderId": row["WorkOrderID"],
+        "equipmentId": row["EquipmentID"],
+        "component": row["Component"],
+        "workOrderCreatedBy": row["WorkOrderCreatedBy"],
+        "workOrderNote": row["WorkOrderNote"],
+        "priority": row["Priority"],
+        "openedAt": row["OpenedAt"],
+        "closedAt": row["ClosedAt"],
+        "closedBy": row["ClosedBy"],
+        "finding": row["Finding"],
+        "action": row["Action"],
+        "matchedPrediction": row["MatchedPrediction"],
+        "notes": row["Notes"],
+        "prediction": None if row["PredictionID"] is None and row["CycleNumber"] is None else {
+            "predictionId": row["PredictionID"],
+            "source": row["PredictionSource"],
+            "cycle": row["CycleNumber"],
+            "condition": row["PredictedCondition"],
+            "failureProbability": row["FailureProbability"],
+            "topDriver": row["TopDriver"],
+        },
+        "studyMode": bool(row["StudyMode"]),
+    }
+
+
+def list_outcomes(limit: int | None = None) -> list[dict[str, Any]]:
+    """Newest first."""
+    with db.read() as conn:
+        rows = conn.execute(
+            "SELECT * FROM tbl_WorkOrderOutcome ORDER BY OutcomeID DESC" + (" LIMIT ?" if limit else ""),
+            (limit,) if limit else (),
+        ).fetchall()
+    return [_outcome(r) for r in rows]
+
+
+def outcome_tallies() -> list[dict[str, Any]]:
+    """Verified outcomes (a technician said whether the prediction matched), counted per
+    component × predicted condition × verdict, outside study mode."""
+    with db.read() as conn:
+        rows = conn.execute(
+            "SELECT Component, PredictedCondition, MatchedPrediction, COUNT(*) AS n FROM tbl_WorkOrderOutcome"
+            " WHERE MatchedPrediction IS NOT NULL AND StudyMode = 0"
+            " GROUP BY Component, PredictedCondition, MatchedPrediction"
+        ).fetchall()
+    return [{"component": r["Component"], "condition": r["PredictedCondition"], "matched": r["MatchedPrediction"], "n": r["n"]} for r in rows]
 
 
 # ── insights ─────────────────────────────────────────────────────────────────
@@ -458,6 +543,63 @@ def study_log(participant: str | None = None) -> list[dict[str, Any]]:
     return [_study_row(r) for r in rows]
 
 
+# ── users and sessions (services/auth.py) ─────────────────────────────────────
+
+
+def _user_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {"id": row["UserID"], "username": row["Username"], "displayName": row["DisplayName"]}
+
+
+def user_with_hash(username: str) -> tuple[dict[str, Any], str] | None:
+    with db.read() as conn:
+        row = conn.execute("SELECT * FROM tbl_User WHERE Username = ?", (username,)).fetchone()
+    return (_user_row(row), row["PasswordHash"]) if row else None
+
+
+def user_count() -> int:
+    with db.read() as conn:
+        return int(conn.execute("SELECT COUNT(*) FROM tbl_User").fetchone()[0])
+
+
+def insert_user(username: str, display_name: str, password_hash: str) -> dict[str, Any]:
+    with db.write() as conn:
+        cur = conn.execute(
+            "INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt) VALUES (?, ?, ?, ?)",
+            (username, display_name, password_hash, _now()),
+        )
+        row = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (cur.lastrowid,)).fetchone()
+    return _user_row(row)
+
+
+def set_password(username: str, password_hash: str) -> bool:
+    with db.write() as conn:
+        cur = conn.execute("UPDATE tbl_User SET PasswordHash = ? WHERE Username = ?", (password_hash, username))
+        if cur.rowcount:
+            # A new password signs out every session of that user.
+            conn.execute(
+                "DELETE FROM tbl_Session WHERE UserID = (SELECT UserID FROM tbl_User WHERE Username = ?)", (username,)
+            )
+    return bool(cur.rowcount)
+
+
+def insert_session(token: str, user_id: int) -> None:
+    with db.write() as conn:
+        conn.execute("INSERT INTO tbl_Session (Token, UserID, CreatedAt) VALUES (?, ?, ?)", (token, user_id, _now()))
+
+
+def session_user(token: str) -> dict[str, Any] | None:
+    with db.read() as conn:
+        row = conn.execute(
+            "SELECT u.* FROM tbl_Session s JOIN tbl_User u ON u.UserID = s.UserID WHERE s.Token = ?", (token,)
+        ).fetchone()
+    return _user_row(row) if row else None
+
+
+def delete_session(token: str) -> None:
+    with db.write() as conn:
+        conn.execute("DELETE FROM tbl_Session WHERE Token = ?", (token,))
+
+
 # ── maintenance ──────────────────────────────────────────────────────────────
 
 
@@ -472,5 +614,6 @@ def counts() -> dict[str, int]:
     with db.read() as conn:
         return {
             t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]  # noqa: S608 — fixed table names
-            for t in ("tbl_Equipment", "tbl_SensorReading", "tbl_Prediction", "tbl_WorkOrder", "tbl_Insight", "tbl_StudyLog")
+            for t in ("tbl_Equipment", "tbl_SensorReading", "tbl_Prediction", "tbl_WorkOrder", "tbl_Insight", "tbl_StudyLog",
+                      "tbl_WorkOrderOutcome")
         }

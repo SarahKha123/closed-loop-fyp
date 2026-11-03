@@ -13,7 +13,7 @@ import { useLive } from "../context/LiveContext"
 import { api } from "../lib/api"
 import type { StudyCondition, StudyLogRow, StudyPlan, StudyTask } from "../lib/api"
 import { subscribe } from "../lib/stream"
-import { input } from "../lib/ui"
+import { input, inputCompact } from "../lib/ui"
 
 export const Route = createFileRoute("/study/admin")({
   component: StudyAdminPage,
@@ -143,7 +143,7 @@ function StudyAdminPage() {
                 }}
                 placeholder="No."
                 aria-label="Participant number"
-                className={`${input} tabular w-20 py-1`}
+                className={`${inputCompact} tabular w-20`}
                 disabled={Boolean(active)}
               />
             }

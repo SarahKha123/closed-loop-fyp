@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "../../components/ui/Button"
 import { COMPONENTS, api } from "../../lib/api"
 import type { ComponentKey } from "../../lib/api"
-import { input } from "../../lib/ui"
+import { inputCompact } from "../../lib/ui"
 
 export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDone: () => void }) {
   const [component, setComponent] = useState<ComponentKey>(initial ?? "cooler")
@@ -34,7 +34,7 @@ export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDo
     >
       <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
         Component
-        <select value={component} onChange={(e) => setComponent(e.target.value as ComponentKey)} className={`${input} h-9 py-0`}>
+        <select value={component} onChange={(e) => setComponent(e.target.value as ComponentKey)} className={inputCompact}>
           {COMPONENTS.map((c) => (
             <option key={c.key} value={c.key}>
               {c.name}
@@ -44,7 +44,7 @@ export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDo
       </label>
       <label className="flex min-w-[280px] grow flex-col gap-1 text-sm font-medium text-ink-muted">
         Note
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should maintenance do?" className={`${input} h-9 py-0`} maxLength={500} />
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should maintenance do?" className={inputCompact} maxLength={500} />
       </label>
       <Button type="submit" variant="primary" disabled={busy}>
         Raise work order

@@ -107,6 +107,62 @@ export interface WorkOrder {
   closedNote: string | null
 }
 
+export type OutcomeAction = "repaired" | "replaced" | "no_action" | "escalated"
+export type OutcomeMatch = "yes" | "no" | "partially"
+
+/** What a technician enters when closing a work order. */
+export interface OutcomeInput {
+  finding: string
+  action: OutcomeAction
+  matchedPrediction: OutcomeMatch
+  notes?: string
+}
+
+/** GET /api/work-orders/history — one closed work order, its outcome, and the prediction behind it. */
+export interface WorkOrderOutcome {
+  id: number
+  workOrderId: string
+  equipmentId: string
+  component: ComponentName
+  workOrderCreatedBy: string
+  workOrderNote: string | null
+  priority: WorkOrder["priority"] | null
+  openedAt: string
+  closedAt: string
+  closedBy: string
+  finding: string
+  /** null only when the monitor closed it by itself (unverified) */
+  action: OutcomeAction | null
+  matchedPrediction: OutcomeMatch | null
+  notes: string | null
+  prediction: {
+    predictionId: number | null
+    /** "trigger": the prediction that raised it; "latest_at_open": a manual one's latest prediction when opened */
+    source: "trigger" | "latest_at_open" | null
+    cycle: number | null
+    condition: Condition | null
+    failureProbability: number | null
+    topDriver: string | null
+  } | null
+  studyMode: boolean
+}
+
+export interface OutcomeTally {
+  total: number
+  yes: number
+  no: number
+  partially: number
+  confirmedRate: number | null
+  confirmedOrPartialRate: number | null
+}
+
+/** GET /api/work-orders/outcome-stats — verified outcomes outside study mode. */
+export interface OutcomeStats {
+  critical: OutcomeTally
+  criticalByComponent: ({ component: ComponentName } & OutcomeTally)[]
+  allVerified: OutcomeTally
+}
+
 /** The grounding check's verdict on an AI text (docs/API.md: Insights). */
 export interface Validation {
   grounded: boolean
@@ -204,8 +260,10 @@ export const api = {
     request<{ workOrders: WorkOrder[] }>(`/api/work-orders${status ? `?status=${status}` : ""}`),
   createWorkOrder: (component: ComponentKey, note: string) =>
     request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
-  closeWorkOrder: (id: string, note: string) =>
-    request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify({ note }) }),
+  closeWorkOrder: (id: string, outcome: OutcomeInput) =>
+    request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify(outcome) }),
+  workOrderHistory: () => request<{ outcomes: WorkOrderOutcome[] }>("/api/work-orders/history"),
+  outcomeStats: () => request<OutcomeStats>("/api/work-orders/outcome-stats"),
   insights: (limit = 30) => request<{ insights: Insight[] }>(`/api/insights?limit=${limit}`),
   // Waits for the model: allow a slow local one its time.
   generateInsight: () => request<Insight>("/api/insights/generate", { method: "POST", timeoutMs: 180000 }),

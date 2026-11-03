@@ -1,4 +1,8 @@
 // /work-orders — the maintenance queue: every work order, who raised it (system or user), and the prediction behind it.
+// Closing one asks what was found (CloseWorkOrderDialog); ?tab=history shows those outcomes (OutcomeHistory).
+// In the table, short columns stay on one line and the note wraps, so every row shows its full text
+// without a tooltip. The Close button's column is pinned to the right edge: if the column is too narrow
+// for the table, the table scrolls sideways under it, and Close stays visible.
 
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
@@ -9,6 +13,8 @@ import { EmptyState } from "../components/ui/EmptyState"
 import { Icon } from "../components/ui/Icon"
 import { useLive } from "../context/LiveContext"
 import { NewWorkOrder } from "../features/dashboard/NewWorkOrder"
+import { CloseWorkOrderDialog } from "../features/work-orders/CloseWorkOrderDialog"
+import { OutcomeHistory } from "../features/work-orders/OutcomeHistory"
 import { api, componentByName } from "../lib/api"
 import type { WorkOrder } from "../lib/api"
 import { num } from "../lib/format"
@@ -16,6 +22,9 @@ import { num } from "../lib/format"
 type Filter = "all" | "Open" | "Closed"
 
 export const Route = createFileRoute("/work-orders")({
+  validateSearch: (search: Record<string, unknown>): { tab?: "history" } => ({
+    tab: search.tab === "history" ? "history" : undefined,
+  }),
   component: WorkOrdersPage,
 })
 
@@ -26,14 +35,15 @@ const priorityStyle = {
 }
 
 function WorkOrdersPage() {
+  const { tab } = Route.useSearch()
+  const navigate = Route.useNavigate()
   const { overview } = useLive()
   const [filter, setFilter] = useState<Filter>("all")
   const [orders, setOrders] = useState<WorkOrder[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [tick, setTick] = useState(0)
-  const [closing, setClosing] = useState<{ id: string; note: string } | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [closing, setClosing] = useState<WorkOrder | null>(null)
 
   // Refresh whenever the overview changes (a new cycle or a work order event), or after an action here.
   useEffect(() => {
@@ -46,24 +56,13 @@ function WorkOrdersPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "could not load work orders"))
   }, [filter, overview, tick])
 
-  async function closeOrder(id: string, note: string) {
-    try {
-      await api.closeWorkOrder(id, note)
-      setClosing(null)
-      setActionError(null)
-      setTick((t) => t + 1)
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "could not close the work order")
-    }
-  }
-
   const openCount = overview?.kpis.openWorkOrders ?? 0
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Work orders"
-        subtitle={`${openCount} open · raised automatically when a component turns Critical (closed again when it recovers), or by hand`}
+        subtitle={`${openCount} open · raised automatically when a component turns Critical, or by hand · closed by a technician with what they found`}
         actions={
           !creating && (
             <Button variant="primary" onClick={() => setCreating(true)}>
@@ -81,129 +80,131 @@ function WorkOrdersPage() {
         />
       )}
 
-      <div className="flex w-fit rounded-lg border border-line bg-surface p-0.5">
-        {(["all", "Open", "Closed"] as const).map((f) => (
+      <div role="tablist" aria-label="Work orders" className="flex items-center gap-1 border-b border-line">
+        {(["queue", "history"] as const).map((t) => (
           <button
-            key={f}
+            key={t}
             type="button"
-            onClick={() => setFilter(f)}
-            aria-pressed={filter === f}
-            className={`rounded-md px-3 py-1 text-base font-medium ${filter === f ? "bg-accent-bg text-accent-text" : "text-ink-muted hover:text-ink"}`}
+            role="tab"
+            aria-selected={(tab ?? "queue") === t}
+            onClick={() => void navigate({ search: { tab: t === "history" ? "history" : undefined } })}
+            className={`-mb-px border-b-2 px-3 py-2.5 text-base font-medium transition-colors ${
+              (tab ?? "queue") === t ? "border-accent text-accent-text" : "border-transparent text-ink-muted hover:text-ink"
+            }`}
           >
-            {f === "all" ? "All" : f}
+            {t === "queue" ? "Queue" : "History"}
           </button>
         ))}
       </div>
 
-      {actionError && <div className="text-base text-critical-text">{actionError}</div>}
+      {closing && (
+        <CloseWorkOrderDialog
+          workOrder={closing}
+          onClose={() => setClosing(null)}
+          onClosed={() => {
+            setClosing(null)
+            setTick((t) => t + 1)
+          }}
+        />
+      )}
 
-      <Card>
-        {error ? (
-          <EmptyState icon="alert" title="Couldn't load work orders">
-            {error}
-          </EmptyState>
-        ) : !orders?.length ? (
-          <EmptyState icon="workorder" title={filter === "all" ? "No work orders yet" : `No ${filter.toLowerCase()} work orders`}>
-            Work orders are raised automatically when a component's prediction turns Critical, with a link back to the
-            prediction that triggered it.
-          </EmptyState>
-        ) : (
-          <table className="tabular w-full text-base">
-            <thead className="border-b border-line bg-surface-2 text-sm text-ink-muted">
-              <tr>
-                <th className="py-2 pl-4 text-left font-medium">ID</th>
-                <th className="py-2 text-left font-medium">Component</th>
-                <th className="py-2 text-left font-medium">Priority</th>
-                <th className="py-2 text-left font-medium">Status</th>
-                <th className="py-2 text-left font-medium">Raised by</th>
-                <th className="py-2 text-left font-medium">Triggered at</th>
-                <th className="py-2 text-left font-medium">Note</th>
-                <th className="py-2 pr-4 text-right font-medium"><span className="sr-only">Actions</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((w) => (
-                <tr key={w.id} className="border-t border-line first:border-t-0">
-                  <td className="py-2 pl-4 font-mono text-sm font-medium text-ink">{w.id}</td>
-                  <td className="py-2">
-                    <Link
-                      to="/components/$component"
-                      params={{ component: componentByName(w.component)?.key ?? "cooler" }}
-                      className="inline-flex items-center gap-1.5 text-ink"
-                    >
-                      <span className="inline-block h-2 w-2 rounded-sm" style={{ background: componentByName(w.component)?.series }} />
-                      {w.component}
-                    </Link>
-                  </td>
-                  <td className="py-2">
-                    <span className={`rounded-full px-2 py-0.5 text-sm font-semibold ${priorityStyle[w.priority]}`}>{w.priority}</span>
-                  </td>
-                  <td className="py-2">
-                    <span className={`inline-flex items-center gap-1.5 ${w.status === "Open" ? "font-medium text-ink" : "text-ink-faint"}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${w.status === "Open" ? "bg-critical" : "bg-ink-faint"}`} />
-                      {w.status}
-                    </span>
-                  </td>
-                  <td className="py-2">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
-                        w.createdBy.startsWith("system") ? "bg-accent-bg text-accent-text" : "bg-surface-3 text-ink-muted"
-                      }`}
-                      title={w.createdBy}
-                    >
-                      {w.createdBy.startsWith("system") ? "System" : "User"}
-                    </span>
-                  </td>
-                  <td className="py-2 text-ink-muted">{w.triggeredByCycle ? `cycle ${num(w.triggeredByCycle)}` : "—"}</td>
-                  <td className="max-w-[420px] py-2 text-ink-muted">
-                    <div className="truncate" title={w.note ?? ""}>
-                      {w.note ?? "—"}
-                    </div>
-                    {w.closedNote && (
-                      <div className="truncate text-sm text-ink-faint" title={w.closedNote}>
-                        Closed: {w.closedNote}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4 text-right">
-                    {w.status === "Open" &&
-                      (closing?.id === w.id ? (
-                        <form
-                          className="inline-flex items-center gap-1.5"
-                          onSubmit={(e) => {
-                            e.preventDefault()
-                            void closeOrder(w.id, closing.note)
-                          }}
+      {tab === "history" ? (
+        <OutcomeHistory refreshKey={`${tick}-${overview?.kpis.openWorkOrders}`} />
+      ) : (
+        <>
+        <div className="flex w-fit rounded-lg border border-line bg-surface p-0.5">
+          {(["all", "Open", "Closed"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
+              className={`rounded-md px-3 py-1 text-base font-medium ${filter === f ? "bg-accent-bg text-accent-text" : "text-ink-muted hover:text-ink"}`}
+            >
+              {f === "all" ? "All" : f}
+            </button>
+          ))}
+        </div>
+
+        <Card>
+          {error ? (
+            <EmptyState icon="alert" title="Couldn't load work orders">
+              {error}
+            </EmptyState>
+          ) : !orders?.length ? (
+            <EmptyState icon="workorder" title={filter === "all" ? "No work orders yet" : `No ${filter.toLowerCase()} work orders`}>
+              Work orders are raised automatically when a component's prediction turns Critical, with a link back to the
+              prediction that triggered it.
+            </EmptyState>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="tabular w-full text-base [&_td]:pr-3 [&_td]:align-top [&_td]:whitespace-nowrap [&_th]:pr-3 [&_th]:whitespace-nowrap">
+                <thead className="border-b border-line bg-surface-2 text-sm text-ink-muted">
+                  <tr>
+                    <th className="py-2 pl-4 text-left font-medium">ID</th>
+                    <th className="py-2 text-left font-medium">Component</th>
+                    <th className="py-2 text-left font-medium">Priority</th>
+                    <th className="py-2 text-left font-medium">Status</th>
+                    <th className="py-2 text-left font-medium">Raised by</th>
+                    <th className="py-2 text-left font-medium">Triggered at</th>
+                    <th className="w-full py-2 text-left font-medium">Note</th>
+                    <th className="sticky right-0 border-l border-line bg-surface-2 py-2 !pr-4 pl-3 text-right font-medium"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((w) => (
+                    <tr key={w.id} className="border-t border-line first:border-t-0">
+                      <td className="py-2 pl-4 font-mono text-sm font-medium whitespace-nowrap text-ink">{w.id}</td>
+                      <td className="py-2">
+                        <Link
+                          to="/components/$component"
+                          params={{ component: componentByName(w.component)?.key ?? "cooler" }}
+                          className="inline-flex items-center gap-1.5 text-ink"
                         >
-                          <input
-                            autoFocus
-                            value={closing.note}
-                            onChange={(e) => setClosing({ id: w.id, note: e.target.value })}
-                            onKeyDown={(e) => e.key === "Escape" && setClosing(null)}
-                            placeholder="What was done? (optional)"
-                            aria-label={`Closing note for ${w.id}`}
-                            maxLength={500}
-                            className="h-8 w-[240px] rounded-md border border-line-strong bg-surface px-2 text-sm text-ink"
-                          />
-                          <Button size="sm" variant="primary" type="submit">
-                            Close
+                          <span className="inline-block h-2 w-2 rounded-sm" style={{ background: componentByName(w.component)?.series }} />
+                          {w.component}
+                        </Link>
+                      </td>
+                      <td className="py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-sm font-semibold ${priorityStyle[w.priority]}`}>{w.priority}</span>
+                      </td>
+                      <td className="py-2">
+                        <span className={`inline-flex items-center gap-1.5 ${w.status === "Open" ? "font-medium text-ink" : "text-ink-faint"}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${w.status === "Open" ? "bg-critical" : "bg-ink-faint"}`} />
+                          {w.status}
+                        </span>
+                      </td>
+                      <td className="py-2">
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
+                            w.createdBy.startsWith("system") ? "bg-accent-bg text-accent-text" : "bg-surface-3 text-ink-muted"
+                          }`}
+                          title={w.createdBy}
+                        >
+                          {w.createdBy.startsWith("system") ? "System" : "User"}
+                        </span>
+                      </td>
+                      <td className="py-2 text-ink-muted">{w.triggeredByCycle ? `cycle ${num(w.triggeredByCycle)}` : "—"}</td>
+                      <td className="min-w-[8rem] py-2 !whitespace-normal text-ink-muted [overflow-wrap:anywhere]">
+                        <div>{w.note ?? "—"}</div>
+                        {w.closedNote && <div className="mt-0.5 text-sm text-ink-faint">Closed: {w.closedNote}</div>}
+                      </td>
+                      <td className="sticky right-0 border-l border-line bg-surface py-2 !pr-4 pl-3 text-right">
+                        {w.status === "Open" && (
+                          <Button size="sm" onClick={() => setClosing(w)}>
+                            Close…
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setClosing(null)}>
-                            Cancel
-                          </Button>
-                        </form>
-                      ) : (
-                        <Button size="sm" onClick={() => setClosing({ id: w.id, note: "" })}>
-                          Close
-                        </Button>
-                      ))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+        </>
+      )}
     </div>
   )
 }

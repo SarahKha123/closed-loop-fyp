@@ -54,16 +54,21 @@ def test_degraded_does_not_open(fresh_db):
 
 
 def test_recovery_closes_only_the_automatic_order(fresh_db):
+    settings.update({"monitor": {"autoCloseOnRecovery": True}})
     monitor.handle(_cycle(10, {"valve": "Critical"}))
     manual = work_orders.open_manual("valve", "inspect seals")
     assert monitor.handle(_cycle(11, {"valve": "Degraded"})) == []  # not yet recovered
     [closed] = monitor.handle(_cycle(12, {}))
     assert closed["id"] == "WO-0001" and closed["status"] == "Closed" and "recovered" in closed["closedNote"]
     assert [w["id"] for w in repo.list_work_orders("Open")] == [manual["id"]]
+    # logged, but unverified: no action or verdict, so it never counts as a confirmation
+    [outcome] = repo.list_outcomes()
+    assert outcome["closedBy"] == work_orders.SYSTEM and outcome["matchedPrediction"] is None
+    assert work_orders.outcome_stats()["critical"]["total"] == 0
 
 
-def test_auto_close_can_be_switched_off(fresh_db, monkeypatch):
-    settings.update({"monitor": {"autoCloseOnRecovery": False}})
+def test_auto_close_is_off_by_default(fresh_db):
+    # a technician closes every work order with an outcome (the closed loop)
     monitor.handle(_cycle(10, {"cooler": "Critical"}))
     assert monitor.handle(_cycle(11, {})) == []
     assert len(repo.list_work_orders("Open")) == 1
@@ -94,4 +99,4 @@ def test_manual_errors(fresh_db):
     with pytest.raises(work_orders.WorkOrderError):
         work_orders.open_manual("turbine")
     with pytest.raises(work_orders.WorkOrderError):
-        work_orders.close("WO-9999")
+        work_orders.close("WO-9999", finding="x", action="no_action", matched_prediction="no")

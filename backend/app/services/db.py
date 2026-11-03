@@ -1,8 +1,10 @@
 """The shared data layer: one SQLite database, the hub every module reads and writes.
 
 The tables are the FYP1 interim report's four data contracts (Tables 3.1–3.3),
-plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4) and
-`tbl_StudyLog` for the user study. Design notes:
+plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4),
+`tbl_StudyLog` for the user study, `tbl_WorkOrderOutcome` for what technicians
+found when closing work orders, and `tbl_User` / `tbl_Session` for the demo
+login (services/auth.py). Design notes:
 
 - One `tbl_SensorReading` row per *cycle*: the 17 sensors are shared by all
   four components, so the reading belongs to the cycle and the per-component
@@ -128,6 +130,51 @@ CREATE TABLE IF NOT EXISTS tbl_StudyLog (
   Correct       INTEGER,
   ChatTurns     INTEGER,
   InsightsShown INTEGER
+);
+
+-- What the technician found when closing a work order: the record that closes the loop
+-- (prediction → work order → verified outcome). Self-contained — it copies the work order
+-- and the prediction behind it — because a replay reset empties those tables and this log
+-- must survive it, like tbl_StudyLog. So WorkOrderID isn't unique: IDs restart after a reset.
+-- Action / MatchedPrediction are NULL only for a work order the monitor closed by itself
+-- (monitor.autoCloseOnRecovery); those aren't counted as verified.
+CREATE TABLE IF NOT EXISTS tbl_WorkOrderOutcome (
+  OutcomeID          INTEGER PRIMARY KEY,
+  WorkOrderID        TEXT NOT NULL,
+  EquipmentID        TEXT NOT NULL,
+  Component          TEXT NOT NULL,
+  WorkOrderCreatedBy TEXT NOT NULL,
+  WorkOrderNote      TEXT,
+  Priority           TEXT,
+  OpenedAt           TEXT NOT NULL,
+  ClosedAt           TEXT NOT NULL,
+  ClosedBy           TEXT NOT NULL,
+  Finding            TEXT NOT NULL,
+  Action             TEXT CHECK (Action IN ('repaired', 'replaced', 'no_action', 'escalated')),
+  MatchedPrediction  TEXT CHECK (MatchedPrediction IN ('yes', 'no', 'partially')),
+  Notes              TEXT,
+  PredictionID       INTEGER,
+  PredictionSource   TEXT CHECK (PredictionSource IN ('trigger', 'latest_at_open')),
+  CycleNumber        INTEGER,
+  PredictedCondition TEXT,
+  FailureProbability REAL,
+  TopDriver          TEXT,
+  StudyMode          INTEGER NOT NULL DEFAULT 0
+);
+
+-- The demo login (services/auth.py). Like tbl_StudyLog, these survive a replay reset.
+CREATE TABLE IF NOT EXISTS tbl_User (
+  UserID       INTEGER PRIMARY KEY,
+  Username     TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  DisplayName  TEXT NOT NULL,
+  PasswordHash TEXT NOT NULL,
+  CreatedAt    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tbl_Session (
+  Token     TEXT PRIMARY KEY,
+  UserID    INTEGER NOT NULL REFERENCES tbl_User(UserID) ON DELETE CASCADE,
+  CreatedAt TEXT NOT NULL
 );
 """
 

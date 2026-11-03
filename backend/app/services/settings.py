@@ -29,7 +29,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "monitor": {
         "confirmCycles": 1,        # Critical on this many consecutive cycles before a work order opens (anti-flapping)
-        "autoCloseOnRecovery": True,  # automatic work orders close when the component is Optimal again
+        # Off: a technician closes every work order with an outcome (the closed loop). On: automatic
+        # work orders also close by themselves when the component is Optimal again, logged unverified.
+        "autoCloseOnRecovery": False,
     },
     "chat": {
         "maxTurns": 10,            # user/assistant exchanges sent to the model; small local models have short contexts

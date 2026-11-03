@@ -1,27 +1,31 @@
-// The sidebar's profile row: who is at the dashboard, opening to a menu with their profile, the theme and the AI models page.
-// There is no login: the name and role are stored per browser, like the theme. A native popover gives
-// light dismiss, Escape and focus return for free.
+// The sidebar's profile row: who is at the dashboard, opening to a menu with their account, the theme and the AI models page.
+// Backed by the demo login (/api/auth, a session cookie): logged out it offers Log in; logged in it shows the account's
+// name — the name work orders record as `closedBy` — and Log out. The role is a per-browser label, like the theme.
+// A native popover gives light dismiss, Escape and focus return for free.
 
 import { Link } from "@tanstack/react-router"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { FormEvent } from "react"
+import { request } from "../../lib/http"
 import type { useTheme, Theme } from "../../lib/theme"
-import { input } from "../../lib/ui"
+import { inputCompact } from "../../lib/ui"
 import { Button } from "../ui/Button"
 import { Icon, type IconName } from "../ui/Icon"
 
-const KEY = "closed-loop:profile"
+const ROLE_KEY = "closed-loop:profile"
 
-interface Profile {
-  name: string
-  role: string
+interface User {
+  id: number
+  username: string
+  displayName: string
 }
 
-function read(): Profile {
+function readRole(): string {
   try {
-    const p = JSON.parse(localStorage.getItem(KEY) ?? "{}")
-    return { name: typeof p.name === "string" ? p.name : "", role: typeof p.role === "string" ? p.role : "" }
+    const p = JSON.parse(localStorage.getItem(ROLE_KEY) ?? "{}")
+    return typeof p.role === "string" ? p.role : ""
   } catch {
-    return { name: "", role: "" }
+    return ""
   }
 }
 
@@ -48,22 +52,38 @@ const THEMES: { value: Theme; label: string; icon: IconName }[] = [
 const menuItem = "flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-base text-ink hover:bg-surface-3"
 
 export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: ReturnType<typeof useTheme> }) {
-  const [profile, setProfile] = useState<Profile>(read)
-  const [draft, setDraft] = useState<Profile | null>(null)
+  const [user, setUser] = useState<User | null | undefined>(undefined) // undefined = still asking the backend
+  const [role, setRole] = useState(readRole)
+  const [form, setForm] = useState<"login" | "role" | null>(null)
   const [open, setOpen] = useState(false)
   const menu = useRef<HTMLDivElement>(null)
 
-  function save(e: React.FormEvent) {
-    e.preventDefault()
-    const next = { name: draft!.name.trim(), role: draft!.role.trim() }
-    setProfile(next)
-    setDraft(null)
+  useEffect(() => {
+    request<{ user: User | null }>("/api/auth/me")
+      .then((res) => setUser(res.user))
+      .catch(() => setUser(null))
+  }, [])
+
+  function saveRole(next: string) {
+    setRole(next)
+    setForm(null)
     try {
-      localStorage.setItem(KEY, JSON.stringify(next))
+      localStorage.setItem(ROLE_KEY, JSON.stringify({ role: next }))
     } catch {
-      /* private mode: the profile just isn't remembered */
+      /* private mode: the role just isn't remembered */
     }
   }
+
+  async function logout() {
+    menu.current?.hidePopover()
+    try {
+      await request("/api/auth/logout", { method: "POST" })
+    } finally {
+      setUser(null)
+    }
+  }
+
+  const name = user?.displayName ?? ""
 
   return (
     <>
@@ -74,10 +94,12 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
         aria-expanded={open}
         className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-3 ${open ? "bg-surface-3" : ""}`}
       >
-        <Avatar name={profile.name} size="sm" />
+        <Avatar name={name} size="sm" />
         <span className="min-w-0 grow">
-          <span className="block truncate text-base font-medium text-ink">{profile.name || "Your profile"}</span>
-          <span className="block truncate text-sm text-ink-faint">{profile.role || "Add your name and role"}</span>
+          <span className="block truncate text-base font-medium text-ink">{user ? name : "Log in"}</span>
+          <span className="block truncate text-sm text-ink-faint">
+            {user ? role || user.username : user === null ? "Sign in to record who closes work orders" : "…"}
+          </span>
         </span>
         <Icon name="chevronUpDown" size={16} className="text-ink-faint" />
       </button>
@@ -89,42 +111,43 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
         onToggle={(e) => {
           const isOpen = (e.nativeEvent as ToggleEvent).newState === "open"
           setOpen(isOpen)
-          setDraft(isOpen && !profile.name ? { ...profile } : null)
+          setForm(isOpen && user === null ? "login" : null)
         }}
         className="fixed inset-auto bottom-[76px] left-3 m-0 w-[264px] rounded-xl border border-line bg-surface p-2 text-ink shadow-pop"
       >
-        {draft ? (
-          <form onSubmit={save} className="flex flex-col gap-3 p-2">
-            <div className="text-lg font-semibold">Your profile</div>
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
-              Name
-              <input autoFocus value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Sarah Khalilah" maxLength={60} className={`${input} h-9 py-0`} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
-              Role
-              <input value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} placeholder="e.g. Maintenance engineer" maxLength={60} className={`${input} h-9 py-0`} />
-            </label>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setDraft(null)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary">
-                Save profile
-              </Button>
-            </div>
-          </form>
+        {form === "login" ? (
+          <LoginForm
+            onCancel={() => setForm(null)}
+            onLoggedIn={(u) => {
+              setUser(u)
+              setForm(null)
+            }}
+          />
+        ) : form === "role" ? (
+          <RoleForm initial={role} onCancel={() => setForm(null)} onSave={saveRole} />
         ) : (
           <>
             <div className="flex items-center gap-3 p-2">
-              <Avatar name={profile.name} size="lg" />
+              <Avatar name={name} size="lg" />
               <div className="min-w-0 grow">
-                <div className="truncate text-lg font-semibold">{profile.name || "Your profile"}</div>
-                <div className="truncate text-sm text-ink-muted">{profile.role || "No role set"}</div>
+                <div className="truncate text-lg font-semibold">{user ? name : "Not signed in"}</div>
+                <div className="truncate text-sm text-ink-muted">{user ? `${user.username}${role ? ` · ${role}` : ""}` : "Work orders you close are recorded as anonymous"}</div>
               </div>
             </div>
-            <button type="button" className={menuItem} onClick={() => setDraft({ ...profile })}>
-              <Icon name="user" className="text-ink-muted" /> Edit profile
-            </button>
+            {user ? (
+              <>
+                <button type="button" className={menuItem} onClick={() => setForm("role")}>
+                  <Icon name="user" className="text-ink-muted" /> {role ? "Edit role" : "Add your role"}
+                </button>
+                <button type="button" className={menuItem} onClick={() => void logout()}>
+                  <Icon name="logout" className="text-ink-muted" /> Log out
+                </button>
+              </>
+            ) : (
+              <button type="button" className={menuItem} onClick={() => setForm("login")}>
+                <Icon name="login" className="text-ink-muted" /> Log in
+              </button>
+            )}
             {!studyMode && (
               <Link to="/models" className={`${menuItem} !text-ink`} onClick={() => menu.current?.hidePopover()}>
                 <Icon name="models" className="text-ink-muted" /> AI models
@@ -155,5 +178,78 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
         )}
       </div>
     </>
+  )
+}
+
+function LoginForm({ onCancel, onLoggedIn }: { onCancel: () => void; onLoggedIn: (user: User) => void }) {
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) })
+      onLoggedIn(res.user)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 p-2">
+      <div className="text-lg font-semibold">Log in</div>
+      <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
+        Username
+        <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required className={inputCompact} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
+        Password
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required className={inputCompact} />
+      </label>
+      {error && <div className="rounded-lg bg-critical-bg px-3 py-2 text-sm text-critical-text">{error}</div>}
+      <div className="text-xs text-ink-faint">
+        Demo account: <span className="font-mono">demo</span> / <span className="font-mono">demo</span>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" disabled={busy || !username || !password}>
+          {busy ? "Logging in…" : "Log in"}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function RoleForm({ initial, onCancel, onSave }: { initial: string; onCancel: () => void; onSave: (role: string) => void }) {
+  const [role, setRole] = useState(initial)
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSave(role.trim())
+      }}
+      className="flex flex-col gap-3 p-2"
+    >
+      <div className="text-lg font-semibold">Your role</div>
+      <label className="flex flex-col gap-1 text-sm font-medium text-ink-muted">
+        Role
+        <input autoFocus value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Maintenance engineer" maxLength={60} className={inputCompact} />
+      </label>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary">
+          Save
+        </Button>
+      </div>
+    </form>
   )
 }

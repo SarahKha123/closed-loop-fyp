@@ -250,11 +250,14 @@ cmd_test() {
 # The backend recreates the tables on its next start (db.init_db). Stop it
 # first: a running server keeps the old file open.
 cmd_reset_db() {
-  # The study log lives in the same database: never lose participants' data by accident.
-  local logged
-  logged=$($PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM tbl_StudyLog').fetchone()[0])" 2>/dev/null || echo 0)
-  if [[ "$logged" != "0" && "${2:-}" != "--force" ]]; then
-    fail "the database holds $logged user-study log rows — export them (GET /api/study/export) first, then: ./closed-loop.sh reset-db --force"
+  # The study log and the work-order outcomes live in the same database: never lose
+  # participants' data or technicians' findings by accident.
+  local study outcomes
+  study=$($PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM tbl_StudyLog').fetchone()[0])" 2>/dev/null || echo 0)
+  outcomes=$($PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM tbl_WorkOrderOutcome').fetchone()[0])" 2>/dev/null || echo 0)
+  if [[ "${2:-}" != "--force" ]]; then
+    [[ "$study" == "0" ]] || fail "the database holds $study user-study log rows — export them (GET /api/study/export) first, then: ./closed-loop.sh reset-db --force"
+    [[ "$outcomes" == "0" ]] || fail "the database holds $outcomes work-order outcomes — export them (GET /api/work-orders/outcomes.csv) first, then: ./closed-loop.sh reset-db --force"
   fi
   rm -f config/closed_loop.db config/closed_loop.db-wal config/closed_loop.db-shm
   ok "database removed — restart the backend to recreate it empty"

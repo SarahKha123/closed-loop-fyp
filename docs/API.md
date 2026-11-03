@@ -19,6 +19,24 @@ frame is `data: {json}\n\n`.
 
 ---
 
+## Login (demo)
+
+A session cookie (`closed_loop_session`, HttpOnly). It identifies who is using
+the dashboard; no other endpoint requires it. A `demo` / `demo` account is
+created on first start; add more with
+`backend/.venv/bin/python -m app.services.auth add <username> "<Display Name>"`.
+
+### `GET /api/auth/me`
+`{"user": {"id": 1, "username": "demo", "displayName": "Demo Engineer"}}`, or `{"user": null}`.
+
+### `POST /api/auth/login`
+Body `{"username": "demo", "password": "demo"}` → `{"user": {...}}` and sets the cookie. `401` if wrong.
+
+### `POST /api/auth/logout`
+Ends the session and clears the cookie → `{"user": null}`.
+
+---
+
 ## Models (local + selection)
 
 ### `GET /api/models`
@@ -308,8 +326,10 @@ The 17 channels for one cycle (default: latest); `404` before any reading.
 ### `GET /api/work-orders?status=Open|Closed`
 `{"workOrders": [{"id": "WO-0001", "component": "Accumulator", "priority": "High", "status": "Open", "createdBy": "system:monitor", "triggeredByPredictionId": 24, "triggeredByCycle": 601, "note": "…", "createdAt": "…", "closedAt": null, …}]}` — newest first.
 Automatic work orders come from the monitor (see ARCHITECTURE.md): one when a
-component's prediction turns Critical (none if one is already open), closed
-again with `closedNote: "Condition recovered: …"` when it returns to Optimal.
+component's prediction turns Critical (none if one is already open). A technician
+closes them with an outcome; only with `monitor.autoCloseOnRecovery` on (off by
+default) does the monitor also close them, with `closedNote: "Condition recovered: …"`,
+when the component returns to Optimal.
 Priority is High for high-criticality assets (valve, pump), else Medium.
 
 ### `POST /api/work-orders`
@@ -317,8 +337,32 @@ Body `{"component": "pump", "note": "check seals"}` (`component` may be the key,
 Raised by a user: `createdBy: "user"`, no triggering prediction. `400` for an unknown component.
 
 ### `POST /api/work-orders/{id}/close`
-Body `{"note": "seals replaced"}` (optional). `404` if it doesn't exist or is already closed.
-Users can close any work order; the monitor only ever auto-closes its own.
+Body `{"finding": "seal wear confirmed", "action": "replaced", "matchedPrediction": "yes", "notes": "…"}`.
+`finding`, `action` (`repaired` / `replaced` / `no_action` / `escalated`) and `matchedPrediction`
+(`yes` / `no` / `partially`) are required (`422` without them, `400` for an empty finding); `notes` is optional.
+`404` if it doesn't exist or is already closed. `closedNote` becomes the finding.
+
+Logs one outcome row (`tbl_WorkOrderOutcome`) with a copy of the work order and of the
+prediction behind it: the triggering prediction, or for a manual work order the
+component's latest prediction when it was opened. `closedBy` is the logged-in user's
+name, or `anonymous`. Outcomes survive replay resets.
+
+### `GET /api/work-orders/history?limit=200`
+`{"outcomes": [{"id": 1, "workOrderId": "WO-0009", "component": "Accumulator", "workOrderCreatedBy": "system:monitor",
+"openedAt": "…", "closedAt": "…", "closedBy": "Demo Engineer", "finding": "…", "action": "replaced",
+"matchedPrediction": "yes", "notes": null, "prediction": {"predictionId": 1068, "source": "trigger", "cycle": 1931,
+"condition": "Critical", "failureProbability": 1.0, "topDriver": "Volume flow 2 (mean) = 10.15 l/min"},
+"studyMode": false}]}` — newest first. `action` / `matchedPrediction` are null only for a
+work order the monitor closed by itself.
+
+### `GET /api/work-orders/outcome-stats`
+How often technicians confirmed the model, from verified outcomes outside study mode:
+`{"critical": {"total", "yes", "partially", "no", "confirmedRate", "confirmedOrPartialRate"},
+"criticalByComponent": [{"component", …same counts}], "allVerified": {…}}`. `critical` counts
+outcomes whose prediction was Critical; rates are null with nothing to count.
+
+### `GET /api/work-orders/outcomes.csv`
+The whole outcome log as CSV, oldest first (one row per outcome, the prediction flattened into columns).
 
 ---
 

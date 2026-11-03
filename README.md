@@ -6,8 +6,10 @@ PETRONAS.
 
 Recorded cycles are replayed as a live feed. Each cycle is scored by the four
 FYP1 models (cooler, valve, pump, accumulator) with SHAP explanations; a
-monitor opens a maintenance work order when a component turns Critical and
-closes it on recovery. An AI **Advisor** closes the loop for people:
+monitor opens a maintenance work order when a component turns Critical, and a
+technician closes it with what they found — whether it matched the prediction —
+which feeds a confirmation rate (**Work orders → History**). An AI **Advisor**
+closes the loop for people:
 
 - **Live insights** — when a component changes condition, crosses the risk
   threshold, or a work order opens or closes, the Advisor writes a short

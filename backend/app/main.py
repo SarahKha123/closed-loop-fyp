@@ -21,7 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, cloud, dashboard, hardware, health, insights, models, replay, settings, stream, study, work_orders
+from .api import auth, chat, cloud, dashboard, hardware, health, insights, models, replay, settings, stream, study, work_orders
+from .services import auth as auth_service
 from .services import db, events, ingest, monitor, paths
 from .services import insights as insight_service
 from .services import replay as replay_service
@@ -34,6 +35,7 @@ paths.ensure_dirs()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db.init_db()  # create the shared data layer on first start; a no-op afterwards
+    auth_service.ensure_demo_user()  # someone to log in as (demo / demo) until real accounts are added
     events.bind(asyncio.get_running_loop())
 
     # The live replay. If the dataset can't load, the rest of the API still runs
@@ -100,6 +102,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(models.router)
 app.include_router(hardware.router)
 app.include_router(chat.router)

@@ -7,8 +7,10 @@ Rules (per component):
 - Critical for `monitor.confirmCycles` consecutive cycles, and no open work order
   → open one (CreatedBy = system:monitor, linked to the triggering prediction).
 - Back to Optimal while an automatic work order is open, and
-  `monitor.autoCloseOnRecovery` → close it with the note "condition recovered".
-  Manual (user) work orders are never closed automatically.
+  `monitor.autoCloseOnRecovery` (off by default) → close it with the note
+  "condition recovered", logged as an unverified outcome. Off, a technician
+  closes it with what they found (work_orders.close). Manual (user) work
+  orders are never closed automatically.
 
 Both rules are runtime settings (services/settings.py).
 """
@@ -41,7 +43,7 @@ def handle(event: dict[str, Any]) -> list[dict[str, Any]]:
         elif p["condition"] == "Optimal" and rules["autoCloseOnRecovery"]:
             for wo in repo.list_work_orders("Open"):
                 if wo["equipmentId"] == equipment_id and wo["createdBy"] == work_orders.SYSTEM:
-                    changed.append(work_orders.close(wo["id"], f"Condition recovered: Optimal at cycle {event['cycle']}"))
+                    changed.append(work_orders.close_automatically(wo["id"], f"Condition recovered: Optimal at cycle {event['cycle']}"))
     return changed
 
 

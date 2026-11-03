@@ -112,7 +112,7 @@ export function SettingsTab() {
           <Row label="Cycles Critical before a work order" hint="Raise above 1 to ignore one-cycle blips.">
             <NumberField key={s.monitor.confirmCycles} value={s.monitor.confirmCycles} min={1} max={20} onSave={(v) => void save({ monitor: { confirmCycles: v } })} />
           </Row>
-          <Row label="Close automatically on recovery" hint="Automatic work orders close when the component is Optimal again. Manual ones never do.">
+          <Row label="Close automatically on recovery" hint="Off (default): a technician closes every work order with what they found. On: automatic ones also close when the component is Optimal again, logged as unverified.">
             <input type="checkbox" className={toggle} checked={s.monitor.autoCloseOnRecovery} onChange={(e) => void save({ monitor: { autoCloseOnRecovery: e.target.checked } })} />
           </Row>
         </>,

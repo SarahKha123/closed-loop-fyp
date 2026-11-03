@@ -47,8 +47,11 @@ event bus (services/events.py) ──────────────► /ap
           │ publishes "prediction"
           ├──► monitor (services/monitor.py)
           │      Critical (× confirmCycles) → open a work order (system:monitor, linked to the prediction)
-          │      Optimal again              → close it (autoCloseOnRecovery)
+          │      Optimal again              → close it (only with autoCloseOnRecovery, off by default)
           │      └──► services/work_orders.py ──► tbl_WorkOrder, publishes "work_order"
+          │                 ▲
+          │   technician closes it: finding · action · matched the prediction?
+          │                 └──► tbl_WorkOrderOutcome (+ a copy of the prediction) ──► confirmation rate
           │
           └──► insight engine (services/insights.py) ◄── also "work_order" events
                  trigger: condition change · risk threshold crossed · work order opened/closed
@@ -92,7 +95,7 @@ services never import from `api`.
 | `services/replay.py` | Plays the cycles as a live feed; play / pause / step / speed / seek / reset |
 | `services/events.py` | In-process publish/subscribe between the live-pipeline parts |
 | `services/predictor.py` | Loads the four trained models; scores each new reading with SHAP drivers; the scoring worker |
-| `services/monitor.py` | Reacts to each prediction: opens a work order on Critical, closes it on recovery |
+| `services/monitor.py` | Reacts to each prediction: opens a work order on Critical (and closes it on recovery, if `autoCloseOnRecovery` is on) |
 | `services/work_orders.py` | Opening and closing work orders, with who raised them and why |
 | `services/settings.py` | Runtime settings: defaults in code, overrides in `config/settings.json`, validated |
 | `services/study.py` | The user study: conditions, task presets (reset + step the replay), counterbalancing, the task clock, CSV export |
@@ -124,7 +127,9 @@ scoring share one feature implementation. See [`backend/ml/README.md`](../backen
 | `tbl_Prediction` | component per cycle: condition, class probabilities, failure probability, SHAP top 3, `TrueCondition` (evaluation only) | predictor |
 | `tbl_WorkOrder` | work order: who raised it (`system:monitor` / `user`), triggering prediction, open/closed | work_orders |
 | `tbl_Insight` | AI text: trigger, model, mode, prompt version, the exact snapshot, grounding result, attempts, latency | insight engine, chat |
-| `tbl_StudyLog` | study task: participant, condition, task set and id, start/end, duration, answer, correct, chat turns, insights shown | study |
+| `tbl_WorkOrderOutcome` | closed work order: what the technician found, the action, whether it matched the prediction, and a copy of that prediction (cycle, condition, failure probability, top driver). Survives replay resets | work_orders |
+| `tbl_StudyLog` | study task: participant, condition, task set and id, start/end, duration, answer, correct, chat turns, insights shown. Survives replay resets | study |
+| `tbl_User`, `tbl_Session` | demo login accounts (scrypt password hashes) and sessions | auth |
 
 Seeking the replay back deletes later readings (predictions cascade) and
 insights, so the timeline stays consistent. A replay reset empties every
