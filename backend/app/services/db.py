@@ -3,8 +3,8 @@
 The tables are the FYP1 interim report's four data contracts (Tables 3.1–3.3),
 plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4),
 `tbl_StudyLog` for the user study, `tbl_WorkOrderOutcome` for what technicians
-found when closing work orders, and `tbl_User` / `tbl_Session` for the demo
-login (services/auth.py). Design notes:
+found when closing work orders, and `tbl_User` / `tbl_Session` / `tbl_AuthEvent`
+for sign-in (services/auth.py). Design notes:
 
 - One `tbl_SensorReading` row per *cycle*: the 17 sensors are shared by all
   four components, so the reading belongs to the cycle and the per-component
@@ -30,7 +30,7 @@ from contextlib import contextmanager
 
 from . import paths
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent (see _migrate)
 
 # component key (as in ml.labels.COMPONENTS) → seeded tbl_Equipment row.
 # Criticality is an assumption for the demo rig: the pump and valve sit on the
@@ -162,18 +162,40 @@ CREATE TABLE IF NOT EXISTS tbl_WorkOrderOutcome (
   StudyMode          INTEGER NOT NULL DEFAULT 0
 );
 
--- The demo login (services/auth.py). Like tbl_StudyLog, these survive a replay reset.
+-- Sign-in (services/auth.py). Like tbl_StudyLog, these survive a replay reset.
+-- A Google account has GoogleSub (its stable id: accounts are matched on it, never on email),
+-- Username = its email, and an empty PasswordHash (no password sign-in).
 CREATE TABLE IF NOT EXISTS tbl_User (
   UserID       INTEGER PRIMARY KEY,
   Username     TEXT NOT NULL UNIQUE COLLATE NOCASE,
   DisplayName  TEXT NOT NULL,
   PasswordHash TEXT NOT NULL,
-  CreatedAt    TEXT NOT NULL
+  CreatedAt    TEXT NOT NULL,
+  GoogleSub    TEXT,
+  Email        TEXT,
+  AvatarURL    TEXT,
+  LastLoginAt  TEXT
 );
 
+-- Token holds sha256 of the cookie value, never the cookie value itself.
 CREATE TABLE IF NOT EXISTS tbl_Session (
   Token     TEXT PRIMARY KEY,
   UserID    INTEGER NOT NULL REFERENCES tbl_User(UserID) ON DELETE CASCADE,
+  CreatedAt TEXT NOT NULL,
+  ExpiresAt TEXT,
+  IP        TEXT,
+  UserAgent TEXT
+);
+
+-- Audit trail, insert-only. UserID becomes NULL if the user is deleted, so history survives.
+CREATE TABLE IF NOT EXISTS tbl_AuthEvent (
+  EventID   INTEGER PRIMARY KEY,
+  Event     TEXT NOT NULL CHECK (Event IN ('signup', 'login', 'login_failed', 'logout')),
+  UserID    INTEGER REFERENCES tbl_User(UserID) ON DELETE SET NULL,
+  Email     TEXT,
+  Reason    TEXT,  -- login_failed only: password | cancelled | state | exchange | token
+  IP        TEXT,
+  UserAgent TEXT,
   CreatedAt TEXT NOT NULL
 );
 """
@@ -217,6 +239,7 @@ def init_db() -> None:
         try:
             conn.execute("PRAGMA journal_mode = WAL")
             conn.executescript(SCHEMA)
+            _migrate(conn)
             conn.executemany(
                 "INSERT OR IGNORE INTO tbl_Equipment (EquipmentID, ComponentType, CircuitLocation, CriticalityLevel)"
                 " VALUES (:EquipmentID, :ComponentType, :CircuitLocation, :CriticalityLevel)",
@@ -226,6 +249,24 @@ def init_db() -> None:
             conn.commit()
         finally:
             conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring a database from an older SCHEMA_VERSION up to date. CREATE TABLE IF NOT EXISTS never
+    changes a table that already exists, so new columns are added here (a no-op on a fresh database)."""
+    if conn.execute("PRAGMA user_version").fetchone()[0] < 2:
+        for table, columns in {
+            "tbl_User": ("GoogleSub", "Email", "AvatarURL", "LastLoginAt"),
+            "tbl_Session": ("ExpiresAt", "IP", "UserAgent"),
+        }.items():
+            have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}  # noqa: S608 — fixed names
+            for col in columns:
+                if col not in have:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")  # noqa: S608 — fixed names
+        conn.execute("DELETE FROM tbl_Session")  # v1 stored raw tokens; v2 stores only their hash
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_User_GoogleSub ON tbl_User(GoogleSub)")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_Session_UserID ON tbl_Session(UserID)")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_AuthEvent_CreatedAt ON tbl_AuthEvent(CreatedAt DESC)")
 
 
 def equipment_id(component: str) -> str:

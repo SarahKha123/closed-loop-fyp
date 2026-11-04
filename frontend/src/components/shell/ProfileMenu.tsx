@@ -27,8 +27,10 @@ function initials(name: string) {
   return parts.length ? (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() : ""
 }
 
-function Avatar({ name, size }: { name: string; size: "sm" | "lg" }) {
+function Avatar({ name, src, size }: { name: string; src: string | null; size: "sm" | "lg" }) {
   const box = size === "sm" ? "h-9 w-9 text-sm" : "h-11 w-11 text-base"
+  // no-referrer: Google's image host can refuse requests that carry one.
+  if (src) return <img src={src} alt="" referrerPolicy="no-referrer" className={`shrink-0 rounded-full object-cover ${box}`} />
   return (
     <span className={`flex shrink-0 items-center justify-center rounded-full bg-accent-bg font-semibold text-accent-text ${box}`}>
       {initials(name) || <Icon name="user" size={size === "sm" ? 16 : 20} />}
@@ -73,7 +75,7 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
         aria-expanded={open}
         className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-3 ${open ? "bg-surface-3" : ""}`}
       >
-        <Avatar name={name} size="sm" />
+        <Avatar name={name} src={user.avatarUrl} size="sm" />
         <span className="min-w-0 grow">
           <span className="block truncate text-base font-medium text-ink">{name}</span>
           <span className="block truncate text-sm text-ink-faint">{role || user.username}</span>
@@ -97,7 +99,7 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
         ) : (
           <>
             <div className="flex items-center gap-3 p-2">
-              <Avatar name={name} size="lg" />
+              <Avatar name={name} src={user.avatarUrl} size="lg" />
               <div className="min-w-0 grow">
                 <div className="truncate text-lg font-semibold">{name}</div>
                 <div className="truncate text-sm text-ink-muted">{`${user.username}${role ? ` · ${role}` : ""}`}</div>

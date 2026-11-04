@@ -19,16 +19,23 @@ frame is `data: {json}\n\n`.
 
 ---
 
-## Login (demo)
+## Sign-in
 
-A session cookie (`closed_loop_session`, HttpOnly). It identifies who is using
-the dashboard: the frontend shows its sign-in / sign-up page until someone is
-signed in, but no other endpoint requires the cookie. A `demo` / `demo` account
-is created on first start; people sign up from that page, or add accounts with
-`backend/.venv/bin/python -m app.services.auth add <username> "<Display Name>"`.
+A session cookie (`closed_loop_session`, HttpOnly, `Secure` with `COOKIE_SECURE=true`). The database
+stores only the SHA-256 of its value; sessions expire after `SESSION_TTL_DAYS` (default 7). It identifies
+who is using the dashboard: the frontend shows its sign-in page until someone is signed in, but no other
+endpoint requires the cookie. Every signup, login, failed login and logout is recorded in
+`tbl_AuthEvent` (with IP and user agent).
+
+Two ways in: a username and password (a `demo` / `demo` account is created on first start; people sign
+up from the sign-in page, or add accounts with
+`backend/.venv/bin/python -m app.services.auth add <username> "<Display Name>"`), or Google, when
+`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are set in `.env` (see docs/GOOGLE_AUTH_PORTABLE.md for the
+Google Cloud console setup). Google accounts are matched on Google's stable `sub`, never on email.
 
 ### `GET /api/auth/me`
-`{"user": {"id": 1, "username": "demo", "displayName": "Demo Engineer"}}`, or `{"user": null}`.
+`{"user": {"id": 1, "username": "demo", "displayName": "Demo Engineer", "email": null, "avatarUrl": null}, "googleSignIn": false}`;
+`user` is `null` when nobody is signed in. `googleSignIn` says whether to offer "Continue with Google".
 
 ### `POST /api/auth/login`
 Body `{"username": "demo", "password": "demo"}` → `{"user": {...}}` and sets the cookie. `401` if wrong.
@@ -40,6 +47,17 @@ username is taken (usernames are case-insensitive).
 
 ### `POST /api/auth/logout`
 Ends the session and clears the cookie → `{"user": null}`.
+
+### `GET /api/auth/google`
+A browser navigation (a plain link, not `fetch`). Makes a fresh `state`, PKCE verifier and `nonce`, keeps
+them in a 10-minute HttpOnly cookie scoped to `/api/auth/google`, and redirects (302) to Google's account
+picker. `404` if Google sign-in isn't configured.
+
+### `GET /api/auth/google/callback`
+Where Google sends the browser back. Checks `state`, exchanges the code for an ID token server to server
+(PKCE verifier + client secret), checks the token's `iss`, `aud`, `exp`, `nonce` and `email_verified`,
+then finds or creates the account, starts a session and audits it in one transaction → 302 to `/`
+signed in. Any failure → 302 to `/?authError=cancelled|state|exchange|token` and a `login_failed` audit row.
 
 ---
 

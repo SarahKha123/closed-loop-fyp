@@ -129,7 +129,7 @@ scoring share one feature implementation. See [`backend/ml/README.md`](../backen
 | `tbl_Insight` | AI text: trigger, model, mode, prompt version, the exact snapshot, grounding result, attempts, latency | insight engine, chat |
 | `tbl_WorkOrderOutcome` | closed work order: what the technician found, the action, whether it matched the prediction, and a copy of that prediction (cycle, condition, failure probability, top driver). Survives replay resets | work_orders |
 | `tbl_StudyLog` | study task: participant, condition, task set and id, start/end, duration, answer, correct, chat turns, insights shown. Survives replay resets | study |
-| `tbl_User`, `tbl_Session` | demo login accounts (scrypt password hashes) and sessions | auth |
+| `tbl_User`, `tbl_Session`, `tbl_AuthEvent` | accounts (scrypt password hashes, or a Google `sub`), sessions (only the token's SHA-256, with an expiry) and the sign-in audit log | auth, google_auth |
 
 Seeking the replay back deletes later readings (predictions cascade) and
 insights, so the timeline stays consistent. A replay reset empties every
@@ -360,9 +360,11 @@ lib/
 - `ModelsContext` caches `/api/models` and `/api/models/active` so the
   sidebar card and the AI models page agree.
 - Per-browser conveniences live in `localStorage` / `sessionStorage`, never
-  on the server: the theme (`lib/theme.ts`), the profile name and role
-  (`ProfileMenu`) and the dismissed first-run dialog. There is no login; the
-  profile is a label for whoever sits at the dashboard.
+  on the server: the theme (`lib/theme.ts`), the role label (`ProfileMenu`)
+  and the dismissed first-run dialog.
+- `AuthContext` holds who is signed in. The root route shows `AuthScreen`
+  (password sign-in / sign-up, and "Continue with Google" when configured)
+  until someone is, and only then mounts the dashboard and its providers.
 
 ---
 

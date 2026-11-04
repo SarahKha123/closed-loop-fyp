@@ -14,7 +14,8 @@ export default defineConfig({
     proxy: {
       // The backend, in dev. `./closed-loop.sh dev` sets CLOSED_LOOP_API_URL
       // to its BACKEND_PORT; a plain `pnpm dev` assumes :8000.
-      '/api': process.env.CLOSED_LOOP_API_URL ?? 'http://localhost:8000',
+      // xfwd: pass the browser's IP on (X-Forwarded-For), so the sign-in audit log records it, not the proxy's.
+      '/api': { target: process.env.CLOSED_LOOP_API_URL ?? 'http://localhost:8000', xfwd: true },
     },
   },
 })

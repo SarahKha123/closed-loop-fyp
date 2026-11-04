@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import db
@@ -543,11 +543,17 @@ def study_log(participant: str | None = None) -> list[dict[str, Any]]:
     return [_study_row(r) for r in rows]
 
 
-# ── users and sessions (services/auth.py) ─────────────────────────────────────
+# ── users, sessions and the sign-in audit log (services/auth.py) ─────────────
+# Session tokens arrive here already hashed: the database never sees a cookie value.
+
+Client = tuple[str | None, str | None]  # (IP, User-Agent) of the request, for the audit log
 
 
 def _user_row(row: sqlite3.Row) -> dict[str, Any]:
-    return {"id": row["UserID"], "username": row["Username"], "displayName": row["DisplayName"]}
+    return {
+        "id": row["UserID"], "username": row["Username"], "displayName": row["DisplayName"],
+        "email": row["Email"], "avatarUrl": row["AvatarURL"],
+    }
 
 
 def user_with_hash(username: str) -> tuple[dict[str, Any], str] | None:
@@ -582,22 +588,89 @@ def set_password(username: str, password_hash: str) -> bool:
     return bool(cur.rowcount)
 
 
-def insert_session(token: str, user_id: int) -> None:
+def _log(conn: sqlite3.Connection, event: str, client: Client, *, user_id: int | None = None,
+         email: str | None = None, reason: str | None = None) -> None:
+    conn.execute(
+        "INSERT INTO tbl_AuthEvent (Event, UserID, Email, Reason, IP, UserAgent, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (event, user_id, email, reason, *client, _now()),
+    )
+
+
+def _open_session(conn: sqlite3.Connection, user: dict[str, Any], token_hash: str, ttl: timedelta,
+                  client: Client, events: tuple[str, ...]) -> None:
+    now = datetime.now(timezone.utc)
+    conn.execute("DELETE FROM tbl_Session WHERE ExpiresAt < ?", (_now(),))  # cheap housekeeping
+    conn.execute(
+        "INSERT INTO tbl_Session (Token, UserID, CreatedAt, ExpiresAt, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)",
+        (token_hash, user["id"], _now(), (now + ttl).isoformat(timespec="seconds"), *client),
+    )
+    conn.execute("UPDATE tbl_User SET LastLoginAt = ? WHERE UserID = ?", (_now(), user["id"]))
+    for event in events:
+        _log(conn, event, client, user_id=user["id"], email=user["email"] or user["username"])
+
+
+def start_session(user: dict[str, Any], token_hash: str, ttl: timedelta, client: Client,
+                  events: tuple[str, ...] = ("login",)) -> None:
+    """A new session and its audit rows, in one transaction."""
     with db.write() as conn:
-        conn.execute("INSERT INTO tbl_Session (Token, UserID, CreatedAt) VALUES (?, ?, ?)", (token, user_id, _now()))
+        _open_session(conn, user, token_hash, ttl, client, events)
 
 
-def session_user(token: str) -> dict[str, Any] | None:
+def google_sign_in(sub: str, email: str, name: str, picture: str | None,
+                   token_hash: str, ttl: timedelta, client: Client) -> dict[str, Any]:
+    """Find or create the account for a Google `sub`, start its session and audit it — one transaction,
+    so a sign-in is never saved without its audit row, or the reverse."""
+    with db.write() as conn:
+        row = conn.execute("SELECT UserID FROM tbl_User WHERE GoogleSub = ?", (sub,)).fetchone()
+        if row:
+            user_id, events = row["UserID"], ("login",)
+            conn.execute("UPDATE tbl_User SET Email = ?, DisplayName = ?, AvatarURL = ? WHERE UserID = ?",
+                         (email, name, picture, user_id))
+        else:
+            events = ("signup", "login")
+            insert = ("INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, GoogleSub, Email, AvatarURL)"
+                      " VALUES (?, ?, '', ?, ?, ?, ?)")
+            try:
+                user_id = conn.execute(insert, (email, name, _now(), sub, email, picture)).lastrowid
+            except sqlite3.IntegrityError:
+                # ponytail: a password account already uses this email as its username; suffix rather than merge
+                # (merging would need proof both belong to the same person). Add account linking if that matters.
+                user_id = conn.execute(insert, (f"{email}#{sub[-6:]}", name, _now(), sub, email, picture)).lastrowid
+        user = _user_row(conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone())
+        _open_session(conn, user, token_hash, ttl, client, events)
+    return user
+
+
+def session_user(token_hash: str) -> dict[str, Any] | None:
     with db.read() as conn:
         row = conn.execute(
-            "SELECT u.* FROM tbl_Session s JOIN tbl_User u ON u.UserID = s.UserID WHERE s.Token = ?", (token,)
+            "SELECT u.* FROM tbl_Session s JOIN tbl_User u ON u.UserID = s.UserID WHERE s.Token = ? AND s.ExpiresAt > ?",
+            (token_hash, _now()),
         ).fetchone()
     return _user_row(row) if row else None
 
 
-def delete_session(token: str) -> None:
+def end_session(token_hash: str, client: Client) -> None:
     with db.write() as conn:
-        conn.execute("DELETE FROM tbl_Session WHERE Token = ?", (token,))
+        row = conn.execute(
+            "SELECT u.* FROM tbl_Session s JOIN tbl_User u ON u.UserID = s.UserID WHERE s.Token = ?", (token_hash,)
+        ).fetchone()
+        if row:
+            conn.execute("DELETE FROM tbl_Session WHERE Token = ?", (token_hash,))
+            _log(conn, "logout", client, user_id=row["UserID"], email=row["Email"] or row["Username"])
+
+
+def log_auth_event(event: str, client: Client, **details: Any) -> None:
+    with db.write() as conn:
+        _log(conn, event, client, **details)
+
+
+def auth_events(limit: int = 100) -> list[dict[str, Any]]:
+    """Newest first."""
+    with db.read() as conn:
+        rows = conn.execute("SELECT * FROM tbl_AuthEvent ORDER BY EventID DESC LIMIT ?", (limit,)).fetchall()
+    return [{"event": r["Event"], "userId": r["UserID"], "email": r["Email"], "reason": r["Reason"],
+             "ip": r["IP"], "createdAt": r["CreatedAt"]} for r in rows]
 
 
 # ── maintenance ──────────────────────────────────────────────────────────────

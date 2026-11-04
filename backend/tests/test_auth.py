@@ -35,7 +35,7 @@ def test_duplicate_username_refused(fresh_db):
 
 
 def test_login_me_logout(client):
-    assert client.get("/api/auth/me").json() == {"user": None}
+    assert client.get("/api/auth/me").json()["user"] is None
 
     bad = client.post("/api/auth/login", json={"username": "demo", "password": "nope"})
     assert bad.status_code == 401
@@ -45,13 +45,13 @@ def test_login_me_logout(client):
     assert client.get("/api/auth/me").json()["user"]["username"] == "demo"
 
     client.post("/api/auth/logout")
-    assert client.get("/api/auth/me").json() == {"user": None}
+    assert client.get("/api/auth/me").json()["user"] is None
 
 
 def test_password_change_ends_sessions(client):
     client.post("/api/auth/login", json={"username": "demo", "password": "demo"})
     assert repo.set_password("demo", auth.hash_password("new"))
-    assert client.get("/api/auth/me").json() == {"user": None}
+    assert client.get("/api/auth/me").json()["user"] is None
 
 
 def test_register_signs_in(client):

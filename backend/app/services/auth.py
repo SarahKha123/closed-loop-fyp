@@ -1,8 +1,13 @@
-"""The demo login: users in tbl_User, sessions in tbl_Session, a session cookie.
+"""Sign-in: users in tbl_User, sessions in tbl_Session, an audit row per event in tbl_AuthEvent.
 
-Good enough to show who is signed in, not production-grade: no rate limiting,
-no password rules, sessions don't expire (logging out ends one). Nothing in
-the API requires a login yet — it identifies the person, it doesn't guard data.
+Two ways in: a username + password, or Google (services/google_auth.py). Either
+way the browser gets a random session token in an HttpOnly cookie, and the
+database stores only its SHA-256, so a leaked database can't be replayed as
+cookies. Sessions expire after SESSION_TTL_DAYS (default 7). Every signup,
+login, failed login and logout is recorded with the client's IP and user agent.
+
+Not production-grade yet: no rate limiting. Nothing in the API requires a login
+— the dashboard asks for one, but it identifies the person, it doesn't guard data.
 
 Passwords are stored as scrypt hashes (`scrypt$<salt hex>$<hash hex>`), never
 in plain text. On first start a demo account is created (DEMO_USERNAME /
@@ -16,10 +21,13 @@ Add or reset accounts from the command line (from backend/):
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
+import os
 import secrets
 import sqlite3
+from datetime import timedelta
 from typing import Any
 
 from . import repo
@@ -30,6 +38,24 @@ DEMO_PASSWORD = "demo"
 DEMO_NAME = "Demo Engineer"
 
 _SCRYPT = {"n": 2**14, "r": 8, "p": 1}
+
+
+def session_ttl() -> timedelta:
+    return timedelta(days=float(os.environ.get("SESSION_TTL_DAYS") or 7))
+
+
+def cookie_secure() -> bool:
+    """Set COOKIE_SECURE=true when served over HTTPS, so the cookie is never sent over plain http."""
+    return os.environ.get("COOKIE_SECURE", "").strip().lower() in ("1", "true", "yes")
+
+
+def random_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def sha256(value: str) -> str:
+    """base64url SHA-256 without padding: session token hashes, and the PKCE code challenge."""
+    return base64.urlsafe_b64encode(hashlib.sha256(value.encode()).digest()).rstrip(b"=").decode()
 
 
 class AuthError(ValueError):
@@ -69,38 +95,49 @@ def ensure_demo_user() -> None:
         add_user(DEMO_USERNAME, DEMO_NAME, DEMO_PASSWORD)
 
 
-def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
-    """A new session token and the user, or None for a wrong username or password."""
+def login(username: str, password: str, client: repo.Client = (None, None)) -> tuple[str, dict[str, Any]] | None:
+    """A new session token and the user, or None for a wrong username or password (audited either way)."""
     found = repo.user_with_hash(username.strip())
     if found is None:
         # Hash anyway, so a wrong username takes as long as a wrong password.
         check_password(password, hash_password("x"))
+    if found is None or not check_password(password, found[1]):
+        repo.log_auth_event("login_failed", client, email=username.strip()[:100], reason="password")
         return None
-    user, stored = found
-    if not check_password(password, stored):
-        return None
-    return _new_session(user), user
+    user = found[0]
+    return _new_session(user, client, ("login",)), user
 
 
-def register(username: str, display_name: str, password: str) -> tuple[str, dict[str, Any]]:
+def register(username: str, display_name: str, password: str,
+             client: repo.Client = (None, None)) -> tuple[str, dict[str, Any]]:
     """Sign up: a new account, already signed in. Raises AuthError for a taken username."""
     user = add_user(username, display_name, password)
-    return _new_session(user), user
+    return _new_session(user, client, ("signup", "login")), user
 
 
-def _new_session(user: dict[str, Any]) -> str:
-    token = secrets.token_urlsafe(32)
-    repo.insert_session(token, user["id"])
+def google_session(claims: dict[str, Any], client: repo.Client) -> str:
+    """Sign in (or up) with a checked Google ID token's claims; returns the new session token."""
+    token = random_token()
+    repo.google_sign_in(
+        claims["sub"], claims["email"], claims.get("name") or claims["email"].split("@")[0], claims.get("picture"),
+        sha256(token), session_ttl(), client,
+    )
+    return token
+
+
+def _new_session(user: dict[str, Any], client: repo.Client, events: tuple[str, ...]) -> str:
+    token = random_token()
+    repo.start_session(user, sha256(token), session_ttl(), client, events)
     return token
 
 
 def user_for(token: str | None) -> dict[str, Any] | None:
-    return repo.session_user(token) if token else None
+    return repo.session_user(sha256(token)) if token else None
 
 
-def logout(token: str | None) -> None:
+def logout(token: str | None, client: repo.Client = (None, None)) -> None:
     if token:
-        repo.delete_session(token)
+        repo.end_session(sha256(token), client)
 
 
 def _main(argv: list[str]) -> int:

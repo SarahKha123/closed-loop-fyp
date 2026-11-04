@@ -110,11 +110,13 @@ export interface WorkOrder {
 /** `createdBy` / `closedBy` of the monitor (services/work_orders.SYSTEM), as opposed to a person. */
 export const isSystem = (by: string) => by.startsWith("system")
 
-/** An account of the demo login (/api/auth). */
+/** A signed-in account (/api/auth): a password one, or a Google one (email + avatar). */
 export interface User {
   id: number
   username: string
   displayName: string
+  email: string | null
+  avatarUrl: string | null
 }
 
 export type OutcomeAction = "repaired" | "replaced" | "no_action" | "escalated"
@@ -272,7 +274,7 @@ export const api = {
     request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
   closeWorkOrder: (id: string, outcome: OutcomeInput) =>
     request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify(outcome) }),
-  me: () => request<{ user: User | null }>("/api/auth/me"),
+  me: () => request<{ user: User | null; googleSignIn: boolean }>("/api/auth/me"),
   login: (username: string, password: string) =>
     request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, displayName: string, password: string) =>
