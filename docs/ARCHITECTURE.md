@@ -53,7 +53,9 @@ event bus (services/events.py) ──────────────► /ap
           │   technician closes it: finding · action · matched the prediction?
           │                 └──► tbl_WorkOrderOutcome (+ a copy of the prediction) ──► confirmation rate
           │
-          └──► insight engine (services/insights.py) ◄── also "work_order" events
+          ├──► insight engine (services/insights.py) ◄── also "work_order" events
+          │
+          └ "work_order" opened ──► notifier (services/notify.py) ──► email to NOTIFY_EMAIL_TO (Gmail SMTP)
                  trigger: condition change · risk threshold crossed · work order opened/closed
                  snapshot.build() → prompts → advisor.complete() → grounding.validate()
                  → one rewrite if it fails → tbl_Insight, publishes "insight"
@@ -97,6 +99,7 @@ services never import from `api`.
 | `services/predictor.py` | Loads the four trained models; scores each new reading with SHAP drivers; the scoring worker |
 | `services/monitor.py` | Reacts to each prediction: opens a work order on Critical (and closes it on recovery, if `autoCloseOnRecovery` is on) |
 | `services/work_orders.py` | Opening and closing work orders, with who raised them and why |
+| `services/notify.py` | Emails each new work order to a fixed list (Gmail SMTP, stdlib `smtplib`); muted by a setting and in study mode |
 | `services/settings.py` | Runtime settings: defaults in code, overrides in `config/settings.json`, validated |
 | `services/study.py` | The user study: conditions, task presets (reset + step the replay), counterbalancing, the task clock, CSV export |
 | **services/ — the AI layer** | |

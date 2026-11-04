@@ -33,6 +33,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # work orders also close by themselves when the component is Optimal again, logged unverified.
         "autoCloseOnRecovery": False,
     },
+    "notifications": {
+        "email": True,             # email each new work order (services/notify.py); only once SMTP is set up in .env
+    },
     "chat": {
         "maxTurns": 10,            # user/assistant exchanges sent to the model; small local models have short contexts
         "tools": True,             # status/history lookups and work-order proposals; off = streamed, snapshot-only answers (faster on a slow CPU)

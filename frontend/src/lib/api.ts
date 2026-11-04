@@ -205,6 +205,7 @@ export interface Settings {
   grounding: { enabled: boolean; hideUnverified: boolean }
   monitor: { confirmCycles: number; autoCloseOnRecovery: boolean }
   chat: { maxTurns: number; tools: boolean }
+  notifications: { email: boolean }
   study: { enabled: boolean; condition: StudyCondition }
 }
 
@@ -291,6 +292,9 @@ export const api = {
       body: JSON.stringify({ id, approve }),
     }),
   settings: () => request<Settings>("/api/settings"),
+  /** Email on new work orders (docs/API.md: Notifications). The App Password never leaves the backend. */
+  notifications: () => request<{ configured: boolean; sender: string | null; recipients: number }>("/api/notifications"),
+  sendTestEmail: () => request<{ sent: true }>("/api/notifications/test", { method: "POST", timeoutMs: 30000 }),
   saveSettings: (patch: DeepPartial<Settings>) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
   study: {

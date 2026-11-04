@@ -482,7 +482,8 @@ to the next event — no restart. What each one does: [DEVELOPMENT.md](DEVELOPME
 ```json
 {"insights":  {"enabled": true, "threshold": 0.5, "cooldownSeconds": 10},
  "grounding": {"enabled": true, "hideUnverified": false},
- "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": true},
+ "monitor":   {"confirmCycles": 1, "autoCloseOnRecovery": false},
+ "notifications": {"email": true},
  "chat":      {"maxTurns": 10, "tools": true},
  "study":     {"enabled": false, "condition": "dashboard_ai"}}
 ```
@@ -494,6 +495,23 @@ is saved). Ranges: `insights.threshold` 0.05–0.95, `insights.cooldownSeconds`
 0–600, `monitor.confirmCycles` 1–20, `chat.maxTurns` 1–50; `study.condition`
 is `dashboard_only` or `dashboard_ai`. Every change is also published as a
 `settings` event, so open dashboards apply it at once.
+
+---
+
+## Notifications
+
+A plain-text email to `NOTIFY_EMAIL_TO` for every work order that opens (automatic or manual; closing
+sends nothing), through Gmail's SMTP server with an App Password (services/notify.py). Set
+`SMTP_USER`, `SMTP_APP_PASSWORD` and `NOTIFY_EMAIL_TO` in `.env`; `APP_URL` adds a link to the Work
+orders page. Muted by the `notifications.email` setting, and never sent in study mode. A failed send is
+logged and dropped; the work order is unaffected.
+
+### `GET /api/notifications`
+`{"configured": true, "sender": "you@gmail.com", "recipients": 2}` — never the password.
+
+### `POST /api/notifications/test`
+Sends a test email → `{"sent": true}`. `400` with the reason if email isn't set up or Gmail refuses
+(e.g. "Gmail refused the login: check SMTP_USER and that SMTP_APP_PASSWORD is an App Password").
 
 ---
 

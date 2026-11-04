@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { api } from "../../lib/api"
 import type { Settings } from "../../lib/api"
 import { card } from "../../lib/ui"
+import { Button } from "../../components/ui/Button"
 
 type Patch = Parameters<typeof api.saveSettings>[0]
 
@@ -43,6 +44,55 @@ function NumberField({ value, min, max, step = 1, onSave }: { value: number; min
       onKeyDown={(e) => e.key === "Enter" && commit()}
       className={number}
     />
+  )
+}
+
+type EmailStatus = Awaited<ReturnType<typeof api.notifications>>
+
+/** Email on new work orders: whether .env sets it up, the mute toggle, and a test send. */
+function EmailRows({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boolean) => void }) {
+  const [status, setStatus] = useState<EmailStatus | null>(null)
+  const [test, setTest] = useState<{ busy: boolean; result: string | null; ok: boolean }>({ busy: false, result: null, ok: false })
+
+  useEffect(() => {
+    api.notifications().then(setStatus).catch(() => setStatus(null))
+  }, [])
+
+  async function sendTest() {
+    setTest({ busy: true, result: null, ok: false })
+    try {
+      await api.sendTestEmail()
+      setTest({ busy: false, result: "Sent — check the inbox.", ok: true })
+    } catch (err) {
+      setTest({ busy: false, result: err instanceof Error ? err.message : "could not send", ok: false })
+    }
+  }
+
+  const configured = status?.configured ?? false
+  const summary = !status
+    ? "Checking…"
+    : configured
+      ? `Sending from ${status.sender} to ${status.recipients} recipient${status.recipients === 1 ? "" : "s"}. Never in study mode.`
+      : "Not set up: add SMTP_USER, SMTP_APP_PASSWORD and NOTIFY_EMAIL_TO to .env, then restart."
+
+  return (
+    <>
+      <Row label="Email on new work orders" hint={summary}>
+        <input type="checkbox" className={toggle} disabled={!configured} checked={configured && enabled} onChange={(e) => onToggle(e.target.checked)} />
+      </Row>
+      <div className="flex items-center justify-between gap-6 px-4 py-3">
+        <span className="min-w-0 text-sm">
+          {test.result ? (
+            <span role="status" className={test.ok ? "text-good-text" : "text-critical-text"}>{test.result}</span>
+          ) : (
+            <span className="text-ink-faint">Checks the Gmail App Password without waiting for a work order.</span>
+          )}
+        </span>
+        <Button size="sm" className="shrink-0 whitespace-nowrap" disabled={!configured || test.busy} onClick={() => void sendTest()}>
+          {test.busy ? "Sending…" : "Send test email"}
+        </Button>
+      </div>
+    </>
   )
 }
 
@@ -115,6 +165,7 @@ export function SettingsTab() {
           <Row label="Close automatically on recovery" hint="Off (default): a technician closes every work order with what they found. On: automatic ones also close when the component is Optimal again, logged as unverified.">
             <input type="checkbox" className={toggle} checked={s.monitor.autoCloseOnRecovery} onChange={(e) => void save({ monitor: { autoCloseOnRecovery: e.target.checked } })} />
           </Row>
+          <EmailRows enabled={s.notifications.email} onToggle={(on) => void save({ notifications: { email: on } })} />
         </>,
       )}
 

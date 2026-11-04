@@ -21,9 +21,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import auth, chat, cloud, dashboard, hardware, health, insights, models, replay, settings, stream, study, work_orders
+from .api import (
+    auth, chat, cloud, dashboard, hardware, health, insights, models, notifications, replay, settings, stream, study, work_orders,
+)
 from .services import auth as auth_service
-from .services import db, events, ingest, monitor, paths
+from .services import db, events, ingest, monitor, notify, paths
 from .services import insights as insight_service
 from .services import replay as replay_service
 
@@ -42,7 +44,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # and /api/replay answers 503 with the reason.
     app.state.replay = None
     app.state.dataset_error = None
-    tasks: list[asyncio.Task[None]] = []
+    # Emails new work orders, manual ones included, so it runs even without the replay or the models.
+    tasks: list[asyncio.Task[None]] = [asyncio.create_task(notify.run(), name="notify")]
     dataset: ingest.Dataset | None = None
     try:
         dataset = await asyncio.to_thread(ingest.load)
@@ -103,6 +106,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(notifications.router)
 app.include_router(models.router)
 app.include_router(hardware.router)
 app.include_router(chat.router)

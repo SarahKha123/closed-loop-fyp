@@ -106,6 +106,7 @@ file holds only what differs from the defaults in
 | `grounding.hideUnverified` | `false` | don't show insights that failed the check (still saved) |
 | `monitor.confirmCycles` | `1` | Critical cycles in a row before an automatic work order |
 | `monitor.autoCloseOnRecovery` | `false` | on: automatic work orders also close when the component is Optimal again, logged as unverified outcomes; off: a technician closes every one with an outcome |
+| `notifications.email` | `true` | email each new work order to `NOTIFY_EMAIL_TO` (only once `SMTP_*` is set in `.env`; never in study mode) |
 | `chat.maxTurns` | `10` | user/assistant exchanges sent to the model |
 | `chat.tools` | `true` | chat tools and work-order proposals; off → streamed, snapshot-only answers |
 | `study.enabled` | `false` | study mode: participants can't change the setup (see Study mode) |
