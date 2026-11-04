@@ -44,8 +44,8 @@ def create(
 def close(
     wo_id: str,
     finding: str = Body(..., embed=True, max_length=1000),
-    action: Literal["repaired", "replaced", "no_action", "escalated"] = Body(..., embed=True),
-    matched_prediction: Literal["yes", "no", "partially"] = Body(..., embed=True, alias="matchedPrediction"),
+    action: work_orders.Action = Body(..., embed=True),
+    matched_prediction: work_orders.Match = Body(..., embed=True, alias="matchedPrediction"),
     notes: str | None = Body(default=None, embed=True, max_length=1000),
     session: str | None = Cookie(default=None, alias=auth.COOKIE),
 ) -> dict[str, Any]:
@@ -55,9 +55,10 @@ def close(
             wo_id, finding=finding, action=action, matched_prediction=matched_prediction, notes=notes,
             closed_by=user["displayName"] if user else "anonymous",
         )
+    except work_orders.WorkOrderNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except work_orders.WorkOrderError as exc:
-        missing = "doesn't exist" in str(exc)
-        raise HTTPException(status_code=404 if missing else 400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/history")

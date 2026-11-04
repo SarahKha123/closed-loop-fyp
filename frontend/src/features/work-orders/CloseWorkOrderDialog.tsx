@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
 import { Button } from "../../components/ui/Button"
 import { Icon } from "../../components/ui/Icon"
-import { api } from "../../lib/api"
+import { api, isSystem } from "../../lib/api"
 import type { OutcomeAction, OutcomeMatch, WorkOrder } from "../../lib/api"
 import { num } from "../../lib/format"
 import { input } from "../../lib/ui"
@@ -62,7 +62,7 @@ export function CloseWorkOrderDialog({ workOrder, onClose, onClosed }: { workOrd
     }
   }
 
-  const automatic = workOrder.createdBy.startsWith("system")
+  const automatic = isSystem(workOrder.createdBy)
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={busy ? undefined : onClose}>

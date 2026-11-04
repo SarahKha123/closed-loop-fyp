@@ -9,7 +9,7 @@ import { Card, CardHeader } from "../../components/ui/Card"
 import { ConditionBadge } from "../../components/ui/ConditionBadge"
 import { EmptyState } from "../../components/ui/EmptyState"
 import { Icon } from "../../components/ui/Icon"
-import { api, componentByName } from "../../lib/api"
+import { api, componentByName, isSystem } from "../../lib/api"
 import type { OutcomeMatch, OutcomeStats, OutcomeTally, WorkOrderOutcome } from "../../lib/api"
 import { num, pct } from "../../lib/format"
 import { ACTION_LABELS, MATCH_LABELS } from "./labels"
@@ -154,7 +154,7 @@ function Chain({ o }: { o: WorkOrderOutcome }) {
         {o.studyMode && <span className="rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-ink-muted">Study</span>}
         <span className="grow" />
         <span className="text-sm text-ink-faint">
-          closed {when(o.closedAt)} by {o.closedBy === "system:monitor" ? "the monitor" : o.closedBy}
+          closed {when(o.closedAt)} by {isSystem(o.closedBy) ? "the monitor" : o.closedBy}
         </span>
       </div>
       <div className="flex flex-col gap-3 @3xl:flex-row @3xl:gap-4">
@@ -175,7 +175,7 @@ function Chain({ o }: { o: WorkOrderOutcome }) {
         <Arrow />
         <Step label="Work order">
           <div className="text-ink">
-            {o.workOrderCreatedBy.startsWith("system") ? "Raised automatically" : "Raised by hand"}
+            {isSystem(o.workOrderCreatedBy) ? "Raised automatically" : "Raised by hand"}
             {o.priority ? ` · ${o.priority} priority` : ""}
           </div>
           <div className="mt-1">opened {when(o.openedAt)}</div>

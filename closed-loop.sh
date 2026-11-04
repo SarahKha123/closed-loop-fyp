@@ -252,9 +252,10 @@ cmd_test() {
 cmd_reset_db() {
   # The study log and the work-order outcomes live in the same database: never lose
   # participants' data or technicians' findings by accident.
+  rows() { $PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM $1').fetchone()[0])" 2>/dev/null || echo 0; }
   local study outcomes
-  study=$($PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM tbl_StudyLog').fetchone()[0])" 2>/dev/null || echo 0)
-  outcomes=$($PY -c "import sqlite3; print(sqlite3.connect('config/closed_loop.db').execute('SELECT COUNT(*) FROM tbl_WorkOrderOutcome').fetchone()[0])" 2>/dev/null || echo 0)
+  study=$(rows tbl_StudyLog)
+  outcomes=$(rows tbl_WorkOrderOutcome)
   if [[ "${2:-}" != "--force" ]]; then
     [[ "$study" == "0" ]] || fail "the database holds $study user-study log rows — export them (GET /api/study/export) first, then: ./closed-loop.sh reset-db --force"
     [[ "$outcomes" == "0" ]] || fail "the database holds $outcomes work-order outcomes — export them (GET /api/work-orders/outcomes.csv) first, then: ./closed-loop.sh reset-db --force"

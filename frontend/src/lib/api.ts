@@ -107,6 +107,16 @@ export interface WorkOrder {
   closedNote: string | null
 }
 
+/** `createdBy` / `closedBy` of the monitor (services/work_orders.SYSTEM), as opposed to a person. */
+export const isSystem = (by: string) => by.startsWith("system")
+
+/** An account of the demo login (/api/auth). */
+export interface User {
+  id: number
+  username: string
+  displayName: string
+}
+
 export type OutcomeAction = "repaired" | "replaced" | "no_action" | "escalated"
 export type OutcomeMatch = "yes" | "no" | "partially"
 
@@ -262,6 +272,10 @@ export const api = {
     request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
   closeWorkOrder: (id: string, outcome: OutcomeInput) =>
     request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify(outcome) }),
+  me: () => request<{ user: User | null }>("/api/auth/me"),
+  login: (username: string, password: string) =>
+    request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  logout: () => request<{ user: null }>("/api/auth/logout", { method: "POST" }),
   workOrderHistory: () => request<{ outcomes: WorkOrderOutcome[] }>("/api/work-orders/history"),
   outcomeStats: () => request<OutcomeStats>("/api/work-orders/outcome-stats"),
   insights: (limit = 30) => request<{ insights: Insight[] }>(`/api/insights?limit=${limit}`),

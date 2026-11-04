@@ -17,19 +17,25 @@ update live.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal, get_args
 
 from . import db, events, repo, settings
 
 SYSTEM = "system:monitor"
 USER = "user"
 
-ACTIONS = ("repaired", "replaced", "no_action", "escalated")
-MATCHES = ("yes", "no", "partially")
+Action = Literal["repaired", "replaced", "no_action", "escalated"]
+Match = Literal["yes", "no", "partially"]
+ACTIONS: tuple[str, ...] = get_args(Action)
+MATCHES: tuple[str, ...] = get_args(Match)
 
 
 class WorkOrderError(ValueError):
-    """Invalid request (unknown component, already closed, …)."""
+    """Invalid request (unknown component, missing finding, …)."""
+
+
+class WorkOrderNotFound(WorkOrderError):
+    """The work order doesn't exist or is already closed."""
 
 
 def equipment_for(component: str) -> str:
@@ -81,7 +87,6 @@ def open_manual(component: str, note: str | None = None, created_by: str = USER)
 def _prediction_snapshot(wo: dict[str, Any]) -> dict[str, Any]:
     """The prediction behind a work order, as outcome columns: the one that triggered it, or for a
     manual one the asset's latest prediction when it was opened. Empty if it's gone (seeked past)."""
-    p, source = None, None
     if wo["triggeredByPredictionId"] is not None:
         p, source = repo.prediction(wo["triggeredByPredictionId"]), "trigger"
     else:
@@ -99,11 +104,11 @@ def _prediction_snapshot(wo: dict[str, Any]) -> dict[str, Any]:
 def _close(wo_id: str, note: str | None, outcome: dict[str, Any]) -> dict[str, Any]:
     current = repo.work_order(wo_id)
     if current is None or current["status"] != "Open":
-        raise WorkOrderError(f"{wo_id} doesn't exist or is already closed")
+        raise WorkOrderNotFound(f"{wo_id} doesn't exist or is already closed")
     outcome = {**outcome, **_prediction_snapshot(current), "StudyMode": int(settings.get()["study"]["enabled"])}
     wo = repo.close_work_order(wo_id, note, outcome)
     if wo is None:
-        raise WorkOrderError(f"{wo_id} doesn't exist or is already closed")
+        raise WorkOrderNotFound(f"{wo_id} doesn't exist or is already closed")
     _publish("closed", wo)
     return wo
 
@@ -112,8 +117,8 @@ def close(
     wo_id: str,
     *,
     finding: str,
-    action: str,
-    matched_prediction: str,
+    action: Action,
+    matched_prediction: Match,
     notes: str | None = None,
     closed_by: str = USER,
 ) -> dict[str, Any]:

@@ -6,19 +6,14 @@
 import { Link } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
-import { request } from "../../lib/http"
+import { api } from "../../lib/api"
+import type { User } from "../../lib/api"
 import type { useTheme, Theme } from "../../lib/theme"
 import { inputCompact } from "../../lib/ui"
 import { Button } from "../ui/Button"
 import { Icon, type IconName } from "../ui/Icon"
 
 const ROLE_KEY = "closed-loop:profile"
-
-interface User {
-  id: number
-  username: string
-  displayName: string
-}
 
 function readRole(): string {
   try {
@@ -59,7 +54,7 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
   const menu = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    request<{ user: User | null }>("/api/auth/me")
+    api.me()
       .then((res) => setUser(res.user))
       .catch(() => setUser(null))
   }, [])
@@ -77,7 +72,7 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
   async function logout() {
     menu.current?.hidePopover()
     try {
-      await request("/api/auth/logout", { method: "POST" })
+      await api.logout()
     } finally {
       setUser(null)
     }
@@ -192,7 +187,7 @@ function LoginForm({ onCancel, onLoggedIn }: { onCancel: () => void; onLoggedIn:
     setBusy(true)
     setError(null)
     try {
-      const res = await request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) })
+      const res = await api.login(username, password)
       onLoggedIn(res.user)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
