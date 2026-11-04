@@ -275,6 +275,8 @@ export const api = {
   me: () => request<{ user: User | null }>("/api/auth/me"),
   login: (username: string, password: string) =>
     request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  register: (username: string, displayName: string, password: string) =>
+    request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ username, displayName, password }) }),
   logout: () => request<{ user: null }>("/api/auth/logout", { method: "POST" }),
   workOrderHistory: () => request<{ outcomes: WorkOrderOutcome[] }>("/api/work-orders/history"),
   outcomeStats: () => request<OutcomeStats>("/api/work-orders/outcome-stats"),

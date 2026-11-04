@@ -1,4 +1,4 @@
-// The app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, toasts, the no-model prompt.
+// Signed out, the sign-in page (AuthScreen) is the only screen. Signed in, the app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, toasts, the no-model prompt.
 // Fixed to the viewport — the page itself never scrolls; a tall view scrolls inside its own column.
 // In study mode participants can't change the setup (no models page, model card or replay controls),
 // and the study condition decides the Advisor: hidden (dashboard only) or always open (dashboard + AI).
@@ -9,9 +9,11 @@ import { NoModelDialog } from "../components/shell/NoModelDialog"
 import { Sidebar } from "../components/shell/Sidebar"
 import { ToastStack } from "../components/shell/ToastStack"
 import { TopBar } from "../components/shell/TopBar"
+import { AuthProvider, useAuth } from "../context/AuthContext"
 import { ChatProvider, useChat } from "../context/ChatContext"
 import { LiveProvider, useLive } from "../context/LiveContext"
 import { ModelsProvider } from "../context/ModelsContext"
+import { AuthScreen } from "../features/auth/AuthScreen"
 import { useTheme } from "../lib/theme"
 
 export const Route = createRootRoute({
@@ -20,18 +22,30 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
+  )
+}
+
+/** The dashboard (and its live stream) only mounts once someone is signed in. */
+function Gate() {
+  const { user } = useAuth()
+  const theme = useTheme() // here, not in Shell, so the sign-in page has the saved theme too
+  if (user === undefined) return <div className="h-screen bg-canvas" /> // still asking the backend
+  if (user === null) return <AuthScreen />
+  return (
     <ModelsProvider>
       <LiveProvider>
         <ChatProvider>
-          <Shell />
+          <Shell theme={theme} />
         </ChatProvider>
       </LiveProvider>
     </ModelsProvider>
   )
 }
 
-function Shell() {
-  const theme = useTheme()
+function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
   const { open, setOpen } = useChat()
   const study = useLive().settings?.study
   const studyMode = study?.enabled ?? false

@@ -52,3 +52,14 @@ def test_password_change_ends_sessions(client):
     client.post("/api/auth/login", json={"username": "demo", "password": "demo"})
     assert repo.set_password("demo", auth.hash_password("new"))
     assert client.get("/api/auth/me").json() == {"user": None}
+
+
+def test_register_signs_in(client):
+    ok = client.post("/api/auth/register", json={"username": "sarah", "displayName": "Sarah K", "password": "pw1234"})
+    assert ok.status_code == 200 and ok.json()["user"]["displayName"] == "Sarah K"
+    assert client.get("/api/auth/me").json()["user"]["username"] == "sarah"
+
+    taken = client.post("/api/auth/register", json={"username": "Sarah", "password": "pw1234"})
+    assert taken.status_code == 400
+    short = client.post("/api/auth/register", json={"username": "new", "password": "pw"})
+    assert short.status_code == 422

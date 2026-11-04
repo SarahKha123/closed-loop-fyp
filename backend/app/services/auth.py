@@ -79,9 +79,19 @@ def login(username: str, password: str) -> tuple[str, dict[str, Any]] | None:
     user, stored = found
     if not check_password(password, stored):
         return None
+    return _new_session(user), user
+
+
+def register(username: str, display_name: str, password: str) -> tuple[str, dict[str, Any]]:
+    """Sign up: a new account, already signed in. Raises AuthError for a taken username."""
+    user = add_user(username, display_name, password)
+    return _new_session(user), user
+
+
+def _new_session(user: dict[str, Any]) -> str:
     token = secrets.token_urlsafe(32)
     repo.insert_session(token, user["id"])
-    return token, user
+    return token
 
 
 def user_for(token: str | None) -> dict[str, Any] | None:

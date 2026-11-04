@@ -22,8 +22,9 @@ frame is `data: {json}\n\n`.
 ## Login (demo)
 
 A session cookie (`closed_loop_session`, HttpOnly). It identifies who is using
-the dashboard; no other endpoint requires it. A `demo` / `demo` account is
-created on first start; add more with
+the dashboard: the frontend shows its sign-in / sign-up page until someone is
+signed in, but no other endpoint requires the cookie. A `demo` / `demo` account
+is created on first start; people sign up from that page, or add accounts with
 `backend/.venv/bin/python -m app.services.auth add <username> "<Display Name>"`.
 
 ### `GET /api/auth/me`
@@ -31,6 +32,11 @@ created on first start; add more with
 
 ### `POST /api/auth/login`
 Body `{"username": "demo", "password": "demo"}` → `{"user": {...}}` and sets the cookie. `401` if wrong.
+
+### `POST /api/auth/register`
+Body `{"username": "sarah", "displayName": "Sarah Khalilah", "password": "…"}` (`displayName` optional,
+password at least 4 characters) → `{"user": {...}}`, already signed in (sets the cookie). `400` if the
+username is taken (usernames are case-insensitive).
 
 ### `POST /api/auth/logout`
 Ends the session and clears the cookie → `{"user": null}`.
