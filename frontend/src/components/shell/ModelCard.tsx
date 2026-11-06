@@ -18,10 +18,10 @@ export function ModelCard() {
   return (
     <Link
       to="/models"
-      className="group block rounded-lg border border-line bg-surface-2 px-3 py-2 transition-colors hover:border-accent-border"
-      activeProps={{ className: "!border-accent-border !bg-accent-bg" }}
+      className="group block rounded-lg bg-surface px-3 py-2 transition-colors hover:bg-surface-2"
+      activeProps={{ className: "!bg-surface-2" }}
     >
-      <div className="flex items-center justify-between text-sm font-semibold text-ink-muted">
+      <div className="flex items-center justify-between text-sm text-ink-faint">
         Advisor model
         <span className="font-normal normal-case">{active ? `${active.mode} · ${where}` : ""}</span>
       </div>

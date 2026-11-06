@@ -135,7 +135,7 @@ export function SettingsTab() {
           <Row label="Write insights" hint="The Advisor comments when a component changes condition, crosses the threshold, or a work order opens or closes. Off for the dashboard-only study condition.">
             <input type="checkbox" className={toggle} checked={s.insights.enabled} onChange={(e) => void save({ insights: { enabled: e.target.checked } })} />
           </Row>
-          <Row label="Risk threshold (%)" hint="A failure probability crossing this, either way, triggers an insight.">
+          <Row label="Failure probability threshold (%)" hint="A failure probability crossing this, either way, triggers an insight.">
             <NumberField key={Math.round(s.insights.threshold * 100)} value={Math.round(s.insights.threshold * 100)} min={5} max={95} step={5} onSave={(v) => void save({ insights: { threshold: v / 100 } })} />
           </Row>
           <Row label="Rest between insights (s)" hint="Changes during the rest are merged into the next insight. Raise it on a slow machine so chat answers don't wait behind insights.">

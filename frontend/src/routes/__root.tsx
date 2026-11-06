@@ -65,7 +65,7 @@ function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
           showAdvisorToggle={advisor === "open" || advisor === "closed"}
           studyMode={studyMode}
         />
-        <div className="flex min-h-0 flex-1 gap-5 p-6">
+        <div className="relative flex min-h-0 flex-1 gap-5 p-5">
           {/* @container: page grids reflow on the column's width (it shrinks when the Advisor is open). */}
           {/* relative: toasts anchor to this column's corner, clear of the Advisor's composer. */}
           <div className="relative min-h-0 min-w-0 flex-1">

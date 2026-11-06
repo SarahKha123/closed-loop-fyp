@@ -1,4 +1,4 @@
-// Light / dark / system theme, stored per browser. "system" follows the OS setting.
+// Light / dark / system theme, stored per browser. Dark until someone picks otherwise; "system" follows the OS setting.
 
 import { useEffect, useState } from "react"
 
@@ -8,9 +8,9 @@ const KEY = "closed-loop:theme"
 function read(): Theme {
   try {
     const v = localStorage.getItem(KEY)
-    return v === "light" || v === "dark" ? v : "system"
+    return v === "light" || v === "system" ? v : "dark"
   } catch {
-    return "system"
+    return "dark"
   }
 }
 
@@ -25,8 +25,7 @@ export function useTheme() {
   useEffect(() => {
     apply(theme)
     try {
-      if (theme === "system") localStorage.removeItem(KEY)
-      else localStorage.setItem(KEY, theme)
+      localStorage.setItem(KEY, theme)
     } catch {
       /* private mode: the choice just isn't remembered */
     }

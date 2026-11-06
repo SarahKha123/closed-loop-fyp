@@ -3,7 +3,7 @@
 import type { ButtonHTMLAttributes } from "react"
 
 const variants = {
-  primary: "bg-accent text-white hover:bg-accent-hover border border-transparent",
+  primary: "bg-accent text-on-accent hover:bg-accent-hover border border-transparent",
   secondary: "bg-surface text-ink border border-line-strong hover:bg-surface-2",
   ghost: "text-ink-muted hover:bg-surface-3 hover:text-ink border border-transparent",
   danger: "bg-surface text-critical-text border border-line-strong hover:bg-critical-bg",

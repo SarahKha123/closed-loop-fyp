@@ -41,8 +41,8 @@ export function TopBar({
   const progress = replay?.cycle ? (replay.cycle / replay.total) * 100 : 0
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-surface px-5">
-      <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 py-1 pr-1 pl-3">
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-canvas px-5">
+      <div className="flex items-center gap-2 rounded-lg border border-line bg-surface py-1 pr-1 pl-3">
         <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${statusStyle.tone}`}>
           <span className={`h-2 w-2 rounded-full ${statusStyle.dot}`} />
           {statusStyle.text}
@@ -90,7 +90,7 @@ export function TopBar({
           ))}
         </select>
         <form
-          className="flex items-center"
+          className="flex items-center max-xl:hidden"
           onSubmit={(e) => {
             e.preventDefault()
             const c = Number(seekTo)

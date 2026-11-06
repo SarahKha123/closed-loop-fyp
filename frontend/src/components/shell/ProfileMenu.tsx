@@ -32,7 +32,7 @@ function Avatar({ name, src, size }: { name: string; src: string | null; size: "
   // no-referrer: Google's image host can refuse requests that carry one.
   if (src) return <img src={src} alt="" referrerPolicy="no-referrer" className={`shrink-0 rounded-full object-cover ${box}`} />
   return (
-    <span className={`flex shrink-0 items-center justify-center rounded-full bg-accent-bg font-semibold text-accent-text ${box}`}>
+    <span className={`flex shrink-0 items-center justify-center rounded-full bg-surface-3 font-semibold text-ink ${box}`}>
       {initials(name) || <Icon name="user" size={size === "sm" ? 16 : 20} />}
     </span>
   )
@@ -76,11 +76,11 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
         className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-3 ${open ? "bg-surface-3" : ""}`}
       >
         <Avatar name={name} src={user.avatarUrl} size="sm" />
-        <span className="min-w-0 grow">
+        <span className="min-w-0 grow max-lg:sr-only">
           <span className="block truncate text-base font-medium text-ink">{name}</span>
           <span className="block truncate text-sm text-ink-faint">{role || user.username}</span>
         </span>
-        <Icon name="chevronUpDown" size={16} className="text-ink-faint" />
+        <Icon name="chevronUpDown" size={16} className="text-ink-faint max-lg:hidden" />
       </button>
 
       <div

@@ -26,7 +26,7 @@ export function NewWorkOrder({ initial, onDone }: { initial?: ComponentKey; onDo
 
   return (
     <form
-      className="flex flex-wrap items-end gap-2 rounded-xl border border-accent-border bg-accent-bg/40 p-3"
+      className="flex flex-wrap items-end gap-2 rounded-xl border border-line-strong bg-surface-2 p-3"
       onSubmit={(e) => {
         e.preventDefault()
         void submit()

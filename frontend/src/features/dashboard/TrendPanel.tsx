@@ -1,12 +1,10 @@
-// Failure probability of every component over the recent cycles — the "where is risk heading" view.
+// Failure probability of every component over the recent cycles — where each one is heading.
 // Chart by default; a table view carries the same numbers (for exact values and accessibility).
 
 import { useState } from "react"
 import { LineChart } from "../../components/charts/LineChart"
-import { Button } from "../../components/ui/Button"
 import { Card, CardHeader } from "../../components/ui/Card"
 import { EmptyState } from "../../components/ui/EmptyState"
-import { Icon } from "../../components/ui/Icon"
 import { TREND_WINDOW } from "../../context/LiveContext"
 import type { Trend } from "../../lib/api"
 import { COMPONENTS } from "../../lib/api"
@@ -20,16 +18,23 @@ export function TrendPanel({ trend, className = "" }: { trend: Trend | null; cla
   return (
     <Card className={`flex min-h-0 flex-col ${className}`}>
       <CardHeader
-        title="Risk trend"
-        subtitle={`Failure probability per component · last ${TREND_WINDOW} cycles`}
+        title="Failure probability"
+        subtitle={`Every component, last ${TREND_WINDOW} cycles`}
         actions={
-          <div className="flex rounded-lg border border-line p-0.5">
-            <Button size="sm" variant={view === "chart" ? "secondary" : "ghost"} onClick={() => setView("chart")} aria-pressed={view === "chart"} className="!h-7 !border-0">
-              <Icon name="chart" size={14} /> Chart
-            </Button>
-            <Button size="sm" variant={view === "table" ? "secondary" : "ghost"} onClick={() => setView("table")} aria-pressed={view === "table"} className="!h-7 !border-0">
-              <Icon name="table" size={14} /> Table
-            </Button>
+          <div className="flex gap-3">
+            {(["chart", "table"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`text-sm underline-offset-[6px] transition-colors ${
+                  view === v ? "text-ink underline decoration-accent decoration-1" : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                {v === "chart" ? "Chart" : "Table"}
+              </button>
+            ))}
           </div>
         }
       />

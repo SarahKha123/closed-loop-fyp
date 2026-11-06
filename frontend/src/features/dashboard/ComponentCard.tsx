@@ -1,9 +1,8 @@
-// One component's live health: condition, failure probability, how long, what's driving it, and its recent trend.
+// One component under the rig drawing: its recent trend, the change since the last cycle, how long it has been in
+// its condition, what is driving it and its work order. The headline probability lives on the drawing above.
 
 import { Link } from "@tanstack/react-router"
 import { ConditionBadge } from "../../components/ui/ConditionBadge"
-import { Icon } from "../../components/ui/Icon"
-import { Meter } from "../../components/ui/Meter"
 import { Sparkline } from "../../components/charts/Sparkline"
 import type { ComponentState } from "../../lib/api"
 import { componentByName } from "../../lib/api"
@@ -18,7 +17,7 @@ export function ComponentCard({ state, history }: { state: ComponentState; histo
     <Link
       to="/components/$component"
       params={{ component: state.key }}
-      className={`group flex min-w-0 flex-col gap-3 rounded-xl border bg-surface p-5 shadow-card transition-colors hover:border-accent-border ${
+      className={`group flex min-w-0 flex-col gap-3 rounded-xl border bg-surface p-4 transition-colors hover:border-accent ${
         state.condition === "Optimal" ? "border-line" : conditionStyle[state.condition].border
       }`}
     >
@@ -30,21 +29,20 @@ export function ComponentCard({ state, history }: { state: ComponentState; histo
         <ConditionBadge condition={state.condition} />
       </div>
 
-      <div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-ink-muted">Failure probability</span>
-          {delta != null && Math.abs(delta) >= 0.005 && (
-            <span className={`tabular inline-flex items-center gap-0.5 text-sm font-medium ${delta > 0 ? "text-critical-text" : "text-good-text"}`}>
-              <Icon name={delta > 0 ? "arrowUp" : "arrowDown"} size={13} />
-              {pct(Math.abs(delta))}
-            </span>
-          )}
-        </div>
-        <div className="tabular mt-0.5 mb-1.5 text-3xl leading-none font-semibold text-ink">{pct(state.failureProbability)}</div>
-        <Meter value={state.failureProbability} label={`${state.component} failure probability`} />
+      <div className="flex items-baseline justify-between gap-2 text-sm">
+        <span className="text-ink-muted">Last {history.length} cycles</span>
+        {/* Signed change since the previous cycle; colour says better or worse, the sign says which way. */}
+        {delta != null && Math.abs(delta) >= 0.005 ? (
+          <span className={`tabular font-medium ${delta > 0 ? "text-critical-text" : "text-good-text"}`}>
+            {delta > 0 ? "+" : "−"}
+            {pct(Math.abs(delta))}
+          </span>
+        ) : (
+          <span className="tabular text-ink-faint">±0.0%</span>
+        )}
       </div>
 
-      <Sparkline values={history} color={meta?.series ?? "var(--accent)"} height={34} />
+      <Sparkline values={history} color={meta?.series ?? "var(--accent)"} height={44} />
 
       <div className="flex flex-col gap-1 border-t border-line pt-2 text-sm">
         <div className="flex justify-between gap-2">

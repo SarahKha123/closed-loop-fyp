@@ -60,7 +60,7 @@ export function WorkOrderQueue({ refreshKey, onChanged }: { refreshKey: number; 
             type="button"
             onClick={() => setFilter(f)}
             aria-pressed={filter === f}
-            className={`rounded-md px-3 py-1 text-base font-medium ${filter === f ? "bg-accent-bg text-accent-text" : "text-ink-muted hover:text-ink"}`}
+            className={`rounded-md px-3 py-1 text-base font-medium ${filter === f ? "bg-surface-3 text-ink" : "text-ink-muted hover:text-ink"}`}
           >
             {f === "all" ? "All" : f}
           </button>

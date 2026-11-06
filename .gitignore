@@ -52,3 +52,4 @@ config/ollama.pid
 
 # Trained models: rebuilt by `python -m ml.train` (from backend/) (~1.5 min); the manifest and results are committed
 backend/ml/models/*.joblib
+.taste-skill/

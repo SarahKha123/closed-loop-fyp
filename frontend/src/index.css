@@ -10,42 +10,46 @@
  * and always appear with an icon and a label.
  */
 :root {
-  /* light-dark() picks per color-scheme: follows the OS, or data-theme overrides it. */
+  /*
+   * Data-terminal palette: a near-black ground, panels a step darker than it, colour only on data and condition.
+   * light-dark() picks per color-scheme; dark is the default (index.html sets data-theme="dark").
+   */
   color-scheme: light dark;
-  --canvas: light-dark(#f4f4f1, #0d0d0d);
-  --surface: light-dark(#ffffff, #1a1a19);
-  --surface-2: light-dark(#f9f9f7, #20201f);
-  --surface-3: light-dark(#f0efec, #2a2a28);
-  --border: light-dark(rgba(11, 11, 11, 0.09), rgba(255, 255, 255, 0.09));
-  --border-strong: light-dark(rgba(11, 11, 11, 0.16), rgba(255, 255, 255, 0.16));
-  --ink: light-dark(#0b0b0b, #ffffff);
-  --ink-muted: light-dark(#52514e, #c3c2b7);
-  --ink-faint: light-dark(#6b6a65, #9c9b92); /* ≥4.5:1 on every surface (WCAG AA) */
-  --grid: light-dark(#e1e0d9, #2c2c2a);
-  --baseline: light-dark(#c3c2b7, #383835);
-  --accent: light-dark(#2a78d6, #3987e5);
-  --accent-hover: light-dark(#256abf, #5598e7);
-  --accent-bg: light-dark(#eaf2fc, #13243a);
-  --accent-text: light-dark(#184f95, #9ec5f4);
-  --accent-border: light-dark(#b7d3f6, #1c5cab);
-  --good: #0ca30c;
-  --good-text: light-dark(#006300, #0ca30c);
-  --good-bg: light-dark(#e7f5e7, #0f2a10);
-  --warning: #fab219;
-  --warning-text: light-dark(#7a4f00, #fab219);
-  --warning-bg: light-dark(#fff3d9, #2e2208);
+  --canvas: light-dark(#ececee, #161618);
+  --surface: light-dark(#ffffff, #111014);
+  --surface-2: light-dark(#f6f6f7, #1b1a1e);
+  --surface-3: light-dark(#e9e9ec, #242327);
+  --border: light-dark(rgba(18, 18, 20, 0.1), rgba(255, 255, 255, 0.08));
+  --border-strong: light-dark(rgba(18, 18, 20, 0.18), rgba(255, 255, 255, 0.16));
+  --ink: light-dark(#121214, #f2f2f3);
+  --ink-muted: light-dark(#4b4c52, #b6b7bc);
+  --ink-faint: light-dark(#626369, #8f9197); /* ≥4.5:1 on every surface (WCAG AA) */
+  --grid: light-dark(#e2e2e6, #222126);
+  --baseline: light-dark(#b9bac0, #3a3a3f);
+  --accent: light-dark(#2a6fc4, #4a8ad6);
+  --accent-hover: light-dark(#235da6, #6aa0e0);
+  --on-accent: light-dark(#ffffff, #08111c); /* text on a filled accent: ≥4.5:1 in both themes */
+  --accent-bg: light-dark(#e8f0fb, #15202e);
+  --accent-text: light-dark(#1a4c8c, #9ec5f4);
+  --accent-border: light-dark(#b2cdf0, #2a4f7c);
+  --good: light-dark(#1f8a64, #44a282);
+  --good-text: light-dark(#14684a, #5fc39c);
+  --good-bg: light-dark(#e3f3ec, #1b2828);
+  --warning: #d9a441;
+  --warning-text: light-dark(#7a5300, #e0b25a);
+  --warning-bg: light-dark(#fbf0d9, #2a2416);
   --serious: #ec835a;
   --serious-text: light-dark(#a8431f, #ec835a);
   --serious-bg: light-dark(#fce9e1, #2f1a11);
-  --critical: #d03b3b;
-  --critical-text: light-dark(#a82424, #e66767);
-  --critical-bg: light-dark(#fbe8e8, #2e1414);
+  --critical: light-dark(#cc3550, #e5566f);
+  --critical-text: light-dark(#a3223b, #f07a8e);
+  --critical-bg: light-dark(#fbe6ea, #2c1a20);
   --series-1: light-dark(#2a78d6, #3987e5);
   --series-2: light-dark(#eb6834, #d95926);
   --series-3: light-dark(#1baf7a, #199e70);
   --series-4: light-dark(#eda100, #c98500);
-  --shadow: 0 1px 2px light-dark(rgba(11, 11, 11, 0.04), rgba(0, 0, 0, 0.4)), 0 1px 1px light-dark(rgba(11, 11, 11, 0.02), transparent);
-  --shadow-pop: 0 8px 24px light-dark(rgba(11, 11, 11, 0.12), rgba(0, 0, 0, 0.5)), 0 2px 6px light-dark(rgba(11, 11, 11, 0.06), rgba(0, 0, 0, 0.35));
+  --shadow: none; /* panels are flat: separated by a tone step and a line, never a shadow */
+  --shadow-pop: 0 12px 28px light-dark(rgba(18, 18, 20, 0.14), rgba(0, 0, 0, 0.55)), 0 2px 6px light-dark(rgba(18, 18, 20, 0.06), rgba(0, 0, 0, 0.35));
 }
 
 :root[data-theme="light"] {
@@ -59,6 +63,10 @@
 @theme inline {
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* One small radius for panels and controls; badges stay round. */
+  --radius-lg: 0.3125rem;
+  --radius-xl: 0.375rem;
 
   /*
    * The one type scale. rem-based (1rem = the browser's 16px), so it follows the user's
@@ -101,6 +109,7 @@
 
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
   --color-accent-bg: var(--accent-bg);
   --color-accent-text: var(--accent-text);
   --color-accent-border: var(--accent-border);
@@ -158,9 +167,52 @@
   }
 }
 
-/* Columns of numbers line up. */
+/* Every figure is set in Plex Mono, so live values stack digit for digit. */
 .tabular {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* A value that just changed: a brief tint behind it. Remount it with key={value} to replay. */
+@keyframes value-flash {
+  from {
+    background-color: var(--accent-bg);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.animate-value {
+  animation: value-flash 1.2s ease-out;
+  border-radius: 3px;
+}
+
+/* Fluid moving through a pipe while the replay plays. */
+@keyframes pipe-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.animate-flow {
+  animation: pipe-flow 1.1s linear infinite;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.animate-drawer {
+  animation: drawer-in 0.18s ease-out;
 }
 
 @keyframes toast-in {

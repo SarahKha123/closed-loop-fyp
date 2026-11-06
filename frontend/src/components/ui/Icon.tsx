@@ -54,3 +54,13 @@ export function Icon({ name, size = 16, className = "" }: { name: IconName; size
     </svg>
   )
 }
+
+/** The product's mark: a closed hydraulic loop with fluid in it. Accent stroke, no tile behind it. */
+export function Mark({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-accent">
+      <rect x="3" y="6" width="18" height="12" rx="6" stroke="currentColor" strokeWidth="2.25" />
+      <circle cx="15" cy="6" r="2.25" fill="currentColor" />
+    </svg>
+  )
+}

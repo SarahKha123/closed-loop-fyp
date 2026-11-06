@@ -62,7 +62,7 @@ const LOOKUP: Record<string, string> = { get_equipment_status: "status", get_his
 function ActionCard({ action: a }: { action: ActionState }) {
   const { respond } = useChat()
   return (
-    <div className="mt-2 rounded-lg border border-line-strong bg-surface px-2.5 py-2 text-sm whitespace-normal text-ink">
+    <div className="mt-2 rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm whitespace-normal text-ink">
       <div className="font-semibold">Create a work order for the {a.component.toLowerCase()}?</div>
       {a.note && <div className="mt-0.5 text-ink-muted">{a.note}</div>}
       {a.alreadyOpen && a.state === "pending" && <div className="mt-0.5 text-warning-text">{a.alreadyOpen} is already open for it.</div>}
@@ -90,7 +90,7 @@ function ActionCard({ action: a }: { action: ActionState }) {
 
 const TRIGGER: Record<Insight["triggerType"], string> = {
   condition_change: "Condition change",
-  threshold: "Risk threshold",
+  threshold: "Threshold crossed",
   work_order: "Work order",
   multiple: "Several changes",
   manual: "Summary",
@@ -98,7 +98,7 @@ const TRIGGER: Record<Insight["triggerType"], string> = {
 
 function InsightCard({ insight: i }: { insight: Insight }) {
   return (
-    <article className="animate-toast-in rounded-lg border border-line bg-surface-2 px-3 py-2">
+    <article className="animate-toast-in rounded-lg bg-surface px-3 py-2.5">
       <div className="flex items-center gap-1 text-xs text-ink-faint">
         <span className="font-semibold text-ink-muted">{TRIGGER[i.triggerType]}</span>
         <span>· cycle {num(i.cycle)}</span>
@@ -151,8 +151,8 @@ function InsightsFeed() {
       <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3">
         {insights.length === 0 ? (
           <p className="text-sm text-ink-faint">
-            The Advisor writes a short note here when a component changes condition, crosses the risk threshold, or a work
-            order opens or closes.
+            The Advisor writes a short note here when a component changes condition, its failure probability crosses the
+            threshold, or a work order opens or closes.
           </p>
         ) : (
           insights.map((i) => <InsightCard key={i.id} insight={i} />)
@@ -188,15 +188,28 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
   }
 
   return (
-    <aside className="flex h-full w-[380px] shrink-0 flex-col rounded-xl border border-line bg-surface shadow-card">
+    // Its own surface (a step lighter than the page's panels) so AI text is never mistaken for model output.
+    // Closable: below 1280px it floats over the page as a drawer; pinned (study) it always takes its column.
+    <aside
+      aria-label="Advisor"
+      className={`flex h-full w-[380px] shrink-0 flex-col rounded-xl border border-line-strong bg-surface-2 ${
+        onClose ? "max-xl:animate-drawer max-xl:absolute max-xl:inset-y-5 max-xl:right-5 max-xl:z-30 max-xl:h-auto max-xl:shadow-pop" : ""
+      }`}
+    >
       <header className="flex items-center gap-2 border-b border-line px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-bg text-accent-text">
-          <Icon name="chat" size={14} />
-        </div>
         <div className="min-w-0 grow leading-tight">
-          <div className="text-base font-semibold text-ink">Advisor</div>
-          <div className="truncate text-sm text-ink-faint">
-            {active?.tag ? `${active.tag} · ${active.mode === "cloud" ? "cloud" : "local"}` : "No model selected"}
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-semibold text-ink">Advisor</span>
+            <span className="text-sm text-ink-faint">AI-generated</span>
+          </div>
+          <div className="truncate text-sm text-ink-muted">
+            {active?.tag ? (
+              <>
+                <span className="font-mono">{active.tag}</span> · {active.mode === "cloud" ? "cloud" : "runs on this machine"}
+              </>
+            ) : (
+              "No model selected"
+            )}
           </div>
         </div>
         {messages.length > 0 && (
@@ -227,10 +240,10 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
               key={i}
               className={`max-w-[90%] rounded-xl px-3 py-2 text-base leading-relaxed whitespace-pre-wrap ${
                 m.role === "user"
-                  ? "self-end bg-accent text-white"
+                  ? "self-end bg-surface-3 text-ink"
                   : m.error
-                    ? "self-start border border-critical/30 bg-critical-bg text-critical-text"
-                    : "self-start bg-surface-3 text-ink"
+                    ? "self-start bg-critical-bg text-critical-text"
+                    : "self-start !max-w-full !px-0 text-ink"
               }`}
             >
               {m.lookups && m.lookups.length > 0 && (
@@ -259,7 +272,7 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
               key={s}
               type="button"
               onClick={() => submit(s)}
-              className="rounded-full border border-accent-border bg-accent-bg px-2.5 py-1 text-left text-sm font-medium text-accent-text hover:brightness-95"
+              className="rounded-lg border border-line-strong px-2.5 py-1 text-left text-sm text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink"
             >
               {s}
             </button>
