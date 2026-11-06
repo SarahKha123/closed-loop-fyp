@@ -1,5 +1,6 @@
 // The first screen: sign in, or create an account — with a password, or with Google when the backend has it
-// configured. Shown by the root until someone is signed in; after that the page that was asked for (any URL) renders.
+// set up (otherwise its button explains what is missing). Shown by the root until someone is signed in;
+// after that the page that was asked for (any URL) renders.
 // A failed Google sign-in comes back as /?authError=<reason> (api/auth.py).
 
 import { useState } from "react"
@@ -90,20 +91,22 @@ export function AuthScreen() {
             </p>
           </div>
 
-          {googleSignIn && (
-            <>
-              {/* A real navigation, not fetch: the browser has to go to Google and back. */}
-              <a
-                href="/api/auth/google"
-                className="inline-flex h-10 w-full items-center justify-center gap-2.5 rounded-lg border border-line-strong bg-surface text-base font-medium text-ink transition-colors hover:bg-surface-2"
-              >
-                <GoogleMark /> Continue with Google
-              </a>
-              <div className="flex items-center gap-3 text-sm text-ink-faint">
-                <span className="h-px grow bg-line" /> or with a username <span className="h-px grow bg-line" />
-              </div>
-            </>
-          )}
+          {/* A real navigation, not fetch: the browser has to go to Google and back. Always shown; until the
+              backend has GOOGLE_CLIENT_ID / _SECRET, clicking it says so instead of leaving for Google. */}
+          <a
+            href="/api/auth/google"
+            onClick={(e) => {
+              if (googleSignIn) return
+              e.preventDefault()
+              setError("Google sign-in isn't set up yet: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart.")
+            }}
+            className="inline-flex h-10 w-full items-center justify-center gap-2.5 rounded-lg border border-line-strong bg-surface text-base font-medium text-ink transition-colors hover:bg-surface-2"
+          >
+            <GoogleMark /> {signup ? "Sign up with Google" : "Continue with Google"}
+          </a>
+          <div className="flex items-center gap-3 text-sm text-ink-faint">
+            <span className="h-px grow bg-line" /> or with a username <span className="h-px grow bg-line" />
+          </div>
 
           <label className={field}>
             Username
