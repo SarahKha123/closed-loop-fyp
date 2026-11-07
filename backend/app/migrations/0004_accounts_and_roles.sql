@@ -30,12 +30,12 @@ CREATE UNIQUE INDEX ux_User_Email ON tbl_User(Email COLLATE NOCASE);
 CREATE TABLE tbl_AuthEvent_v4 (
   EventID   INTEGER PRIMARY KEY,
   Event     TEXT NOT NULL CHECK (Event IN ('signup', 'login', 'login_failed', 'logout',
-                                           'approve', 'reject', 'disable', 'enable', 'role', 'settings')),
+                                           'approve', 'reject', 'disable', 'enable', 'role')),
   UserID    INTEGER REFERENCES tbl_User(UserID) ON DELETE SET NULL,  -- whom it was about
   ActorID   INTEGER REFERENCES tbl_User(UserID) ON DELETE SET NULL,  -- the admin who did it (admin actions only)
   Email     TEXT,
   Reason    TEXT,  -- login_failed: password | disabled | cancelled | state | exchange | token | exists;
-                   -- role: the new role; settings: which section
+                   -- role: the new role
   IP        TEXT,
   UserAgent TEXT,
   CreatedAt TEXT NOT NULL
@@ -46,16 +46,6 @@ DROP TABLE tbl_AuthEvent;
 ALTER TABLE tbl_AuthEvent_v4 RENAME TO tbl_AuthEvent;
 CREATE INDEX ix_AuthEvent_CreatedAt ON tbl_AuthEvent(CreatedAt DESC);
 CREATE INDEX ix_AuthEvent_IP ON tbl_AuthEvent(IP, Event, CreatedAt);
-
--- Server-wide settings an admin saves on the Admin page, instead of .env: the Gmail sender
--- (smtp.user, smtp.password) and Google sign-in (google.client_id, google.client_secret).
--- Secrets are Fernet-encrypted like users' API keys (services/cloud.py) and never returned.
-CREATE TABLE tbl_ServerSetting (
-  Key       TEXT PRIMARY KEY,
-  Value     TEXT,
-  UpdatedAt TEXT NOT NULL,
-  UpdatedBy INTEGER REFERENCES tbl_User(UserID) ON DELETE SET NULL
-);
 
 PRAGMA user_version = 4;
 

@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import auth, db, google_auth, repo, server_config
+from app.services import auth, db, google_auth, repo
 
 CLIENT_ID = "test-client.apps.googleusercontent.com"
 
@@ -27,8 +27,8 @@ def _jwt(claims: dict) -> str:
 @pytest.fixture
 def google(fresh_db, monkeypatch):
     """Google configured, with a fake token endpoint whose ID token claims a test can tweak."""
-    server_config.save({"google.client_id": CLIENT_ID, "google.client_secret": "secret"},
-                       {"id": None}, (None, None), "google")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", CLIENT_ID)
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "secret")
     monkeypatch.setenv("APP_URL", "http://localhost:5173")
     fake = {"claims": {}, "calls": []}
 
@@ -53,9 +53,7 @@ def _sign_in(c: TestClient, fake: dict, **query) -> httpx.Response:
 
 
 def _events() -> list[str]:
-    """Sign-in events, oldest first (the fixture's own `settings` row left out)."""
-    return [e["event"] + (f":{e['reason']}" if e["reason"] else "") for e in reversed(repo.auth_events())
-            if e["event"] != "settings"]
+    return [e["event"] + (f":{e['reason']}" if e["reason"] else "") for e in reversed(repo.auth_events())]
 
 
 def test_start_redirects_to_google_with_pkce(google):
@@ -123,7 +121,8 @@ def test_exchange_failure(google, monkeypatch):
     assert _sign_in(c, fake).headers["location"] == "/?authError=exchange"
 
 
-def test_not_configured(fresh_db):
+def test_not_configured(fresh_db, monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
     with TestClient(app, follow_redirects=False) as c:
         assert c.get("/api/auth/me").json()["googleSignIn"] is False
         assert c.get("/api/auth/google").status_code == 404

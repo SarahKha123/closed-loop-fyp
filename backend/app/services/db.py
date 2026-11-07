@@ -5,8 +5,7 @@ plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4),
 `tbl_StudyLog` for the user study, `tbl_WorkOrderOutcome` for what technicians
 found when closing work orders, and `tbl_User` / `tbl_Session` / `tbl_AuthEvent`
 for sign-in (services/auth.py), `tbl_UserCloud` / `tbl_UserModel` for each
-user's own cloud keys (services/cloud.py), and `tbl_ServerSetting` for what an
-admin sets on the Admin page. Design notes:
+user's own cloud keys (services/cloud.py). Design notes:
 
 - One `tbl_SensorReading` row per *cycle*: the 17 sensors are shared by all
   four components, so the reading belongs to the cycle and the per-component
@@ -39,7 +38,7 @@ from pathlib import Path
 from . import paths
 
 # 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent; 3: per-user cloud keys (see _migrate);
-# 4: roles, account approval, server settings (migrations/0004_accounts_and_roles.sql)
+# 4: roles and account approval (migrations/0004_accounts_and_roles.sql)
 SCHEMA_VERSION = 4
 MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
 

@@ -133,10 +133,10 @@ export interface Account extends User {
   lastLoginAt: string | null
 }
 
-/** GET /api/admin/server — secrets come back only as their last four characters. */
+/** GET /api/admin/server — whether the .env secrets are set; never the secrets themselves. */
 export interface ServerConfig {
-  email: { sender: string | null; passwordHint: string | null }
-  google: { clientId: string | null; secretHint: string | null; redirectUri: string }
+  email: { sender: string | null; configured: boolean }
+  google: { configured: boolean; clientId: string | null; redirectUri: string }
 }
 
 export type OutcomeAction = "repaired" | "replaced" | "no_action" | "escalated"
@@ -317,7 +317,7 @@ export const api = {
       body: JSON.stringify({ id, approve }),
     }),
   settings: () => request<Settings>("/api/settings"),
-  /** Admins only (api/admin.py). Secrets are write-only: the App Password and client secret never come back. */
+  /** Admins only (api/admin.py). The Gmail and Google secrets live in .env; this only reads whether they're set. */
   admin: {
     users: () => request<{ users: Account[]; pendingCount: number }>("/api/admin/users"),
     act: (id: number, action: "approve" | "reject" | "disable" | "enable") =>
@@ -325,13 +325,7 @@ export const api = {
     setRole: (id: number, role: Role) =>
       request<{ user: Account }>(`/api/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
     server: () => request<ServerConfig>("/api/admin/server"),
-    saveEmail: (sender: string, password?: string) =>
-      request<ServerConfig>("/api/admin/email", { method: "PUT", body: JSON.stringify({ sender, password }) }),
-    clearEmail: () => request<ServerConfig>("/api/admin/email", { method: "DELETE" }),
     testEmail: () => request<{ sent: true; to: string }>("/api/admin/email/test", { method: "POST", timeoutMs: 30000 }),
-    saveGoogle: (clientId: string, clientSecret?: string) =>
-      request<ServerConfig>("/api/admin/google", { method: "PUT", body: JSON.stringify({ clientId, clientSecret }) }),
-    clearGoogle: () => request<ServerConfig>("/api/admin/google", { method: "DELETE" }),
   },
   saveSettings: (patch: DeepPartial<Settings>) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),

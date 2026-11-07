@@ -1,8 +1,8 @@
 """Email: work orders that open, new sign-ups for the admins, and approval decisions for the applicant.
 
 Sent through Gmail's SMTP server with an App Password (Python's smtplib, no other dependency).
-The sender is set by an admin on the Admin page (services/server_config.py: smtp.user and the
-encrypted smtp.password); recipients are accounts, never a fixed list:
+The sender is static, in .env (SMTP_USER, SMTP_APP_PASSWORD); recipients are accounts, never a
+fixed list:
 
     work order opened    every active user with "Email me when a work order opens" on (their own switch)
     someone signed up    every active admin
@@ -29,7 +29,7 @@ import threading
 from email.message import EmailMessage
 from typing import Any
 
-from . import events, repo, server_config, settings, work_orders
+from . import events, repo, settings, work_orders
 
 log = logging.getLogger(__name__)
 
@@ -43,8 +43,8 @@ class NotifyError(RuntimeError):
 
 
 def _sender() -> tuple[str, str]:
-    user = server_config.get("smtp.user")
-    password = server_config.get("smtp.password").replace(" ", "")  # Google shows it in groups of four
+    user = os.environ.get("SMTP_USER", "").strip()
+    password = os.environ.get("SMTP_APP_PASSWORD", "").replace(" ", "")  # Google shows it in groups of four
     return user, password
 
 
@@ -88,7 +88,7 @@ def send(msg: EmailMessage, to: list[str]) -> None:
     """Send to `to`, each address in Bcc so recipients don't see each other. Blocking: call it off the event loop."""
     user, password = _sender()
     if not (user and password):
-        raise NotifyError("email isn't set up: an admin adds the Gmail sender on the Admin page")
+        raise NotifyError("email isn't set up: add SMTP_USER and SMTP_APP_PASSWORD to .env, then restart")
     if not to:
         raise NotifyError("nobody to send to")
     msg["From"], msg["To"], msg["Bcc"] = f"Closed Loop <{user}>", f"Closed Loop <{user}>", ", ".join(to)
@@ -100,7 +100,7 @@ def send(msg: EmailMessage, to: list[str]) -> None:
             except smtplib.SMTPException as exc:
                 # A wrong password answers 535, but an unknown account just gets disconnected: same advice for both.
                 raise NotifyError(
-                    f"Gmail refused the login ({exc}): check the Gmail address, and that the password is an App Password"
+                    f"Gmail refused the login ({exc}): check SMTP_USER and that SMTP_APP_PASSWORD is an App Password"
                 ) from exc
             smtp.send_message(msg)
     except (smtplib.SMTPException, OSError) as exc:

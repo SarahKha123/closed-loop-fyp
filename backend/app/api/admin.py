@@ -1,4 +1,4 @@
-"""`/api/admin` — what only an admin may do: accounts, and the server settings that used to live in .env.
+"""`/api/admin` — what only an admin may do: accounts, and a look at the email and Google sign-in setup.
 
     GET    /api/admin/users                    {users, pendingCount} — pending first
     POST   /api/admin/users/{id}/approve       pending → active   } {user, notice}: `notice` says when the
@@ -6,26 +6,24 @@
     POST   /api/admin/users/{id}/disable       active → disabled (signed out at once)
     POST   /api/admin/users/{id}/enable        disabled → active
     PUT    /api/admin/users/{id}/role          {"role": "admin" | "engineer"}
-    GET    /api/admin/server                   {email: {sender, passwordHint}, google: {clientId, secretHint, redirectUri}}
-    PUT    /api/admin/email                    {sender, password?} — the Gmail account that sends
-    DELETE /api/admin/email
+    GET    /api/admin/server                   {email: {sender, configured}, google: {configured, clientId, redirectUri}}
     POST   /api/admin/email/test               a test email to the signed-in admin's own address
-    PUT    /api/admin/google                   {clientId, clientSecret?}
-    DELETE /api/admin/google
 
 Every route needs an active admin (main.py). 400 with the reason for a refused change, e.g. leaving
 the server without an admin. Every change is audited in tbl_AuthEvent with the acting admin.
-Secrets (App Password, client secret) are write-only: responses carry only their last four characters.
+The Gmail sender and the Google client are static secrets in .env (SMTP_*, GOOGLE_CLIENT_*): this API
+only says whether they're set, never their values beyond the sender address and the public client id.
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from ..services import google_auth, insights, notify, repo, server_config
+from ..services import google_auth, insights, notify, repo
 from .auth import accounts_changed, admin_user, client_info, request_origin
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -62,23 +60,13 @@ def role(user_id: int, request: Request, value: str = Body(..., embed=True, alia
 
 @router.get("/server")
 def server(request: Request) -> dict[str, Any]:
-    out = server_config.public()
-    out["google"]["redirectUri"] = google_auth.redirect_uri(request_origin(request))
-    return out
-
-
-@router.put("/email")
-def save_email(request: Request, sender: str = Body(..., embed=True, max_length=200),
-               password: str | None = Body(None, embed=True, max_length=200),
-               admin: dict[str, Any] = Depends(admin_user)) -> dict[str, Any]:
-    server_config.save({"smtp.user": sender, "smtp.password": password}, admin, client_info(request), "email")
-    return server(request)
-
-
-@router.delete("/email")
-def clear_email(request: Request, admin: dict[str, Any] = Depends(admin_user)) -> dict[str, Any]:
-    server_config.clear(("smtp.user", "smtp.password"), admin, client_info(request), "email")
-    return server(request)
+    sender = os.environ.get("SMTP_USER", "").strip()
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    return {
+        "email": {"sender": sender or None, "configured": notify.configured()},
+        "google": {"configured": google_auth.enabled(), "clientId": client_id or None,
+                   "redirectUri": google_auth.redirect_uri(request_origin(request))},
+    }
 
 
 @router.post("/email/test")
@@ -90,18 +78,3 @@ async def test_email(admin: dict[str, Any] = Depends(admin_user)) -> dict[str, A
     except notify.NotifyError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"sent": True, "to": admin["email"]}
-
-
-@router.put("/google")
-def save_google(request: Request, client_id: str = Body(..., embed=True, alias="clientId", max_length=300),
-                client_secret: str | None = Body(None, embed=True, alias="clientSecret", max_length=300),
-                admin: dict[str, Any] = Depends(admin_user)) -> dict[str, Any]:
-    server_config.save({"google.client_id": client_id, "google.client_secret": client_secret},
-                       admin, client_info(request), "google")
-    return server(request)
-
-
-@router.delete("/google")
-def clear_google(request: Request, admin: dict[str, Any] = Depends(admin_user)) -> dict[str, Any]:
-    server_config.clear(("google.client_id", "google.client_secret"), admin, client_info(request), "google")
-    return server(request)

@@ -72,8 +72,10 @@ APP_URL=https://your-host…
 ```
 
 Then sign up first: the first account becomes the **admin**. Everyone who signs
-up after you waits until you approve them on the **Admin** page, where you also
-set up the Gmail sender and Google sign-in (no `.env` editing). Each person signs in and adds **their own** API key on the
+up after you waits until you approve them on the **Admin** page. Google sign-in
+(`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) and the Gmail sender (`SMTP_USER` /
+`SMTP_APP_PASSWORD`) stay in `.env`; the Admin page shows whether each is set.
+Each person signs in and adds **their own** API key on the
 AI model page for their chat: it is stored encrypted, linked to their account,
 and never sent back to a browser. Every API route needs a signed-in session.
 If the host wipes its disk on redeploy, put `config/` on a persistent volume

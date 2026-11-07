@@ -77,23 +77,16 @@ def test_no_active_admin_means_the_next_sign_up_runs_it(real_sessions):
     assert auth.add_user("new", "New", "pw1234", "new@x.com")["role"] == "admin"
 
 
-def test_server_settings_are_write_only(real_sessions):
+def test_server_status_never_shows_secrets(real_sessions, monkeypatch):
+    monkeypatch.setenv("SMTP_USER", "closedloop@gmail.com")
+    monkeypatch.setenv("SMTP_APP_PASSWORD", "abcd efgh ijkl mnop")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "id.apps.googleusercontent.com")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "GOCSPX-secret1")
     auth.add_user("boss", "Boss", "pw1234", "boss@x.com")
-    a = _client("boss")
-    out = a.put("/api/admin/email", json={"sender": "closedloop@gmail.com", "password": "abcd efgh ijkl mnop"}).json()
-    assert out["email"] == {"sender": "closedloop@gmail.com", "passwordHint": "…mnop"}
-    out = a.put("/api/admin/google", json={"clientId": "id.apps.googleusercontent.com", "clientSecret": "GOCSPX-secret1"}).json()
-    assert out["google"]["secretHint"] == "…ret1" and out["google"]["redirectUri"].endswith("/api/auth/google/callback")
-    assert "GOCSPX-secret1" not in str(a.get("/api/admin/server").json())
-    with repo.db.read() as conn:
-        stored = dict(conn.execute("SELECT Key, Value FROM tbl_ServerSetting").fetchall())
-    assert "GOCSPX-secret1" not in stored["google.client_secret"]  # encrypted at rest
-    assert a.get("/api/auth/me").json()["googleSignIn"] is True
-
-    # Saving without a secret keeps the saved one; DELETE forgets the section.
-    a.put("/api/admin/email", json={"sender": "other@gmail.com"})
-    assert a.get("/api/admin/server").json()["email"]["passwordHint"] == "…mnop"
-    assert a.delete("/api/admin/google").json()["google"]["clientId"] is None
+    out = _client("boss").get("/api/admin/server").json()
+    assert out["email"] == {"sender": "closedloop@gmail.com", "configured": True}
+    assert out["google"]["configured"] is True and out["google"]["redirectUri"].endswith("/api/auth/google/callback")
+    assert "mnop" not in str(out) and "GOCSPX" not in str(out)
 
 
 def test_profile(real_sessions):

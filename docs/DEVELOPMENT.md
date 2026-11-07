@@ -91,7 +91,7 @@ file holds only what differs from the defaults in
 | `grounding.hideUnverified` | `false` | don't show insights that failed the check (still saved) |
 | `monitor.confirmCycles` | `1` | Critical cycles in a row before an automatic work order |
 | `monitor.autoCloseOnRecovery` | `false` | on: automatic work orders also close when the component is Optimal again, logged as unverified outcomes; off: a technician closes every one with an outcome |
-| `notifications.email` | `true` | email each new work order to everyone who turned it on in their profile menu (once an admin has set the Gmail sender up; never in study mode) |
+| `notifications.email` | `true` | email each new work order to everyone who turned it on in their profile menu (once `SMTP_*` is set in `.env`; never in study mode) |
 | `chat.maxTurns` | `10` | user/assistant exchanges sent to the model |
 | `chat.tools` | `true` | chat tools and work-order proposals; off → streamed, snapshot-only answers |
 | `study.enabled` | `false` | study mode: participants can't change the setup (see Study mode) |
@@ -281,8 +281,8 @@ and `TRIGGER` in `AdvisorPanel.tsx`.
 - **Update `docs/API.md`** in the same change as any endpoint change.
 - **Never edit `Daedalus/`.** It's a reference project; read it for
   patterns, but all changes go in this repo's own code.
-- **Secrets** go in `.env` (`KEY_ENCRYPTION_SECRET`) or the database, encrypted
-  (users' API keys, and the Gmail and Google secrets saved on the Admin page); never in `.env.example` or the code. Never commit the database or the trained models.
+- **Secrets** go in `.env` (`KEY_ENCRYPTION_SECRET`, `SMTP_*`, `GOOGLE_CLIENT_*`)
+  or, for users' API keys, the database (encrypted); never in `.env.example` or the code. Never commit the database or the trained models.
 - **Requirements are unpinned.** `requirements*.txt` list package names only,
   so the project keeps installing in future; anything version-sensitive (the
   trained models) is rebuilt instead.

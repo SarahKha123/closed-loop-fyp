@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import auth, events, monitor, notify, repo, server_config, settings, work_orders
+from app.services import auth, events, monitor, notify, repo, settings, work_orders
 from tests.test_monitor import _cycle
 
 
@@ -40,8 +40,8 @@ class FakeSMTP:
 
 @pytest.fixture
 def smtp(fresh_db, monkeypatch):
-    server_config.save({"smtp.user": "closedloop@gmail.com", "smtp.password": "abcd efgh ijkl mnop"},
-                       {"id": None}, (None, None), "email")
+    monkeypatch.setenv("SMTP_USER", "closedloop@gmail.com")
+    monkeypatch.setenv("SMTP_APP_PASSWORD", "abcd efgh ijkl mnop")
     auth.add_user("a", "A", "pw1234", "a@x.com")  # the first admin: work-order emails on
     b = auth.add_user("b", "B", "pw1234", "b@y.com", role="engineer", status="active")
     repo.update_profile(b["id"], notify_work_orders=True)
@@ -67,8 +67,9 @@ def test_only_new_work_orders_while_enabled(smtp):
     assert not notify.should_send(_opened(wo))  # never in study mode
 
 
-def test_not_configured(fresh_db):
-    server_config.save({"smtp.user": "closedloop@gmail.com"}, {"id": None}, (None, None), "email")  # no password
+def test_not_configured(fresh_db, monkeypatch):
+    monkeypatch.setenv("SMTP_USER", "closedloop@gmail.com")
+    monkeypatch.delenv("SMTP_APP_PASSWORD", raising=False)
     wo = work_orders.open_manual("valve")
     assert not notify.should_send(_opened(wo)) and not notify.configured()
     with pytest.raises(notify.NotifyError, match="isn't set up"):
@@ -125,7 +126,7 @@ def test_sign_up_and_decision_emails(smtp):
 def test_api_status_and_test_email(smtp):
     with TestClient(app) as c:
         st = c.get("/api/admin/server").json()["email"]
-        assert st == {"sender": "closedloop@gmail.com", "passwordHint": "…mnop"}
+        assert st == {"sender": "closedloop@gmail.com", "configured": True}  # never the password
         assert c.post("/api/admin/email/test").json() == {"sent": True, "to": "tester@example.com"}
         assert smtp[-1]["Subject"] == "[Closed Loop] Test email"
 

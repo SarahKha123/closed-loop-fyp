@@ -259,9 +259,9 @@ study mode or on the AI model page itself.
   active admin can't be removed, and every admin action is audited with its
   actor. No built-in account. Failed sign-ins are limited to 10 per IP per
   15 minutes.
-- **Server settings** that used to be `.env` (the Gmail sender, Google
-  sign-in) live in `tbl_ServerSetting`, secrets Fernet-encrypted like API keys
-  and write-only (services/server_config.py).
+- **Static secrets** (the Gmail sender, the Google client) stay in `.env`;
+  the Admin page only shows whether each is set. Email recipients come from
+  the accounts (admins, the applicant, each person's own work-order switch).
 - **Schema changes** are numbered SQL files in `backend/app/migrations/`,
   each one transaction, applied by `db.init_db()` to any older database (and
   to fresh ones, from the v3 baseline in `db.SCHEMA`).

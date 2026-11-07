@@ -813,27 +813,6 @@ def emails(*, admins: bool = False, work_orders: bool = False) -> list[str]:
     return [r["Email"] for r in rows]
 
 
-# ── server settings an admin saves (tbl_ServerSetting; secrets arrive encrypted) ──
-
-
-def server_settings() -> dict[str, str]:
-    with db.read() as conn:
-        return {r["Key"]: r["Value"] for r in conn.execute("SELECT Key, Value FROM tbl_ServerSetting")}
-
-
-def save_server_settings(values: dict[str, str | None], actor: dict[str, Any], client: Client, section: str) -> None:
-    """Upsert the given keys (None clears one), audited as one `settings` event."""
-    with db.write() as conn:
-        for key, value in values.items():
-            conn.execute(
-                "INSERT INTO tbl_ServerSetting (Key, Value, UpdatedAt, UpdatedBy) VALUES (?, ?, ?, ?)"
-                " ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value, UpdatedAt = excluded.UpdatedAt,"
-                " UpdatedBy = excluded.UpdatedBy",
-                (key, value, _now(), actor["id"]),
-            )
-        _log(conn, "settings", client, user_id=actor["id"], actor_id=actor["id"], reason=section)
-
-
 # ── per-user cloud keys (services/cloud.py does the encryption) ──────────────
 
 

@@ -1,6 +1,6 @@
-// /admin — what only an admin does: approve and manage accounts, and the server settings that used to be
-// .env (the Gmail sender, Google sign-in). One view per area, picked by ?view= (Users by default), so each
-// opens on its own question. The API refuses non-admins too; this page just says so.
+// /admin — what only an admin does: approve and manage accounts, and check the email and Google sign-in
+// setup (static secrets in .env). One view per area, picked by ?view= (Users by default), so each opens on
+// its own question. The API refuses non-admins too; this page just says so.
 
 import { createFileRoute } from "@tanstack/react-router"
 import { PageHeader } from "../components/PageHeader"

@@ -12,8 +12,8 @@ The ID token's signature isn't verified: it came straight from Google's token en
 OIDC Core §3.1.3.7 allows in place of it. Never accept an ID token from the browser with this code —
 that would need a signature check against Google's JWKS.
 
-Configured by an admin on the Admin page (services/server_config.py: the client id and its encrypted
-secret); without them `enabled()` is False and the dashboard shows only the password form. APP_URL is the origin the browser uses (it builds the redirect URI,
+Configured by GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (.env, static secrets; the Admin page only shows
+whether they're set); without them `enabled()` is False and the dashboard shows only the password form. APP_URL is the origin the browser uses (it builds the redirect URI,
 which must match the Google Cloud console exactly); unset, it's taken from the request.
 """
 
@@ -29,7 +29,6 @@ from urllib.parse import urlencode
 
 import httpx
 
-from . import server_config
 from .auth import random_token, sha256
 
 log = logging.getLogger(__name__)
@@ -52,11 +51,11 @@ class GoogleSignInError(Exception):
 
 
 def _client_id() -> str:
-    return server_config.get("google.client_id")
+    return os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 
 
 def _client_secret() -> str:
-    return server_config.get("google.client_secret")
+    return os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 
 def enabled() -> bool:
