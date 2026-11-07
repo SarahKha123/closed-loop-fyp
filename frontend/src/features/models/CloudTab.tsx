@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Button } from "../../components/ui/Button"
+import { confirmAction } from "../../components/ui/ConfirmDialog"
 import { useModels } from "../../context/ModelsContext"
 import { request } from "../../lib/http"
 import { card, input } from "../../lib/ui"
@@ -86,7 +87,7 @@ function ProviderCard({
 
   const clear = () =>
     run(async () => {
-      if (!window.confirm(`Remove the saved ${p.label} key and model?`)) return
+      if (!(await confirmAction({ title: `Remove the ${p.label} key?`, body: `The saved API key and model for ${p.label} are deleted. You will need to paste the key again to use it.`, confirmLabel: "Remove key" }))) return
       const r = await request<{ providers: CloudProvider[] }>(`/api/cloud/${p.id}`, { method: "DELETE" })
       onChange(r.providers)
       setModelName("")

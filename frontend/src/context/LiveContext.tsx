@@ -39,6 +39,8 @@ interface LiveValue {
   /** null until loaded; kept current by `settings` events (a change in any tab). */
   settings: Settings | null
   dismissToast: (id: number) => void
+  /** Show a notice in the top bar (e.g. an action that failed). */
+  pushToast: (t: Omit<Toast, "id">) => void
   control: {
     play: () => Promise<void>
     pause: () => Promise<void>
@@ -203,6 +205,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     insightNotice,
     settings,
     dismissToast: (id) => setToasts((ts) => ts.filter((t) => t.id !== id)),
+    pushToast,
     control,
     controlError,
   }

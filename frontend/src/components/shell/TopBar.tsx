@@ -1,4 +1,4 @@
-// The bar above every page: whether the feed is live, the replay controls, theme and Advisor toggles.
+// The bar above every page: whether the feed is live, the replay controls, live notices, theme and Advisor toggles.
 // In study mode the researcher drives the replay, so participants see the position but no controls.
 
 import { useState } from "react"
@@ -6,7 +6,9 @@ import { useLive } from "../../context/LiveContext"
 import { num } from "../../lib/format"
 import type { Theme } from "../../lib/theme"
 import { Button } from "../ui/Button"
+import { confirmAction } from "../ui/ConfirmDialog"
 import { Icon } from "../ui/Icon"
+import { ToastStack } from "./ToastStack"
 import { TOUR_EVENT } from "./Tour"
 
 const SPEEDS = [0.05, 0.1, 0.25, 0.5, 1, 2, 5]
@@ -111,8 +113,13 @@ export function TopBar({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => {
-            if (window.confirm("Reset the replay? This clears all readings, predictions and work orders and returns to cycle 1,665.")) void control.reset()
+          onClick={async () => {
+            const ok = await confirmAction({
+              title: "Reset the replay?",
+              body: "This clears every reading, prediction and work order and returns to cycle 1,665. It can't be undone.",
+              confirmLabel: "Reset replay",
+            })
+            if (ok) void control.reset()
           }}
           disabled={!replay}
           title="Reset replay"
@@ -125,7 +132,9 @@ export function TopBar({
 
       {controlError && <span className="max-w-[260px] truncate text-sm text-critical-text" title={controlError}>{controlError}</span>}
 
-      <div className="grow" />
+      <div className="min-w-0 grow">
+        <ToastStack />
+      </div>
 
       <div className="flex items-center gap-1">
         {!studyMode && (

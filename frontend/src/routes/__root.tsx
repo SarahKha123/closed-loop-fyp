@@ -1,4 +1,4 @@
-// Signed out, the sign-in page (AuthScreen) is the only screen. Signed in, the app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, toasts, the no-model prompt.
+// Signed out, the sign-in page (AuthScreen) is the only screen. Signed in, the app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, the no-model prompt.
 // Fixed to the viewport — the page itself never scrolls; a tall view scrolls inside its own column.
 // In study mode participants can't change the setup (no models page, model card or replay controls),
 // and the study condition decides the Advisor: hidden (dashboard only) or always open (dashboard + AI).
@@ -7,9 +7,9 @@ import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router"
 import { AdvisorPanel } from "../components/shell/AdvisorPanel"
 import { NoModelDialog } from "../components/shell/NoModelDialog"
 import { Sidebar } from "../components/shell/Sidebar"
-import { ToastStack } from "../components/shell/ToastStack"
 import { Tour } from "../components/shell/Tour"
 import { TopBar } from "../components/shell/TopBar"
+import { ConfirmHost } from "../components/ui/ConfirmDialog"
 import { AuthProvider, useAuth } from "../context/AuthContext"
 import { ChatProvider, useChat } from "../context/ChatContext"
 import { LiveProvider, useLive } from "../context/LiveContext"
@@ -51,6 +51,7 @@ function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
   const study = useLive().settings?.study
   const studyMode = study?.enabled ?? false
   // The AI models page and the researcher's study page are settings pages: they get the full width.
+  const path = useRouterState({ select: (s) => s.location.pathname })
   const fullWidth = useRouterState({ select: (s) => /^\/(models|study)/.test(s.location.pathname) })
   const advisor = fullWidth ? "none" : !studyMode ? (open ? "open" : "closed") : study?.condition === "dashboard_ai" ? "pinned" : "none"
 
@@ -68,18 +69,19 @@ function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
         />
         <div className="relative flex min-h-0 flex-1 gap-5 p-5">
           {/* @container: page grids reflow on the column's width (it shrinks when the Advisor is open). */}
-          {/* relative: toasts anchor to this column's corner, clear of the Advisor's composer. */}
-          <div className="relative min-h-0 min-w-0 flex-1">
+          <div className="min-h-0 min-w-0 flex-1">
             <main className="@container h-full overflow-x-hidden overflow-y-auto">
-              <Outlet />
+              <div key={path} className="animate-page-in h-full">
+                <Outlet />
+              </div>
             </main>
-            <ToastStack />
           </div>
           {(advisor === "open" || advisor === "pinned") && <AdvisorPanel onClose={advisor === "open" ? () => setOpen(false) : undefined} />}
         </div>
       </div>
       <NoModelDialog studyMode={studyMode} />
       <Tour studyMode={studyMode} />
+      <ConfirmHost />
     </div>
   )
 }

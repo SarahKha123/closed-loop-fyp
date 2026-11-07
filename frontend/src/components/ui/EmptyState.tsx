@@ -8,15 +8,17 @@ export function EmptyState({
   title,
   children,
   action,
+  pulse,
 }: {
   icon: IconName
   title: string
   children?: ReactNode
   action?: ReactNode
+  pulse?: boolean
 }) {
   return (
     <div className="flex h-full min-h-[160px] flex-col items-center justify-center gap-2 px-6 py-8 text-center">
-      <div className="text-ink-faint">
+      <div className={`text-ink-faint ${pulse ? "animate-live" : ""}`}>
         <Icon name={icon} size={22} />
       </div>
       <div className="text-lg font-semibold text-ink">{title}</div>

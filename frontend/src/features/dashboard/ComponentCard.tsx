@@ -35,7 +35,10 @@ export function ComponentCard({ state }: { state: ComponentState }) {
           <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: meta?.series }} />
           <span className="truncate text-lg font-semibold text-ink">{state.component}</span>
         </span>
-        <ConditionBadge condition={state.condition} size="sm" />
+        {/* Remounts when the condition changes, so the change is seen, not just swapped. */}
+        <span key={state.condition} className="animate-pop">
+          <ConditionBadge condition={state.condition} size="sm" />
+        </span>
       </div>
 
       <div className="flex flex-col gap-0.5 text-sm">

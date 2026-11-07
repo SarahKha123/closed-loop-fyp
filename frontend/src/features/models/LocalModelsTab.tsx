@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "../../components/ui/Button"
+import { confirmAction } from "../../components/ui/ConfirmDialog"
+import { useLive } from "../../context/LiveContext"
 import { useModels } from "../../context/ModelsContext"
 import { formatSize } from "../../lib/format"
 import { request, streamEvents } from "../../lib/http"
@@ -13,6 +15,7 @@ import type { CatalogueModel, OllamaModel, PullEvent } from "./types"
  */
 export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "download"; onDownloadTab: () => void }) {
   const { models, modelsError, active, setModel, refresh } = useModels()
+  const { pushToast } = useLive()
   // Only chat models belong here; embedding models can't answer the Advisor.
   const chatModels = models.filter((m) => !m.embedding)
   const hiddenCount = models.length - chatModels.length
@@ -62,11 +65,11 @@ export function LocalModelsTab({ view, onDownloadTab }: { view: "installed" | "d
   }
 
   async function remove(tag: string) {
-    if (!window.confirm(`Delete ${tag} from this machine? You can download it again later.`)) return
+    if (!(await confirmAction({ title: `Delete ${tag}?`, body: "It is removed from this machine. You can download it again later.", confirmLabel: "Delete model" }))) return
     try {
       await request("/api/models/delete", { method: "POST", body: JSON.stringify({ tag }) })
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "delete failed")
+      pushToast({ tone: "critical", title: `Couldn't delete ${tag}`, detail: err instanceof Error ? err.message : "Delete failed" })
     }
     void refresh()
     void loadCatalogue()

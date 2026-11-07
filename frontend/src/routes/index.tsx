@@ -59,7 +59,7 @@ function OverviewPage() {
         {!hasData ? (
           <Card className="flex items-center justify-center @4xl:row-span-3">
             {loading ? (
-              <EmptyState icon="activity" title="Loading…" />
+              <EmptyState icon="activity" title="Connecting to the rig…" pulse />
             ) : (
               <EmptyState
                 icon="play"
