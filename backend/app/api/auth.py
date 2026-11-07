@@ -5,7 +5,10 @@
     POST /api/auth/register        {username, displayName?, password} → {user}, signed in; 400 if the username is taken
     POST /api/auth/logout          ends the session, clears the cookie
     GET  /api/auth/google          → 302 to Google (a real browser navigation, not fetch); 404 if not configured
-    GET  /api/auth/google/callback → 302 to / signed in, or to /?authError=<cancelled|state|exchange|token>
+    GET  /api/auth/google/callback → 302 to / signed in, or to /?authError=<cancelled|state|exchange|token|signup>
+
+`current_user` is the dependency main.py puts on every other router: no valid
+session cookie, no access (401).
 """
 
 from __future__ import annotations
@@ -18,6 +21,14 @@ from fastapi.responses import RedirectResponse
 from ..services import auth, google_auth, repo
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def current_user(session: str | None = Cookie(default=None, alias=auth.COOKIE)) -> dict[str, Any]:
+    """The signed-in user, or 401. FastAPI caches it per request, so routes that also need the user pay nothing extra."""
+    user = auth.user_for(session)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sign in first")
+    return user
 
 
 def _client(request: Request) -> repo.Client:
@@ -33,7 +44,7 @@ def _set_session(response: Response, token: str) -> None:
 
 @router.get("/me")
 def me(session: str | None = Cookie(default=None, alias=auth.COOKIE)) -> dict[str, Any]:
-    return {"user": auth.user_for(session), "googleSignIn": google_auth.enabled()}
+    return {"user": auth.user_for(session), "googleSignIn": google_auth.enabled(), "signupAllowed": auth.signup_allowed()}
 
 
 @router.post("/login")
@@ -43,7 +54,10 @@ def login(
     username: str = Body(..., embed=True, max_length=100),
     password: str = Body(..., embed=True, max_length=200),
 ) -> dict[str, Any]:
-    result = auth.login(username, password, _client(request))
+    try:
+        result = auth.login(username, password, _client(request))
+    except auth.TooManyAttempts as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     if result is None:
         raise HTTPException(status_code=401, detail="Wrong username or password")
     token, user = result
@@ -59,6 +73,8 @@ def register(
     display_name: str = Body("", embed=True, alias="displayName", max_length=100),
     password: str = Body(..., embed=True, min_length=4, max_length=200),
 ) -> dict[str, Any]:
+    if not auth.signup_allowed():
+        raise HTTPException(status_code=403, detail="Sign-up is closed. Ask the administrator for an account.")
     try:
         token, user = auth.register(username, display_name, password, _client(request))
     except auth.AuthError as exc:
@@ -92,6 +108,8 @@ def google_callback(request: Request) -> RedirectResponse:
     try:
         claims = google_auth.finish(request.cookies.get(google_auth.FLOW_COOKIE), dict(request.query_params),
                                     google_auth.redirect_uri(_origin(request)))
+        if not auth.signup_allowed() and not repo.google_user_exists(claims["sub"]):
+            raise google_auth.GoogleSignInError("signup", claims.get("email"))  # no new accounts while sign-up is closed
         res = RedirectResponse("/", status_code=302)
         _set_session(res, auth.google_session(claims, client))  # cookie only after the transaction committed
     except google_auth.GoogleSignInError as exc:

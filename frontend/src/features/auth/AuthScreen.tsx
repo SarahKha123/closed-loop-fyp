@@ -19,6 +19,7 @@ const field = "flex flex-col gap-1 text-sm font-medium text-ink-muted"
 const GOOGLE_ERRORS: Record<string, string> = {
   cancelled: "Google sign-in was cancelled.",
   state: "That sign-in link expired. Please try again.",
+  signup: "This Google account has no access yet. Ask the administrator to add you.",
 }
 
 /** The error a failed Google sign-in redirected back with, removed from the URL so a reload doesn't show it again. */
@@ -43,7 +44,7 @@ function GoogleMark() {
 }
 
 export function AuthScreen() {
-  const { signedIn, googleSignIn } = useAuth()
+  const { signedIn, googleSignIn, signupAllowed } = useAuth()
   const [mode, setMode] = useState<Mode>("signin")
   const [username, setUsername] = useState("")
   const [displayName, setDisplayName] = useState("")
@@ -156,15 +157,17 @@ export function AuthScreen() {
             {busy ? (signup ? "Creating account…" : "Signing in…") : signup ? "Create account" : "Sign in"}
           </Button>
 
-          <p className="text-center text-base text-ink-muted">
-            {signup ? "Already have an account? " : "New here? "}
-            <button type="button" onClick={() => switchTo(signup ? "signin" : "signup")} className="font-medium text-accent-text hover:underline">
-              {signup ? "Sign in" : "Create an account"}
-            </button>
-          </p>
+          {signupAllowed && (
+            <p className="text-center text-base text-ink-muted">
+              {signup ? "Already have an account? " : "New here? "}
+              <button type="button" onClick={() => switchTo(signup ? "signin" : "signup")} className="font-medium text-accent-text hover:underline">
+                {signup ? "Sign in" : "Create an account"}
+              </button>
+            </p>
+          )}
         </form>
 
-        {!signup && (
+        {!signup && signupAllowed && (
           <p className="mt-4 text-center text-sm text-ink-faint">
             Demo account: <span className="font-mono">demo</span> / <span className="font-mono">demo</span>
           </p>

@@ -9,6 +9,8 @@ fastapi
 uvicorn[standard]
 httpx
 psutil
+# Encrypts each user's cloud API keys at rest (services/cloud.py)
+cryptography
 
 # ML: the live predictor (scoring + SHAP) and the training pipeline in ml/.
 # xgboost-cpu, not xgboost: the default wheel is CUDA-built and fails on

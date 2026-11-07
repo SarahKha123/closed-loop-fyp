@@ -1,77 +1,40 @@
-"""Which cloud provider answers the Advisor: `config/model_config.json`.
+"""Which cloud model answers: a user's own choice for their chat, the server's for live insights.
 
-The file only names a provider. Its key, model and base URL live in
-`config/cloud.json` (gitignored), see `services/cloud`. On a deployed server
-`CLOUD_PROVIDER` (with `CLOUD_API_KEY` / `CLOUD_MODEL`) overrides both files,
-and the choice can't be changed from the Models page.
+    resolve(user_id)        that user's chat: the provider they chose (tbl_UserModel) with their own key
+    resolve(None)           live insights: CLOUD_PROVIDER / CLOUD_API_KEY / CLOUD_MODEL from the environment
+    select(user_id, pid)    a user picks one of their providers
 
-    read() / write()   the file itself
-    resolve()          what will answer right now, and why. Never raises.
+There is no fallback between the two: a user without a key of their own can't
+chat on the server's key, and insights never use a user's key.
+Both resolve() results say what's missing when nothing can answer. Never raises.
 """
 
 from __future__ import annotations
 
-import os
-import threading
-from datetime import datetime, timezone
 from typing import Any
 
-from . import cloud, jsonfile, paths
-
-SCHEMA_VERSION = 2
-
-_DEFAULT: dict[str, Any] = {
-    "schema_version": SCHEMA_VERSION,
-    "provider": None,
-    "updated_at": None,
-    "updated_by": None,
-}
-
-_write_lock = threading.Lock()
+from . import cloud, repo
 
 
-def read() -> dict[str, Any]:
-    """The config as written, or as the environment overrides it. Missing or malformed reads as the default.
-
-    Older files (schema 1) also carry `mode` / `pinned`; those keys are ignored, so a
-    file left in local `auto` / `pinned` mode reads as "no provider chosen".
-    """
-    config = dict(_DEFAULT)
-    config.update({k: v for k, v in (jsonfile.read(paths.MODEL_CONFIG) or {}).items() if k in _DEFAULT})
-    if cloud.env_provider():
-        config.update(provider=cloud.env_provider(), updated_by="env")
-    if config["provider"] not in cloud.PROVIDERS:
-        config["provider"] = None
-    return config
-
-
-def write(provider: str) -> dict[str, Any]:
-    """Commit a choice, atomically. Raises ValueError on an unknown provider or when the environment sets it."""
-    if cloud.env_provider():
-        raise ValueError("the provider is set by the server's CLOUD_PROVIDER environment variable")
+def select(user_id: int, provider: str) -> None:
+    """Raises ValueError for an unknown provider."""
     if provider not in cloud.PROVIDERS:
         raise ValueError(f"unknown provider {provider!r}")
-    config = {
-        "schema_version": SCHEMA_VERSION,
-        "provider": provider,
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "updated_by": "models-page",
-    }
-    with _write_lock:
-        jsonfile.write_atomic(paths.MODEL_CONFIG, config)
-    return config
+    repo.set_user_model(user_id, provider)
 
 
-def resolve() -> dict[str, Any]:
-    """`{provider, label, tag, resolved, reason, managed}`, where `tag` is the provider's model id."""
-    config = read()
-    pid = config["provider"]
-    entry = next((p for p in cloud.public() if p["id"] == pid), None)
-    out = {"provider": pid, "label": entry["label"] if entry else None, "tag": entry["model"] or None if entry else None,
-           "managed": config["updated_by"] == "env"}
-    if entry is None:
-        return {**out, "resolved": False, "reason": "No provider chosen yet. Add an API key on the AI model page."}
-    if entry["ready"]:
-        return {**out, "resolved": True, "reason": f"Answering from {entry['label']}."}
-    missing = " and ".join(w for w, ok in (("an API key", entry["has_key"]), ("a model", entry["model"])) if not ok)
-    return {**out, "resolved": False, "reason": f"{entry['label']} needs {missing or 'a base URL'}."}
+def resolve(user_id: int | None) -> dict[str, Any]:
+    """`{provider, label, tag, resolved, reason}`, where `tag` is the provider's model id."""
+    pid = cloud.env_provider() if user_id is None else repo.user_model(user_id)
+    if pid not in cloud.PROVIDERS:
+        reason = ("Live insights need the server's key: set CLOUD_PROVIDER, CLOUD_API_KEY and CLOUD_MODEL."
+                  if user_id is None else "Add your own API key on the AI model page, then press Use.")
+        return {"provider": None, "label": None, "tag": None, "resolved": False, "reason": reason}
+    cfg = cloud.get(user_id, pid)
+    label = cloud.PROVIDERS[pid][0]
+    out = {"provider": pid, "label": label, "tag": cfg["model"] or None}
+    if cfg["api_key"] and cfg["model"] and cfg["base_url"]:
+        return {**out, "resolved": True, "reason": f"Answering from {label}."}
+    missing = " and ".join(w for w, ok in (("an API key", cfg["api_key"]), ("a model", cfg["model"])) if not ok)
+    where = "CLOUD_API_KEY / CLOUD_MODEL on the server" if user_id is None else "it on the AI model page"
+    return {**out, "resolved": False, "reason": f"{label} needs {missing or 'a base URL'}. Set {where}."}

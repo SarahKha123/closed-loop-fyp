@@ -44,8 +44,10 @@ Everything runs directly on your machine — no Docker.
 ./closed-loop.sh start    # http://localhost:8000 — then add a key on the AI model page
 ```
 
-Then on **AI model**, add a key for one provider, test it, press *Use*, and
-press play in the top bar.
+Then sign in (`demo` / `demo`), and on **AI model** add your own key for one
+provider, test it and press *Use* (your chat). For live insights, set the
+server key (`CLOUD_PROVIDER`, `CLOUD_API_KEY`, `CLOUD_MODEL`) in `.env`. Press
+play in the top bar.
 
 | Command | What it does |
 |---|---|
@@ -61,18 +63,27 @@ Ctrl-C stops everything the command started. Something not working? See
 
 ### Deploying
 
-The Advisor only needs an API key, so any small host that runs Python works.
-Set the model in the host's environment instead of on the AI model page:
+Any small host that runs Python works. Set these in the host's secrets:
 
 ```bash
+# The server key: writes the live insights (never used for chat)
 CLOUD_PROVIDER=groq            # openai, anthropic, google, groq, openrouter, deepseek, ollama, custom
 CLOUD_API_KEY=gsk_…
-CLOUD_MODEL=llama-3.3-70b-versatile
-CLOUD_BASE_URL=                # only for `custom` or a proxy
+CLOUD_MODEL=llama-3.1-8b-instant
+# Encrypts each user's saved key. Long and random; keep it, or saved keys become unreadable
+KEY_ENCRYPTION_SECRET=…
+# No public sign-up, no demo/demo account
+ALLOW_SIGNUP=false
+COOKIE_SECURE=true             # served over HTTPS
+APP_URL=https://your-host…
 ```
 
-These override `config/cloud.json`, and the AI model page shows the provider
-as set by the server. `OMP_NUM_THREADS` (default 2) caps the ML predictor's CPU.
+Then add accounts with `backend/.venv/bin/python -m app.services.auth add <username> "<Name>"`
+(from `backend/`). Each person signs in and adds **their own** API key on the
+AI model page for their chat: it is stored encrypted, linked to their account,
+and never sent back to a browser. Every API route needs a signed-in session.
+If the host wipes its disk on redeploy, put `config/` on a persistent volume
+(`CLOSED_LOOP_CONFIG_DIR`), or accounts and saved keys go with it.
 
 ## Repository layout
 

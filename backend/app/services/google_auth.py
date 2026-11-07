@@ -43,7 +43,7 @@ FLOW_MAX_AGE = 10 * 60
 
 
 class GoogleSignInError(Exception):
-    """A failed sign-in. `reason` is what the sign-in page shows: cancelled | state | exchange | token."""
+    """A failed sign-in. `reason` is what the sign-in page shows: cancelled | state | exchange | token | signup."""
 
     def __init__(self, reason: str, email: str | None = None) -> None:
         super().__init__(reason)

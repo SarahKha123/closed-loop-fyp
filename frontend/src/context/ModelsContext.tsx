@@ -1,6 +1,6 @@
-// Which cloud model the Advisor answers from. Shared by the sidebar's
-// ModelCard, the Advisor panel and the Models page; the backend is the source
-// of truth (config/model_config.json or CLOUD_PROVIDER), this only caches it.
+// Which cloud model answers this user's chat (their own key), and which writes the
+// live insights (the server's key). Shared by the sidebar's ModelCard, the Advisor
+// panel and the AI model page; the backend is the source of truth, this only caches it.
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import type { ReactNode } from "react"

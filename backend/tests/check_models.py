@@ -10,32 +10,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx  # noqa: E402
 
-from app.services import advisor, cloud, model_config  # noqa: E402
+from app.services import advisor, cloud, db, model_config, repo  # noqa: E402
 
-# No provider chosen (or an old local `auto` / `pinned` file): unresolved.
-assert model_config.resolve()["resolved"] is False
-(Path(os.environ["CLOSED_LOOP_CONFIG_DIR"]) / "model_config.json").write_text('{"mode": "pinned", "pinned": "qwen3:1.7b"}')
-assert model_config.resolve()["provider"] is None
+db.init_db()
+uid = repo.insert_user("checker", "Checker", "x")["id"]
 
-# Unresolved until key + model exist, then resolved to the provider.
-model_config.write("openai")
-assert model_config.resolve()["resolved"] is False
-cloud.save("openai", api_key="sk-abcdefgh1234", model="m-1", base_url=None)
-r = model_config.resolve()
-assert (r["resolved"], r["provider"], r["tag"], r["managed"]) == (True, "openai", "m-1", False), r
-assert all("sk-abcdefgh1234" not in str(p) for p in cloud.public())
-assert advisor.choose() == advisor.Target(label="openai/m-1", provider="openai")
+# No provider chosen: unresolved, for the user and for live insights.
+assert model_config.resolve(uid)["resolved"] is False
+assert model_config.resolve(None)["resolved"] is False
 
-# The environment overrides the files, and locks the choice.
+# A user's own key: unresolved until key + model exist, then resolved to their provider.
+model_config.select(uid, "openai")
+assert model_config.resolve(uid)["resolved"] is False
+cloud.save(uid, "openai", api_key="sk-abcdefgh1234", model="m-1", base_url=None)
+r = model_config.resolve(uid)
+assert (r["resolved"], r["provider"], r["tag"]) == (True, "openai", "m-1"), r
+assert all("sk-abcdefgh1234" not in str(p) for p in cloud.public(uid))
+assert advisor.choose(uid) == advisor.Target(label="openai/m-1", provider="openai", user_id=uid)
+
+# Live insights use the server key from the environment, never a user's.
 os.environ.update(CLOUD_PROVIDER="groq", CLOUD_API_KEY="gsk-env-key-9999", CLOUD_MODEL="llama-3.1-8b-instant")
-r = model_config.resolve()
-assert (r["resolved"], r["provider"], r["tag"], r["managed"]) == (True, "groq", "llama-3.1-8b-instant", True), r
-try:
-    model_config.write("openai")
-    raise AssertionError("expected ValueError")
-except ValueError:
-    pass
-assert all("gsk-env-key-9999" not in str(p) for p in cloud.public())
+assert advisor.choose() == advisor.Target(label="groq/llama-3.1-8b-instant", provider="groq")
 for k in ("CLOUD_PROVIDER", "CLOUD_API_KEY", "CLOUD_MODEL"):
     del os.environ[k]
 
@@ -56,17 +51,17 @@ def handler(request: httpx.Request) -> httpx.Response:
 
 
 cloud.httpx.stream = httpx.Client(transport=httpx.MockTransport(handler)).stream
-assert "".join(cloud.chat_stream("openai", [{"role": "user", "content": "hi"}])) == "Hello"
+assert "".join(cloud.chat_stream(cloud.config(uid, "openai"), [{"role": "user", "content": "hi"}])) == "Hello"
 assert seen["auth"] == "Bearer sk-abcdefgh1234"
 
 # Provider error bodies surface as a readable CloudError.
 cloud.httpx.stream = httpx.Client(
-    transport=httpx.MockTransport(lambda req: httpx.Response(401, json={"error": {"message": "bad key"}}))
+    transport=httpx.MockTransport(lambda req: httpx.Response(401, json={"error": {"message": "bad key sk-abcdefgh1234"}}))
 ).stream
 try:
-    list(cloud.chat_stream("openai", []))
+    list(cloud.chat_stream(cloud.config(uid, "openai"), []))
     raise AssertionError("expected CloudError")
 except cloud.CloudError as exc:
-    assert "bad key" in str(exc)
+    assert "bad key" in str(exc) and "sk-abcdefgh1234" not in str(exc)  # an echoed key is scrubbed
 
 print("ok")

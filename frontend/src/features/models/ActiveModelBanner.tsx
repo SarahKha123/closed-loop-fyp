@@ -1,32 +1,49 @@
 import { useModels } from "../../context/ModelsContext"
 import { card } from "../../lib/ui"
+import type { ResolvedModel } from "./types"
 
-/** What answers the Advisor right now: the model id, its provider, and the backend's reason. */
+/** Two rows: what answers this user's chat (their own key), and what writes the live insights (the server's key). */
 export function ActiveModelBanner() {
   const { active, loading, error } = useModels()
-  const dot = loading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"
-  // A ready model needs no explanation; only say why when nothing can answer.
-  const reason = error ? `Couldn't reach the backend: ${error}` : active && !active.resolved ? active.reason : null
 
   return (
-    <div data-tour="model-banner" className={`${card} flex flex-wrap items-center gap-x-4 gap-y-1 p-4`}>
+    <div data-tour="model-banner" className={`${card} divide-y divide-line`}>
+      {error ? (
+        <p className="p-4 text-base text-critical-text">Couldn't reach the backend: {error}</p>
+      ) : (
+        <>
+          <Row title="Your Advisor chat" detail="Your own key" model={active} loading={loading} large />
+          <Row title="Live insights" detail="The server's key, shared by everyone" model={active?.insights ?? null} loading={loading} />
+        </>
+      )}
+    </div>
+  )
+}
+
+function Row({ title, detail, model, loading, large }: {
+  title: string
+  detail: string
+  model: ResolvedModel | null
+  loading: boolean
+  large?: boolean
+}) {
+  const dot = loading ? "bg-ink-faint" : model?.resolved ? "bg-good" : "bg-critical"
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
       <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} />
       <div className="min-w-0 grow">
-        <div className="text-sm text-ink-muted">Advisor is using</div>
-        {active?.tag ? (
-          <div className="truncate font-mono text-lg font-semibold text-ink">{active.tag}</div>
+        <div className="text-sm text-ink-muted">
+          {title} <span className="text-ink-faint">· {detail}</span>
+        </div>
+        {model?.tag ? (
+          <div className={`truncate font-mono font-semibold text-ink ${large ? "text-lg" : "text-base"}`}>{model.tag}</div>
         ) : (
-          <div className="text-lg font-semibold text-ink">{loading ? "…" : "No model yet"}</div>
+          <div className={`font-semibold text-ink ${large ? "text-lg" : "text-base"}`}>{loading ? "…" : "Not set up"}</div>
         )}
       </div>
       <div className="min-w-0 text-left @3xl:text-right">
-        {active?.label && (
-          <div className="text-base font-medium text-ink">
-            {active.label}
-            {active.managed && <span className="font-normal text-ink-muted"> · set by server</span>}
-          </div>
-        )}
-        {reason && <div className="text-sm text-ink-muted">{reason}</div>}
+        {model?.label && <div className="text-base font-medium text-ink">{model.label}</div>}
+        {model && !model.resolved && <div className="text-sm text-ink-muted">{model.reason}</div>}
       </div>
     </div>
   )

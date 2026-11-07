@@ -20,3 +20,15 @@ def fresh_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(paths, "DB_PATH", tmp_path / "closed_loop.db")
     db.init_db()
     return paths.DB_PATH
+
+
+@pytest.fixture(autouse=True)
+def signed_in():
+    """Every API test runs as a signed-in user (id 1); tests/test_access.py checks the guard itself."""
+    from app.api.auth import current_user
+    from app.main import app
+
+    app.dependency_overrides[current_user] = lambda: {"id": 1, "username": "tester", "displayName": "Tester",
+                                                      "email": None, "avatarUrl": None}
+    yield
+    app.dependency_overrides.pop(current_user, None)

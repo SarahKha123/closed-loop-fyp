@@ -374,8 +374,10 @@ warning or dropped. Every check is logged in `tbl_Insight`.
 
 **3.5.4 Cloud models.** One client for every provider: OpenAI, Anthropic,
 Gemini, Groq, OpenRouter, DeepSeek and Ollama Cloud all speak the
-OpenAI-compatible chat API. The active provider and model are chosen on the AI
-model page, or fixed by environment variables on the deployed server.
+OpenAI-compatible chat API. Each signed-in user chats on their own key and
+model, saved encrypted against their account on the AI model page; the live
+insights, which belong to no one user, use the server's key from its
+environment.
 *(Already implemented in this repo.)*
 
 **3.5.5 Chat with actions.** The Advisor answers questions using the same

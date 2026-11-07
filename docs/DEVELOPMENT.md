@@ -66,14 +66,15 @@ shell wins over `.env`.
 |---|---|---|
 | `BACKEND_PORT` | `8000` | the API (and the UI with `start`) |
 | `FRONTEND_PORT` | `5173` | the Vite dev server (`dev` only) |
-| `CLOUD_PROVIDER` | *(empty)* | fixes the Advisor's provider (`groq`, `openai`, …); the AI model page then can't change it |
-| `CLOUD_API_KEY` / `CLOUD_MODEL` / `CLOUD_BASE_URL` | *(empty)* | that provider's key, model and URL; each overrides `config/cloud.json` |
+| `CLOUD_PROVIDER` / `CLOUD_API_KEY` / `CLOUD_MODEL` / `CLOUD_BASE_URL` | *(empty)* | the server key: writes the live insights (never used for chat); insights pause without it |
+| `KEY_ENCRYPTION_SECRET` | *(empty: a random `config/secret.key`)* | encrypts users' saved keys; keep it stable or they become unreadable |
+| `ALLOW_SIGNUP` | `true` | `false` on a deployed server: no sign-up, no new Google accounts, no demo account |
 | `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS` | `2` | CPU threads for the ML predictor |
 | `CLOSED_LOOP_CONFIG_DIR` | repo `config/` | where the config files and the database live |
 | `CLOSED_LOOP_STATIC_DIR` | *(unset)* | serve a built UI from this folder (`start` sets `frontend/dist`) |
 
-Set the `CLOUD_*` variables on a deployed server so no key file has to live
-there. Locally, leave them empty and use the AI model page.
+Each user's own key (for their chat) is saved on the AI model page, encrypted
+in the database. The `CLOUD_*` server key is only for live insights.
 
 ### Runtime settings (`config/settings.json`)
 
@@ -184,9 +185,10 @@ backend/.venv/bin/python eval/system_perf.py --yes [--speed 0.2]          # Part
 - **`run.py`** calls the app's own insight path (generate → grounding check →
   one retry) for each model × scenario × validator setting × repeat, one CSV
   row each, plus `<name>.config.json` (models, prompt version). Re-running
-  with the same `--out` resumes. Models are `cloud:<provider>` (the model
-  saved on the AI model page) or `cloud:<provider>/<model>`, so one key can
-  compare a small and a large model. Use `--limit` and `--repeats 1` for a
+  with the same `--out` resumes. Models are `cloud:<provider>` or
+  `cloud:<provider>/<model>`, so one key can compare a small and a large
+  model. Keys come from the `CLOUD_*` server key, or with `--user <username>`
+  from that account's keys saved on the AI model page. Use `--limit` and `--repeats 1` for a
   quick pass.
 - **`analyse.py`** writes `<name>.report.md` (grounding accuracy,
   hallucination rate, regeneration rate, coverage, latency) and two charts:
@@ -264,7 +266,7 @@ and `TRIGGER` in `AdvisorPanel.tsx`.
 | `[vite] http proxy error … ECONNREFUSED 127.0.0.1:8000` | the backend isn't answering. `dev` waits for it now, so this only appears if the backend stopped or restarted (a reload after a backend edit) — check its output above |
 | `the backend exited during startup` | the backend's error is printed just above; often port 8000 is taken (`BACKEND_PORT=8001 ./closed-loop.sh dev`) |
 | `backend/.venv missing or broken` | run `./closed-loop.sh setup` |
-| The Advisor says no model can answer | no provider is ready: add a key and a model on **AI model** and press *Use* (or set `CLOUD_*` in `.env`) |
+| The Advisor says no model can answer | chat: add your own key and model on **AI model** and press *Use*. Live insights paused: set `CLOUD_PROVIDER` / `CLOUD_API_KEY` / `CLOUD_MODEL` in `.env` |
 | `reset-db` refuses | the database holds study logs — export them, then `reset-db --force` |
 
 ## Conventions
@@ -280,8 +282,8 @@ and `TRIGGER` in `AdvisorPanel.tsx`.
 - **Update `docs/API.md`** in the same change as any endpoint change.
 - **Never edit `Daedalus/`.** It's a reference project; read it for
   patterns, but all changes go in this repo's own code.
-- **Secrets** go in `config/cloud.json` (gitignored), never in `.env.example`
-  or the code. Never commit the database or the trained models.
+- **Secrets** go in `.env` (the server key, `KEY_ENCRYPTION_SECRET`) or, for
+  users' keys, the database (encrypted); never in `.env.example` or the code. Never commit the database or the trained models.
 - **Requirements are unpinned.** `requirements*.txt` list package names only,
   so the project keeps installing in future; anything version-sensitive (the
   trained models) is rebuilt instead.

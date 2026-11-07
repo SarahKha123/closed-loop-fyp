@@ -11,6 +11,9 @@ const UNREACHABLE = "could not reach the backend"
 /** 502/504 come from the dev proxy when the backend isn't running: say that, not "HTTP 502". */
 const statusText = (status: number) => (status === 502 || status === 504 ? UNREACHABLE : `HTTP ${status}`)
 
+/** Fired when the backend says the session is gone (401), so AuthContext shows the sign-in page. */
+export const SIGNED_OUT_EVENT = "closed-loop:signed-out"
+
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number
 }
@@ -37,6 +40,7 @@ export async function request<T>(path: string, init?: RequestOptions): Promise<T
   }
 
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/api/auth/")) window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
     let detail = statusText(res.status)
     try {
       const body = (await res.json()) as { detail?: unknown }
@@ -73,6 +77,7 @@ export function streamEvents<E>(path: string, body: unknown, onEvent: (event: E)
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
     })
+    if (res.status === 401) window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
     if (!res.ok) throw new Error(res.status === 502 || res.status === 504 ? UNREACHABLE : `HTTP ${res.status}: ${await res.text()}`)
     if (!res.body) throw new Error("the backend sent no response body")
 

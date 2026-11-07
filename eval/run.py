@@ -5,11 +5,12 @@ one-retry path the app uses — on a frozen scenario snapshot, and appends one
 CSV row. Every final text is grounding-checked afterwards too, so runs with the
 validator *off* still get a hallucination score (the check just doesn't act).
 
-    backend/.venv/bin/python eval/run.py --models cloud:groq,cloud:ollama --validator both
+    backend/.venv/bin/python eval/run.py --models cloud:groq/llama-3.1-8b-instant,cloud:groq/llama-3.3-70b-versatile
 
-Models: `cloud:<provider>`, configured on the Models page (uses its saved
-model), or `cloud:<provider>/<model>` to override the model for this run, so
-one key can compare a small and a large model. Output: eval/results/<name>.csv
+Models: `cloud:<provider>` (the saved model) or `cloud:<provider>/<model>`, so
+one key can compare a small and a large model. Keys come from the server's
+CLOUD_* variables (`.env`), or with `--user <username>` from that account's
+keys saved on the AI model page (any of its providers). Output: eval/results/<name>.csv
 plus <name>.config.json (models, prompt version). Re-running with the same
 --out resumes: finished rows are skipped, failed ones retried. Each model gets
 one discarded warm-up call first, so connection setup isn't counted.
@@ -37,7 +38,7 @@ for line in (ROOT / ".env").read_text().splitlines() if (ROOT / ".env").exists()
     if sep and key.strip() and not key.lstrip().startswith("#") and value.strip():
         os.environ.setdefault(key.strip(), value.strip())
 
-from app.services import advisor, cloud, grounding, insights, prompts  # noqa: E402
+from app.services import advisor, cloud, grounding, insights, prompts, repo  # noqa: E402
 
 SCENARIOS = ROOT / "eval" / "scenarios"
 RESULTS = ROOT / "eval" / "results"
@@ -46,17 +47,18 @@ FIELDS = ["model", "mode", "scenario", "category", "validator", "repeat", "promp
           "firstTokenMs", "totalMs", "text", "error", "at"]
 
 
-def target_for(spec: str) -> advisor.Target:
+def target_for(spec: str, user_id: int | None) -> advisor.Target:
     if not spec.startswith("cloud:"):
         sys.exit(f"{spec!r}: models are cloud:<provider> or cloud:<provider>/<model>")
     provider, _, model = spec.removeprefix("cloud:").partition("/")
     if provider not in cloud.PROVIDERS:
         sys.exit(f"unknown cloud provider {provider!r}; one of {', '.join(cloud.PROVIDERS)}")
-    cfg = cloud.get(provider)
+    cfg = cloud.get(user_id, provider)
     model = model or cfg["model"]
     if not (cfg["api_key"] and model):
-        sys.exit(f"{provider} needs a key and a model — set them on the Models page first")
-    return advisor.Target(label=f"{provider}/{model}", provider=provider, model=model)
+        where = "that account's AI model page" if user_id else "CLOUD_PROVIDER / CLOUD_API_KEY in .env"
+        sys.exit(f"{provider} needs a key and a model — set them in {where}")
+    return advisor.Target(label=f"{provider}/{model}", provider=provider, user_id=user_id, model=model)
 
 
 def coverage(text: str, expected: list[dict]) -> tuple[bool, bool]:
@@ -98,12 +100,19 @@ def main() -> None:
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--limit", type=int, help="only the first N scenarios (quick pass)")
     ap.add_argument("--out", help="results name (default: a timestamp); an existing name resumes")
+    ap.add_argument("--user", help="use this account's saved keys instead of the server's CLOUD_* key")
     args = ap.parse_args()
 
     scenarios = [json.loads(p.read_text()) for p in sorted(SCENARIOS.glob("*.json"))][: args.limit]
     if not scenarios:
         sys.exit("no scenarios — run eval/make_scenarios.py first")
-    targets = [target_for(m.strip()) for m in args.models.split(",") if m.strip()]
+    user_id = None
+    if args.user:
+        found = repo.user_with_hash(args.user)
+        if not found:
+            sys.exit(f"no user {args.user!r}")
+        user_id = found[0]["id"]
+    targets = [target_for(m.strip(), user_id) for m in args.models.split(",") if m.strip()]
     validators = ["on", "off"] if args.validator == "both" else [args.validator]
 
     RESULTS.mkdir(parents=True, exist_ok=True)

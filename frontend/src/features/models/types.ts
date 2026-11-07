@@ -1,8 +1,8 @@
 // Shapes of the model-related backend responses. Field names match the
 // JSON exactly — see docs/API.md for each endpoint.
 
-/** GET /api/models/active — which cloud provider answers, and why (or why not). */
-export interface ActiveModel {
+/** Which provider answers, and why (or why not). */
+export interface ResolvedModel {
   provider: string | null
   /** The provider's display name. */
   label: string | null
@@ -10,8 +10,11 @@ export interface ActiveModel {
   tag: string | null
   resolved: boolean
   reason: string
-  /** Fixed by the server's CLOUD_PROVIDER environment variable; can't be changed here. */
-  managed: boolean
+}
+
+/** GET /api/models/active — the signed-in user's chat model (their own key), plus the server's model for live insights. */
+export interface ActiveModel extends ResolvedModel {
+  insights: ResolvedModel
 }
 
 /** GET /api/cloud — one provider's settings. Never includes the key itself. */
@@ -25,5 +28,4 @@ export interface CloudProvider {
   has_key: boolean
   key_hint: string | null
   ready: boolean
-  managed: boolean
 }

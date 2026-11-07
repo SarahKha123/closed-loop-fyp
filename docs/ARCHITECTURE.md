@@ -13,11 +13,11 @@
     │                              ▼
     │                       cloud provider API (OpenAI-compatible /chat/completions)
     │
-    └── config/   model_config.json   which cloud provider the Advisor uses (CLOUD_PROVIDER overrides)
-                  study_scenarios.json the user-study task sets A and B (committed)
+    └── config/   study_scenarios.json the user-study task sets A and B (committed)
                   settings.json       runtime toggles (insights, grounding, monitor, chat, study)
-                  cloud.json          cloud API keys and models (gitignored, 0600; CLOUD_* env overrides)
-                  closed_loop.db      SQLite: readings, predictions, work orders, insights, study log (gitignored)
+                  closed_loop.db      SQLite: readings, predictions, work orders, insights, study log,
+                                      users and their encrypted cloud keys (gitignored)
+                  secret.key          encrypts those keys when KEY_ENCRYPTION_SECRET isn't set (gitignored, 0600)
 ```
 
 Everything runs directly on the machine — no containers. `./closed-loop.sh
@@ -125,6 +125,7 @@ scoring share one feature implementation. See [`backend/ml/README.md`](../backen
 | `tbl_WorkOrderOutcome` | closed work order: what the technician found, the action, whether it matched the prediction, and a copy of that prediction (cycle, condition, failure probability, top driver). Survives replay resets | work_orders |
 | `tbl_StudyLog` | study task: participant, condition, task set and id, start/end, duration, answer, correct, chat turns, insights shown. Survives replay resets | study |
 | `tbl_User`, `tbl_Session`, `tbl_AuthEvent` | accounts (scrypt password hashes, or a Google `sub`), sessions (only the token's SHA-256, with an expiry) and the sign-in audit log | auth, google_auth |
+| `tbl_UserCloud`, `tbl_UserModel` | each user's cloud providers (key encrypted, model, base URL) and which one answers their chat | cloud, model_config |
 
 Seeking the replay back deletes later readings (predictions cascade) and
 insights, so the timeline stays consistent. A replay reset empties every
@@ -133,15 +134,18 @@ refuses to delete a database that holds study log rows unless given `--force`.
 
 ### Model selection
 
-`config/model_config.json` names one provider; that provider's key, model and
-base URL are in `config/cloud.json`. On a deployed server `CLOUD_PROVIDER`
-(with `CLOUD_API_KEY`, `CLOUD_MODEL`, `CLOUD_BASE_URL`) overrides both files,
-and the choice is reported as `managed` so the AI model page can't change it.
+Two models, never mixed:
 
-`model_config.resolve()` says what answers and, when nothing can, why (no
-provider chosen, no key, no model). `/api/models/active`, `/api/models/select`,
-the chat and the insight engine all go through it. Files from before the
-cloud-only change (`mode: auto | pinned`) read as "no provider chosen".
+| | Whose key | Where it lives | Picked by |
+|---|---|---|---|
+| **Chat** | the signed-in user's own | `tbl_UserCloud` (Fernet-encrypted) | that user, on the AI model page (`tbl_UserModel`) |
+| **Live insights** | the server's | `CLOUD_PROVIDER`, `CLOUD_API_KEY`, `CLOUD_MODEL` (+ `CLOUD_BASE_URL`) in the environment | whoever deploys it |
+
+A user without a key of their own can't chat on the server's key, and
+insights never use a user's key. `model_config.resolve(user_id)` (or
+`resolve(None)` for insights) says what answers and, when nothing can, why.
+`advisor.Target` carries the `user_id`, and `cloud.config()` decrypts the key
+only for the call that uses it.
 
 ### Flow: an insight
 
@@ -229,17 +233,29 @@ dialog; in the `dashboard_ai` condition the Advisor is pinned open, in
 
 ### Flow: first run without a model
 
-`NoModelDialog` opens when `/api/models/active` can't resolve a model and the
-provider isn't set by the server. It explains that the Advisor needs a cloud
-key and links to the AI model page. Dismissed per browser session; never in
+`NoModelDialog` opens when the signed-in user's chat can't resolve a model.
+It explains that chat uses their own key and links to the AI model page. Dismissed per browser session; never in
 study mode or on the AI model page itself.
 
 ### Secrets
 
-Cloud keys are written to `config/cloud.json`, which is gitignored and saved
-with owner-only permissions (0600). No response ever contains a key, only
-`key_hint` (the last four characters). Cloud models receive the Advisor's
-prompt, including the current readings, and the AI model page says so.
+- **Every API route needs a session** except `/api/health` and `/api/auth/*`:
+  `main.py` puts `api/auth.current_user` on every other router, so the
+  sign-in page is not the only guard. A `401` anywhere sends the frontend
+  back to the sign-in page.
+- **Users' keys are encrypted at rest** (Fernet, keyed from
+  `KEY_ENCRYPTION_SECRET`, or a random `config/secret.key` made once with
+  0600). A copied database alone reveals no key. If the secret changes, saved
+  keys read as "no key" and users paste them again.
+- **No response ever contains a key**, only `key_hint` (the last four
+  characters); a key a provider echoes in an error message is scrubbed.
+- **The server key** lives only in the environment and is used only by the
+  insight engine.
+- **Accounts:** `ALLOW_SIGNUP=false` on a deployed server closes sign-up and
+  first-time Google sign-ins and skips the demo account; failed sign-ins are
+  limited to 10 per IP per 15 minutes.
+- Cloud models receive the Advisor's prompt, including the current readings,
+  and the AI model page says so.
 
 ---
 

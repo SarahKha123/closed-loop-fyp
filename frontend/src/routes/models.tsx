@@ -15,7 +15,7 @@ function ModelsView() {
       <div className="flex flex-col gap-4">
         <PageHeader
           title="AI model"
-          subtitle="The cloud model that writes the Advisor's insights and answers its chat, and how the Advisor behaves."
+          subtitle="The cloud models behind the Advisor, your own API keys, and how the Advisor behaves."
         />
         <ActiveModelBanner />
       </div>
@@ -23,12 +23,12 @@ function ModelsView() {
       <section aria-labelledby="providers-title" className="flex flex-col gap-2">
         <div>
           <h2 id="providers-title" className="text-lg font-semibold text-ink">
-            Providers
+            Your API keys
           </h2>
           <p className="max-w-[70ch] text-sm text-ink-muted">
-            Add a key for one, test it, then use it. Keys stay on the server in{" "}
-            <code className="font-mono">config/cloud.json</code> and never come back to the browser. Each answer sends
-            the current readings to the provider.
+            Add a key for one provider, test it, then use it for your chat. Keys are linked to your account, stored
+            encrypted on the server, and never sent back to the browser; nobody else's chat can use them. Each answer
+            sends the current readings to the provider.
           </p>
         </div>
         <ProviderList />

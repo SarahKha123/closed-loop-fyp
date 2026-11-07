@@ -8,7 +8,6 @@ import type { CloudProvider } from "./types"
 
 /** Every provider as one row of a divided list; a row opens to its key, model and URL. */
 export function ProviderList() {
-  const { active } = useModels()
   const [providers, setProviders] = useState<CloudProvider[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
@@ -22,12 +21,6 @@ export function ProviderList() {
 
   return (
     <div data-tour="providers" className={`${card} divide-y divide-line`}>
-      {active?.managed && (
-        <p className="px-4 py-3 text-sm text-ink-muted">
-          This server sets the provider with <code className="font-mono">CLOUD_PROVIDER</code>. Change it in the
-          deployment's environment, not here.
-        </p>
-      )}
       {error && <p className="px-4 py-3 text-base text-critical-text">Couldn't load providers: {error}</p>}
       {!providers && !error && <p className="px-4 py-3 text-base text-ink-faint">Loading providers…</p>}
       {providers?.map((p) => (
@@ -43,11 +36,10 @@ export function ProviderList() {
   )
 }
 
-const rank = (p: CloudProvider) => (p.managed ? 0 : p.ready ? 1 : p.has_key ? 2 : 3)
+const rank = (p: CloudProvider) => (p.ready ? 0 : p.has_key ? 1 : 2)
 
 /** A pill only where it says something: an untouched provider gets none, so eight rows don't shout "not set up". */
 function status(p: CloudProvider, inUse: boolean): { text: string; tone: string } | null {
-  if (p.managed) return { text: "Set by server", tone: "bg-surface-3 text-ink-muted" }
   if (inUse) return { text: "In use", tone: "bg-accent-bg text-accent-text" }
   if (p.ready) return { text: "Ready", tone: "bg-good-bg text-good-text" }
   if (p.has_key) return { text: "Needs a model", tone: "bg-warning-bg text-warning-text" }
@@ -69,7 +61,6 @@ function ProviderRow({
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
   const inUse = active?.provider === p.id
-  const lockedOut = Boolean(active?.managed) && !inUse
   const s = status(p, inUse)
   const formId = useId()
 
@@ -104,13 +95,13 @@ function ProviderRow({
           </span>
         </button>
         {s && <span className={`rounded-full px-2 py-0.5 text-sm font-medium whitespace-nowrap ${s.tone}`}>{s.text}</span>}
-        {p.ready && !inUse && !lockedOut && (
+        {p.ready && !inUse && (
           <Button size="sm" disabled={busy} onClick={() => void run(async () => selectProvider(p.id))}>
             Use
           </Button>
         )}
         <Button size="sm" variant="ghost" aria-expanded={open} aria-controls={formId} onClick={onToggle}>
-          {open ? "Close" : p.has_key || p.managed ? "Edit" : "Set up"}
+          {open ? "Close" : p.has_key ? "Edit" : "Set up"}
         </Button>
       </div>
       {note && !open && (
@@ -187,7 +178,7 @@ function ProviderForm({
       const ok = await confirmAction({
         title: `Remove the ${p.label} key?`,
         body: `The saved API key and model for ${p.label} are deleted. You will need to paste the key again to use it.${
-          inUse ? " The Advisor is using it now, so insights and chat stop until you choose another provider." : ""
+          inUse ? " Your Advisor chat uses it now, so it stops until you choose another provider." : ""
         }`,
         confirmLabel: "Remove key",
       })
@@ -198,16 +189,6 @@ function ProviderForm({
       setNote(null)
       await onSaved(r.providers)
     })
-
-  if (p.managed) {
-    return (
-      <div id={id} className="animate-page-in bg-surface-2 px-4 py-4 text-sm text-ink-muted">
-        Key, model and URL come from the server's <code className="font-mono">CLOUD_API_KEY</code>,{" "}
-        <code className="font-mono">CLOUD_MODEL</code> and <code className="font-mono">CLOUD_BASE_URL</code>.
-        {p.has_key && <> The key ends in <span className="font-mono">{p.key_hint}</span>.</>}
-      </div>
-    )
-  }
 
   return (
     <form

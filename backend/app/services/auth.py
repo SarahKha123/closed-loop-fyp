@@ -6,12 +6,18 @@ database stores only its SHA-256, so a leaked database can't be replayed as
 cookies. Sessions expire after SESSION_TTL_DAYS (default 7). Every signup,
 login, failed login and logout is recorded with the client's IP and user agent.
 
-Not production-grade yet: no rate limiting. Nothing in the API requires a login
-— the dashboard asks for one, but it identifies the person, it doesn't guard data.
+Every API route except /api/auth and /api/health needs a signed-in session
+(api/auth.py `current_user`). Failed sign-ins are rate-limited per IP
+(MAX_FAILED_LOGINS in LOGIN_WINDOW).
+
+`ALLOW_SIGNUP` (default true) controls new accounts: set it to false on a
+deployed server and both the sign-up form and first-time Google sign-ins are
+refused; add people with the CLI below. Existing accounts still sign in.
 
 Passwords are stored as scrypt hashes (`scrypt$<salt hex>$<hash hex>`), never
-in plain text. On first start a demo account is created (DEMO_USERNAME /
-DEMO_PASSWORD) so there is always someone to log in as.
+in plain text. While sign-up is open, the first start creates a demo account
+(DEMO_USERNAME / DEMO_PASSWORD) so there is someone to log in as; with sign-up
+closed it never exists, so a deployed server has no known password.
 
 Add or reset accounts from the command line (from backend/):
 
@@ -27,7 +33,7 @@ import hmac
 import os
 import secrets
 import sqlite3
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import repo
@@ -38,6 +44,14 @@ DEMO_PASSWORD = "demo"
 DEMO_NAME = "Demo Engineer"
 
 _SCRYPT = {"n": 2**14, "r": 8, "p": 1}
+
+MAX_FAILED_LOGINS = 10
+LOGIN_WINDOW = timedelta(minutes=15)
+
+
+def signup_allowed() -> bool:
+    """ALLOW_SIGNUP, default true. False on a deployed server: no new accounts except from the CLI."""
+    return os.environ.get("ALLOW_SIGNUP", "true").strip().lower() not in ("0", "false", "no")
 
 
 def session_ttl() -> timedelta:
@@ -60,6 +74,10 @@ def sha256(value: str) -> str:
 
 class AuthError(ValueError):
     """A request the auth layer refuses (taken username, empty password, …)."""
+
+
+class TooManyAttempts(AuthError):
+    """Too many failed sign-ins from this IP; wait for the window to pass."""
 
 
 def hash_password(password: str) -> str:
@@ -90,13 +108,19 @@ def add_user(username: str, display_name: str, password: str) -> dict[str, Any]:
 
 
 def ensure_demo_user() -> None:
-    """Create the demo account if there are no users at all. Safe to call every start."""
-    if repo.user_count() == 0:
+    """Create the demo account if sign-up is open and there are no users at all. Safe to call every start."""
+    if signup_allowed() and repo.user_count() == 0:
         add_user(DEMO_USERNAME, DEMO_NAME, DEMO_PASSWORD)
 
 
 def login(username: str, password: str, client: repo.Client = (None, None)) -> tuple[str, dict[str, Any]] | None:
-    """A new session token and the user, or None for a wrong username or password (audited either way)."""
+    """A new session token and the user, or None for a wrong username or password (audited either way).
+
+    Raises TooManyAttempts after MAX_FAILED_LOGINS failures from this IP within LOGIN_WINDOW.
+    """
+    since = (datetime.now(timezone.utc) - LOGIN_WINDOW).isoformat(timespec="seconds")
+    if repo.failed_logins_since(client[0], since) >= MAX_FAILED_LOGINS:
+        raise TooManyAttempts(f"Too many failed sign-ins. Try again in {int(LOGIN_WINDOW.total_seconds() // 60)} minutes.")
     found = repo.user_with_hash(username.strip())
     if found is None:
         # Hash anyway, so a wrong username takes as long as a wrong password.

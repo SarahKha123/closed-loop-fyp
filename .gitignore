@@ -39,6 +39,8 @@ backend/__pycache__
 
 # Cloud API keys (written by the Models page)
 config/cloud.json
+# Encrypts users' saved API keys when KEY_ENCRYPTION_SECRET isn't set
+config/secret.key
 config/.cloud-*.tmp
 
 # The app database. (backend/data/hydraulic_condition_monitoring_summary.csv IS committed: it is the dataset.)

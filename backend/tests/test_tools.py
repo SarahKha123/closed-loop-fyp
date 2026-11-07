@@ -45,7 +45,7 @@ def stub_rounds(monkeypatch):
     """advisor.tool_round returns the queued (text, calls) in order."""
     rounds: list[tuple[str, list[advisor.ToolCall]]] = []
     seen: list[list[dict]] = []
-    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="stub", provider="openai"))
+    monkeypatch.setattr(advisor, "choose", lambda user_id=None: advisor.Target(label="stub", provider="openai"))
 
     def tool_round(target, messages, tool_defs):
         seen.append(list(messages))
@@ -90,7 +90,7 @@ def test_chat_endpoint_with_tools_and_confirm(fresh_db, stub_rounds):
 def test_model_without_tools_falls_back_to_streaming(fresh_db, monkeypatch):
     from app.main import app
 
-    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="tiny", provider="openai"))
+    monkeypatch.setattr(advisor, "choose", lambda user_id=None: advisor.Target(label="tiny", provider="openai"))
     monkeypatch.setattr(advisor, "NO_TOOLS", set())
 
     def refuse(*_):

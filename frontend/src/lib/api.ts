@@ -275,7 +275,7 @@ export const api = {
     request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
   closeWorkOrder: (id: string, outcome: OutcomeInput) =>
     request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify(outcome) }),
-  me: () => request<{ user: User | null; googleSignIn: boolean }>("/api/auth/me"),
+  me: () => request<{ user: User | null; googleSignIn: boolean; signupAllowed: boolean }>("/api/auth/me"),
   login: (username: string, password: string) =>
     request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, displayName: string, password: string) =>

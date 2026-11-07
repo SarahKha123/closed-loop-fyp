@@ -1,30 +1,39 @@
 """Cloud models for the Advisor, over the OpenAI-compatible chat API.
 
-Unlike Daedalus (cloud is an offline benchmark only there), this project lets
-the Advisor answer from a cloud model. Every provider listed speaks the
-OpenAI `/chat/completions` + `/models` shape, Anthropic and Gemini included
-via their compatibility endpoints, so one client covers them all.
+Every provider listed speaks the OpenAI `/chat/completions` + `/models` shape,
+Anthropic and Gemini included via their compatibility endpoints, so one client
+covers them all.
 
-Keys live in `config/cloud.json`, which is gitignored: the model choice in
-`model_config.json` is meant to be committed, a key never is. No response
-ever carries a key, only `key_hint` (its last four characters).
+Two kinds of key, never mixed:
 
-On a deployed server the environment wins: `CLOUD_PROVIDER` picks the provider
-and `CLOUD_API_KEY`, `CLOUD_MODEL`, `CLOUD_BASE_URL` (each optional) override
-that provider's stored settings, so no key file has to live on the host.
+- **Each user's own keys** answer that user's chat. They live in the database
+  (`tbl_UserCloud`), encrypted with Fernet under the server's
+  `KEY_ENCRYPTION_SECRET` (or a secret generated once into
+  `config/secret.key`, owner-only). The plain key exists only in memory for
+  the request that uses it; no response carries it, only `key_hint` (its
+  last four characters).
+- **The server key** writes the live insights, which belong to no one user:
+  `CLOUD_PROVIDER` + `CLOUD_API_KEY` + `CLOUD_MODEL` (+ `CLOUD_BASE_URL`), from
+  the environment only. It never reaches a browser either.
+
+`user_id=None` below means the server key.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
+import secrets
 import threading
 from collections.abc import Iterator
 from typing import Any
 
 import httpx
+from cryptography.fernet import Fernet, InvalidToken
 
-from . import jsonfile, paths
+from . import paths, repo
 
 # id → (label, default base URL, where to get a key)
 PROVIDERS: dict[str, tuple[str, str, str]] = {
@@ -42,46 +51,84 @@ PROVIDERS: dict[str, tuple[str, str, str]] = {
 CHAT_READ_TIMEOUT = 120.0
 TEST_TIMEOUT = 10.0
 
-_lock = threading.Lock()
+_secret_lock = threading.Lock()
 
 
 class CloudError(RuntimeError):
     pass
 
 
-def _read_all() -> dict[str, dict[str, Any]]:
-    return jsonfile.read(paths.CLOUD_CONFIG) or {}
+# ── encryption at rest ───────────────────────────────────────────────────────
 
 
-def _write_all(data: dict[str, dict[str, Any]]) -> None:
-    jsonfile.write_atomic(paths.CLOUD_CONFIG, data, private=True)
+def _fernet() -> Fernet:
+    """Fernet keyed by KEY_ENCRYPTION_SECRET, else by a random secret made once in config/secret.key.
+
+    If the secret changes or is lost, saved keys can't be decrypted: they read as "no key" and the
+    user pastes theirs again. Nothing else breaks.
+    """
+    secret = os.environ.get("KEY_ENCRYPTION_SECRET", "").strip()
+    if not secret:
+        with _secret_lock:
+            path = paths.CONFIG_DIR / "secret.key"
+            if not path.exists():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "w") as f:
+                    f.write(secrets.token_urlsafe(48))
+            secret = path.read_text().strip()
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest()))
+
+
+def _encrypt(key: str) -> str:
+    return _fernet().encrypt(key.encode()).decode()
+
+
+def _decrypt(token: str | None) -> str:
+    if not token:
+        return ""
+    try:
+        return _fernet().decrypt(token.encode()).decode()
+    except InvalidToken:
+        return ""  # encrypted under a different secret: unreadable, so treated as no key
+
+
+# ── settings ─────────────────────────────────────────────────────────────────
 
 
 def env_provider() -> str | None:
-    """The provider `CLOUD_PROVIDER` names, if it names a known one."""
+    """The server's provider, from `CLOUD_PROVIDER`, if it names a known one."""
     pid = os.environ.get("CLOUD_PROVIDER", "").strip().lower()
     return pid if pid in PROVIDERS else None
 
 
-def get(provider: str) -> dict[str, Any]:
-    """The settings for one provider, key included — never return this to a client."""
+def _check(provider: str) -> None:
     if provider not in PROVIDERS:
         raise CloudError(f"unknown provider {provider!r}")
-    stored = dict(_read_all().get(provider) or {})
-    if provider == env_provider():
-        for field in ("api_key", "model", "base_url"):
-            stored[field] = os.environ.get(f"CLOUD_{field.upper()}", "").strip() or stored.get(field)
+
+
+def get(user_id: int | None, provider: str) -> dict[str, Any]:
+    """One provider's settings, key decrypted — for calling the provider only, never for a response."""
+    _check(provider)
+    if user_id is None:
+        own = provider == env_provider()
+        stored = {f: os.environ.get(f"CLOUD_{f.upper()}", "").strip() if own else "" for f in ("api_key", "model", "base_url")}
+    else:
+        row = repo.user_clouds(user_id).get(provider) or {}
+        stored = {"api_key": _decrypt(row.get("api_key_enc")), "model": row.get("model") or "", "base_url": row.get("base_url") or ""}
     return {
-        "api_key": stored.get("api_key") or "",
-        "model": stored.get("model") or "",
-        "base_url": (stored.get("base_url") or PROVIDERS[provider][1]).rstrip("/"),
+        "provider": provider,
+        "api_key": stored["api_key"],
+        "model": stored["model"],
+        "base_url": (stored["base_url"] or PROVIDERS[provider][1]).rstrip("/"),
     }
 
 
-def public() -> list[dict[str, Any]]:
+def public(user_id: int) -> list[dict[str, Any]]:
+    """Every provider as this user has set it up. Safe to send: no key, only its last four characters."""
     out = []
     for pid, (label, default_url, docs) in PROVIDERS.items():
-        cfg = get(pid)
+        cfg = get(user_id, pid)
         key = cfg["api_key"]
         out.append({
             "id": pid,
@@ -93,32 +140,28 @@ def public() -> list[dict[str, Any]]:
             "has_key": bool(key),
             "key_hint": f"…{key[-4:]}" if len(key) >= 8 else ("set" if key else None),
             "ready": bool(key and cfg["model"] and cfg["base_url"]),
-            "managed": pid == env_provider(),
         })
     return out
 
 
-def save(provider: str, *, api_key: str | None, model: str | None, base_url: str | None) -> None:
-    """Update the fields given; `None` leaves a field as it was, "" clears it."""
-    if provider not in PROVIDERS:
-        raise CloudError(f"unknown provider {provider!r}")
+def save(user_id: int, provider: str, *, api_key: str | None, model: str | None, base_url: str | None) -> None:
+    """Update the fields given; `None` leaves a field as it was, "" clears it. The key is stored encrypted."""
+    _check(provider)
     if base_url and not base_url.startswith(("https://", "http://")):
         raise CloudError("base URL must start with https:// or http://")
-    with _lock:
-        data = _read_all()
-        entry = data.get(provider) or {}
-        for field, value in (("api_key", api_key), ("model", model), ("base_url", base_url)):
-            if value is not None:
-                entry[field] = value.strip()
-        data[provider] = entry
-        _write_all(data)
+    fields: dict[str, str | None] = {}
+    if api_key is not None:
+        fields["api_key_enc"] = _encrypt(api_key.strip()) if api_key.strip() else None
+    if model is not None:
+        fields["model"] = model.strip()
+    if base_url is not None:
+        fields["base_url"] = base_url.strip()
+    repo.save_user_cloud(user_id, provider, fields)
 
 
-def clear(provider: str) -> None:
-    with _lock:
-        data = _read_all()
-        data.pop(provider, None)
-        _write_all(data)
+def clear(user_id: int, provider: str) -> None:
+    _check(provider)
+    repo.delete_user_cloud(user_id, provider)
 
 
 def _headers(provider: str, key: str) -> dict[str, str]:
@@ -129,9 +172,22 @@ def _headers(provider: str, key: str) -> dict[str, str]:
     return headers
 
 
-def test(provider: str) -> list[str]:
+def _error(cfg: dict[str, Any], status: int, body: str, parsed: Any) -> CloudError:
+    """A provider's error as one readable line, with the key scrubbed if the provider echoed it."""
+    detail = body[:400]
+    try:
+        err = parsed().get("error")
+        detail = err.get("message", detail) if isinstance(err, dict) else str(err or detail)
+    except (ValueError, AttributeError):
+        pass
+    if cfg["api_key"]:
+        detail = detail.replace(cfg["api_key"], "[key]")
+    return CloudError(f"{PROVIDERS[cfg['provider']][0]}: {detail or f'HTTP {status}'}")
+
+
+def test(user_id: int, provider: str) -> list[str]:
     """`GET /models`: checks URL and key without spending tokens. Returns the model ids offered."""
-    cfg = get(provider)
+    cfg = get(user_id, provider)
     if not cfg["api_key"]:
         raise CloudError("no API key saved")
     if not cfg["base_url"]:
@@ -151,19 +207,21 @@ def test(provider: str) -> list[str]:
     return sorted(str(m.get("id")) for m in items if isinstance(m, dict) and m.get("id"))
 
 
-def _config(provider: str, model: str | None) -> dict[str, Any]:
+def config(user_id: int | None, provider: str, model: str | None = None) -> dict[str, Any]:
     """`get()`, with `model` (when given) in place of the saved one; raises if anything is missing."""
-    cfg = get(provider)
+    cfg = get(user_id, provider)
     cfg["model"] = model or cfg["model"]
     if not (cfg["api_key"] and cfg["model"] and cfg["base_url"]):
         raise CloudError(f"{PROVIDERS[provider][0]} is not fully configured (key, model and URL)")
     return cfg
 
 
-def chat_once(provider: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-              model: str | None = None) -> dict[str, Any]:
-    """One non-streamed reply that may call tools: `choices[0].message` (`tool_calls` arguments as JSON strings)."""
-    cfg = _config(provider, model)
+def chat_once(cfg: dict[str, Any], messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+    """One non-streamed reply that may call tools: `choices[0].message` (`tool_calls` arguments as JSON strings).
+
+    `cfg` comes from `config()`.
+    """
+    provider = cfg["provider"]
     try:
         r = httpx.post(
             f"{cfg['base_url']}/chat/completions",
@@ -174,22 +232,16 @@ def chat_once(provider: str, messages: list[dict[str, Any]], tools: list[dict[st
     except httpx.HTTPError as exc:
         raise CloudError(f"lost connection to {cfg['base_url']} ({exc.__class__.__name__})") from exc
     if r.status_code >= 400:
-        detail = r.text[:400]
-        try:
-            err = r.json().get("error")
-            detail = err.get("message", detail) if isinstance(err, dict) else str(err or detail)
-        except (ValueError, AttributeError):
-            pass
-        raise CloudError(f"{PROVIDERS[provider][0]}: {detail or f'HTTP {r.status_code}'}")
+        raise _error(cfg, r.status_code, r.text, r.json)
     try:
         return (r.json().get("choices") or [{}])[0].get("message") or {}
     except (ValueError, AttributeError, IndexError) as exc:
         raise CloudError(f"{PROVIDERS[provider][0]}: unreadable reply") from exc
 
 
-def chat_stream(provider: str, messages: list[dict[str, str]], model: str | None = None) -> Iterator[str]:
-    """Yield content deltas from `/chat/completions` with `stream: true`."""
-    cfg = _config(provider, model)
+def chat_stream(cfg: dict[str, Any], messages: list[dict[str, str]]) -> Iterator[str]:
+    """Yield content deltas from `/chat/completions` with `stream: true`. `cfg` comes from `config()`."""
+    provider = cfg["provider"]
     try:
         with httpx.stream(
             "POST",
@@ -200,13 +252,7 @@ def chat_stream(provider: str, messages: list[dict[str, str]], model: str | None
         ) as response:
             if response.status_code >= 400:
                 response.read()
-                detail = response.text[:400]
-                try:
-                    err = response.json().get("error")
-                    detail = err.get("message", detail) if isinstance(err, dict) else str(err or detail)
-                except (ValueError, AttributeError):
-                    pass
-                raise CloudError(f"{PROVIDERS[provider][0]}: {detail or f'HTTP {response.status_code}'}")
+                raise _error(cfg, response.status_code, response.text, response.json)
             for line in response.iter_lines():
                 if not line.startswith("data:"):
                     continue

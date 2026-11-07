@@ -4,6 +4,10 @@ Base URL: `http://localhost:8000` (`BACKEND_PORT`). With `./closed-loop.sh
 start` the dashboard is served from the same origin; with `dev` the frontend
 reaches it through Vite's `/api` proxy. Interactive docs are generated at `/docs`.
 
+**Every endpoint except `/api/health` and `/api/auth/*` needs a signed-in
+session cookie; without one it answers `401`** (the frontend then shows the
+sign-in page).
+
 Errors use FastAPI's shape, `{"detail": "human-readable reason"}`, with
 `400` for bad input, `404` for an unknown id, `409` when the state doesn't
 allow it yet, `502` when a model failed, and `503` when what's needed
@@ -23,27 +27,31 @@ frame is `data: {json}\n\n`.
 
 A session cookie (`closed_loop_session`, HttpOnly, `Secure` with `COOKIE_SECURE=true`). The database
 stores only the SHA-256 of its value; sessions expire after `SESSION_TTL_DAYS` (default 7). It identifies
-who is using the dashboard: the frontend shows its sign-in page until someone is signed in, but no other
-endpoint requires the cookie. Every signup, login, failed login and logout is recorded in
+who is using the dashboard, and every other endpoint requires it (`401` without). Every signup, login, failed login and logout is recorded in
 `tbl_AuthEvent` (with IP and user agent).
 
-Two ways in: a username and password (a `demo` / `demo` account is created on first start; people sign
-up from the sign-in page, or add accounts with
+Two ways in: a username and password (while `ALLOW_SIGNUP` is true, a `demo` / `demo` account is
+created on first start and people sign up from the sign-in page; either way, add accounts with
 `backend/.venv/bin/python -m app.services.auth add <username> "<Display Name>"`), or Google, when
 `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are set in `.env` (see docs/GOOGLE_AUTH_PORTABLE.md for the
 Google Cloud console setup). Google accounts are matched on Google's stable `sub`, never on email.
 
+`ALLOW_SIGNUP=false` (for a deployed server) closes new accounts: `register` answers `403`, a Google
+account signing in for the first time is sent back with `authError=signup`, and no demo account is made.
+After 10 failed sign-ins from one IP within 15 minutes, `login` answers `429` until the window passes.
+
 ### `GET /api/auth/me`
-`{"user": {"id": 1, "username": "demo", "displayName": "Demo Engineer", "email": null, "avatarUrl": null}, "googleSignIn": false}`;
-`user` is `null` when nobody is signed in. `googleSignIn` says whether to offer "Continue with Google".
+`{"user": {"id": 1, "username": "demo", "displayName": "Demo Engineer", "email": null, "avatarUrl": null}, "googleSignIn": false, "signupAllowed": true}`;
+`user` is `null` when nobody is signed in. `googleSignIn` says whether to offer "Continue with Google";
+`signupAllowed` whether to offer "Create an account".
 
 ### `POST /api/auth/login`
-Body `{"username": "demo", "password": "demo"}` → `{"user": {...}}` and sets the cookie. `401` if wrong.
+Body `{"username": "demo", "password": "demo"}` → `{"user": {...}}` and sets the cookie. `401` if wrong, `429` after too many failures.
 
 ### `POST /api/auth/register`
 Body `{"username": "sarah", "displayName": "Sarah Khalilah", "password": "…"}` (`displayName` optional,
 password at least 4 characters) → `{"user": {...}}`, already signed in (sets the cookie). `400` if the
-username is taken (usernames are case-insensitive).
+username is taken (usernames are case-insensitive), `403` while sign-up is closed.
 
 ### `POST /api/auth/logout`
 Ends the session and clears the cookie → `{"user": null}`.
@@ -63,26 +71,27 @@ signed in. Any failure → 302 to `/?authError=cancelled|state|exchange|token` a
 
 ## Model selection
 
-The Advisor answers from one cloud provider. On a deployed server
-`CLOUD_PROVIDER` (plus `CLOUD_API_KEY`, `CLOUD_MODEL`, `CLOUD_BASE_URL`) sets
-it instead, and the choice is then `managed`: it can't be changed here.
+Two models, never mixed. **Chat** answers from the signed-in user's own
+provider and key (no fallback to the server's). **Live insights**, which
+belong to no one user, use the server's key: `CLOUD_PROVIDER`,
+`CLOUD_API_KEY`, `CLOUD_MODEL` (+ `CLOUD_BASE_URL`) from the environment.
 
 ### `GET /api/models/active`
-What would answer right now, and why.
+The user's chat model, plus the insights model, each with why it can or can't answer.
 ```json
 {
-  "provider": "groq",              // null until one is chosen
+  "provider": "groq",              // null until the user picks one
   "label": "Groq",
   "tag": "llama-3.3-70b-versatile", // the provider's model id
-  "resolved": true,                // false: nothing can answer; `reason` says what's missing
+  "resolved": true,                // false: `reason` says what's missing
   "reason": "Answering from Groq.",
-  "managed": false                 // true when CLOUD_PROVIDER sets it
+  "insights": {"provider": "groq", "label": "Groq", "tag": "llama-3.1-8b-instant", "resolved": true, "reason": "…"}
 }
 ```
 
 ### `POST /api/models/select`
-Body `{"provider": "groq"}`. Returns the same object as `/active`. `400` for an
-unknown provider, or when `CLOUD_PROVIDER` is set.
+Body `{"provider": "groq"}`: the user's chat uses this provider. Returns the
+same object as `/active`. `400` for an unknown provider.
 
 ---
 
@@ -90,8 +99,9 @@ unknown provider, or when `CLOUD_PROVIDER` is set.
 
 Provider ids: `openai`, `anthropic`, `google`, `groq`, `openrouter`,
 `deepseek`, `ollama` (Ollama Cloud, `https://ollama.com/v1`), `custom`.
-**No response ever includes an API key.** For the provider `CLOUD_PROVIDER`
-names, the environment's key, model and URL override the saved ones.
+These are **the signed-in user's own** providers: each user sees and changes
+only theirs. Keys are stored Fernet-encrypted in `tbl_UserCloud` (under
+`KEY_ENCRYPTION_SECRET`) and **no response ever includes one**, only `key_hint`.
 
 ### `GET /api/cloud`
 ```json
@@ -106,8 +116,7 @@ names, the environment's key, model and URL override the saved ones.
       "model": "",
       "has_key": false,
       "key_hint": null,          // e.g. "…5678" once a key is saved
-      "ready": false,            // key + model + base URL all set
-      "managed": false           // set by CLOUD_PROVIDER; its values come from the environment
+      "ready": false             // key + model + base URL all set
     }
   ]
 }

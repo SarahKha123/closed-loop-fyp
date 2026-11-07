@@ -673,6 +673,58 @@ def auth_events(limit: int = 100) -> list[dict[str, Any]]:
              "ip": r["IP"], "createdAt": r["CreatedAt"]} for r in rows]
 
 
+def failed_logins_since(ip: str | None, since: str) -> int:
+    """Failed sign-ins from one IP since an ISO time (the rate limit in services/auth.py)."""
+    with db.read() as conn:
+        return int(conn.execute(
+            "SELECT COUNT(*) FROM tbl_AuthEvent WHERE Event = 'login_failed' AND IP IS ? AND CreatedAt >= ?", (ip, since),
+        ).fetchone()[0])
+
+
+def google_user_exists(sub: str) -> bool:
+    with db.read() as conn:
+        return conn.execute("SELECT 1 FROM tbl_User WHERE GoogleSub = ?", (sub,)).fetchone() is not None
+
+
+# ── per-user cloud keys (services/cloud.py does the encryption) ──────────────
+
+
+def user_clouds(user_id: int) -> dict[str, dict[str, str | None]]:
+    """provider → {api_key_enc, model, base_url}."""
+    with db.read() as conn:
+        rows = conn.execute("SELECT * FROM tbl_UserCloud WHERE UserID = ?", (user_id,)).fetchall()
+    return {r["Provider"]: {"api_key_enc": r["ApiKeyEnc"], "model": r["Model"], "base_url": r["BaseURL"]} for r in rows}
+
+
+def save_user_cloud(user_id: int, provider: str, fields: dict[str, str | None]) -> None:
+    """Upsert the given fields (api_key_enc, model, base_url); fields not given keep their value."""
+    cols = {"api_key_enc": "ApiKeyEnc", "model": "Model", "base_url": "BaseURL"}
+    with db.write() as conn:
+        conn.execute("INSERT OR IGNORE INTO tbl_UserCloud (UserID, Provider, UpdatedAt) VALUES (?, ?, ?)",
+                     (user_id, provider, _now()))
+        for field, value in fields.items():
+            conn.execute(f"UPDATE tbl_UserCloud SET {cols[field]} = ?, UpdatedAt = ? WHERE UserID = ? AND Provider = ?",  # noqa: S608 — fixed names
+                         (value, _now(), user_id, provider))
+
+
+def delete_user_cloud(user_id: int, provider: str) -> None:
+    with db.write() as conn:
+        conn.execute("DELETE FROM tbl_UserCloud WHERE UserID = ? AND Provider = ?", (user_id, provider))
+
+
+def user_model(user_id: int) -> str | None:
+    with db.read() as conn:
+        row = conn.execute("SELECT Provider FROM tbl_UserModel WHERE UserID = ?", (user_id,)).fetchone()
+    return row["Provider"] if row else None
+
+
+def set_user_model(user_id: int, provider: str) -> None:
+    with db.write() as conn:
+        conn.execute("INSERT INTO tbl_UserModel (UserID, Provider, UpdatedAt) VALUES (?, ?, ?)"
+                     " ON CONFLICT(UserID) DO UPDATE SET Provider = excluded.Provider, UpdatedAt = excluded.UpdatedAt",
+                     (user_id, provider, _now()))
+
+
 # ── maintenance ──────────────────────────────────────────────────────────────
 
 

@@ -4,7 +4,8 @@ The tables are the FYP1 interim report's four data contracts (Tables 3.1–3.3),
 plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4),
 `tbl_StudyLog` for the user study, `tbl_WorkOrderOutcome` for what technicians
 found when closing work orders, and `tbl_User` / `tbl_Session` / `tbl_AuthEvent`
-for sign-in (services/auth.py). Design notes:
+for sign-in (services/auth.py), and `tbl_UserCloud` / `tbl_UserModel` for each
+user's own cloud keys (services/cloud.py). Design notes:
 
 - One `tbl_SensorReading` row per *cycle*: the 17 sensors are shared by all
   four components, so the reading belongs to the cycle and the per-component
@@ -30,7 +31,7 @@ from contextlib import contextmanager
 
 from . import paths
 
-SCHEMA_VERSION = 2  # 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent (see _migrate)
+SCHEMA_VERSION = 3  # 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent; 3: per-user cloud keys (see _migrate)
 
 # component key (as in ml.labels.COMPONENTS) → seeded tbl_Equipment row.
 # Criticality is an assumption for the demo rig: the pump and valve sit on the
@@ -198,6 +199,25 @@ CREATE TABLE IF NOT EXISTS tbl_AuthEvent (
   UserAgent TEXT,
   CreatedAt TEXT NOT NULL
 );
+
+-- Each user's cloud providers (services/cloud.py). ApiKeyEnc is Fernet-encrypted with the server's
+-- KEY_ENCRYPTION_SECRET; the plain key is never stored and never returned to a browser.
+CREATE TABLE IF NOT EXISTS tbl_UserCloud (
+  UserID    INTEGER NOT NULL REFERENCES tbl_User(UserID) ON DELETE CASCADE,
+  Provider  TEXT NOT NULL,
+  ApiKeyEnc TEXT,
+  Model     TEXT,
+  BaseURL   TEXT,
+  UpdatedAt TEXT NOT NULL,
+  PRIMARY KEY (UserID, Provider)
+);
+
+-- Which of those providers answers that user's chat.
+CREATE TABLE IF NOT EXISTS tbl_UserModel (
+  UserID    INTEGER PRIMARY KEY REFERENCES tbl_User(UserID) ON DELETE CASCADE,
+  Provider  TEXT NOT NULL,
+  UpdatedAt TEXT NOT NULL
+);
 """
 
 _write_lock = threading.Lock()
@@ -267,6 +287,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_User_GoogleSub ON tbl_User(GoogleSub)")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_Session_UserID ON tbl_Session(UserID)")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_AuthEvent_CreatedAt ON tbl_AuthEvent(CreatedAt DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_AuthEvent_IP ON tbl_AuthEvent(IP, Event, CreatedAt)")
 
 
 def equipment_id(component: str) -> str:

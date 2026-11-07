@@ -1,6 +1,6 @@
-// First-run prompt when no cloud model can answer the Advisor yet. Points at the AI model page.
-// Shown until dismissed for the browser session; never in study mode, on the AI model page itself,
-// or when the server fixes the provider (CLOUD_PROVIDER) — nothing to set up from here then.
+// First-run prompt when this user has no key of their own yet, so their Advisor chat can't answer.
+// Points at the AI model page. Shown until dismissed for the browser session; never in study mode
+// or on the AI model page itself.
 
 import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { useState } from "react"
@@ -25,7 +25,7 @@ export function NoModelDialog({ studyMode }: { studyMode: boolean }) {
   const [dismissed, setDismissed] = useState(wasDismissed)
 
   // `active` is null when the backend itself is unreachable — a different problem, not this one.
-  if (dismissed || loading || studyMode || onModelsPage || !active || active.resolved || active.managed) return null
+  if (dismissed || loading || studyMode || onModelsPage || !active || active.resolved) return null
 
   const close = () => {
     try {
@@ -49,15 +49,15 @@ export function NoModelDialog({ studyMode }: { studyMode: boolean }) {
       >
         <div className="flex items-start gap-3">
           <h2 id="no-model-title" className="grow text-lg font-semibold text-ink">
-            Connect a language model
+            Add your API key
           </h2>
           <button type="button" onClick={close} className="text-ink-faint hover:text-ink" aria-label="Close">
             <Icon name="close" size={14} />
           </button>
         </div>
         <p id="no-model-body" className="mt-2 text-base text-ink-muted">
-          The Advisor's insights and chat come from a cloud model, and none is set up yet. Add an API key for one
-          provider; Groq and Google Gemini both offer free keys.
+          Your Advisor chat answers with your own cloud API key, linked to your account and stored encrypted on
+          the server. Add one for any provider; Groq and Google Gemini both offer free keys.
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={close}>

@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -106,17 +106,9 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
-app.include_router(notifications.router)
-app.include_router(models.router)
-app.include_router(chat.router)
-app.include_router(replay.router)
-app.include_router(stream.router)
-app.include_router(dashboard.router)
-app.include_router(work_orders.router)
-app.include_router(cloud.router)
-app.include_router(insights.router)
-app.include_router(settings.router)
-app.include_router(study.router)
+# Everything else needs a signed-in session: the sign-in page is not the only guard.
+for _router in (notifications, models, chat, replay, stream, dashboard, work_orders, cloud, insights, settings, study):
+    app.include_router(_router.router, dependencies=[Depends(auth.current_user)])
 
 
 _static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR") or "/nonexistent")

@@ -16,7 +16,7 @@ def stub_model(monkeypatch):
     """advisor.complete returns the queued replies in order; records the messages it got."""
     replies: list[str] = []
     calls: list[list[dict]] = []
-    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="stub", provider="openai"))
+    monkeypatch.setattr(advisor, "choose", lambda user_id=None: advisor.Target(label="stub", provider="openai"))
 
     def complete(target, messages):
         calls.append(list(messages))

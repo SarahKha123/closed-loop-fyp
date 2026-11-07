@@ -30,11 +30,12 @@ class NoTools(ReplyError):
 
 @dataclass(frozen=True)
 class Target:
-    """What will answer: a cloud provider id, labelled `provider/model`."""
+    """What will answer: a provider, labelled `provider/model`, on a user's own key or (user_id None) the server's."""
 
     label: str
     provider: str
-    model: str | None = None  # None: the provider's saved model. The evaluation sets it to compare models.
+    user_id: int | None = None
+    model: str | None = None  # None: the saved model. The evaluation sets it to compare models.
 
 
 # A long chat would eventually overflow a small model's context window (and
@@ -49,18 +50,22 @@ def trim_history(messages: list[dict[str, str]], max_turns: int = MAX_TURNS) -> 
     return system + rest[-2 * max_turns:]
 
 
-def choose() -> Target:
-    """The active model, as the Models page configured it. Raises NoModel if none can answer."""
-    resolved = model_config.resolve()
+def choose(user_id: int | None = None) -> Target:
+    """A user's chat model, or (None) the server's model for live insights. Raises NoModel if none can answer."""
+    resolved = model_config.resolve(user_id)
     if not resolved["resolved"]:
         raise NoModel(resolved["reason"])
-    return Target(label=f"{resolved['provider']}/{resolved['tag']}", provider=resolved["provider"])
+    return Target(label=f"{resolved['provider']}/{resolved['tag']}", provider=resolved["provider"], user_id=user_id)
+
+
+def _config(target: Target) -> dict[str, Any]:
+    return cloud.config(target.user_id, target.provider, target.model)
 
 
 def stream_reply(target: Target, messages: list[dict[str, str]]) -> Iterator[str]:
     """Text deltas of the reply. Raises ReplyError if the model fails."""
     try:
-        yield from cloud.chat_stream(target.provider, messages, model=target.model)
+        yield from cloud.chat_stream(_config(target), messages)
     except cloud.CloudError as exc:
         raise ReplyError(str(exc)) from exc
 
@@ -108,7 +113,7 @@ def tool_round(target: Target, messages: list[dict[str, Any]], tools: list[dict[
     Raises NoTools if the model can't take tools, ReplyError on any other failure.
     """
     try:
-        msg = cloud.chat_once(target.provider, messages, tools, model=target.model)
+        msg = cloud.chat_once(_config(target), messages, tools)
     except cloud.CloudError as exc:
         text = str(exc).lower()
         # "does not support tools", "No endpoints found that support tool use", …

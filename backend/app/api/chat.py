@@ -17,7 +17,8 @@ can't take actions (true when tools were simply off or not needed).
 
 Each finished answer is grounding-checked against the snapshot plus any tool
 results it was given, and logged to tbl_Insight with TriggerType "chat".
-A failure *before* streaming (no model available) is a plain 503 instead,
+The answer comes from the signed-in user's own provider and key, never the
+server's. A failure *before* streaming (no model available) is a plain 503 instead,
 because then there is still a status code to send.
 """
 
@@ -27,23 +28,25 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..services import advisor, grounding, prompts, repo, settings, snapshot, tools
+from .auth import current_user
 from .sse import sse_response
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 @router.post("")
-def chat(messages: list[dict[str, str]] = Body(..., embed=True)) -> StreamingResponse:
+def chat(messages: list[dict[str, str]] = Body(..., embed=True),
+         user: dict[str, Any] = Depends(current_user)) -> StreamingResponse:
     turns = [m for m in messages if m.get("role") in ("user", "assistant") and m.get("content", "").strip()]
     if not turns or turns[-1]["role"] != "user":
         raise HTTPException(status_code=400, detail="messages must end with a user message")
 
     try:
-        target = advisor.choose()
+        target = advisor.choose(user["id"])  # the user's own key; never the server's
     except advisor.NoModel as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

@@ -96,11 +96,11 @@ const TOURS: Record<string, Step[]> = {
     },
   ],
   models: [
-    { target: "model-banner", title: "The model answering now", body: "Which language model writes the Advisor's insights and answers, and whether it is ready." },
+    { target: "model-banner", title: "The model answering now", body: "Which model answers your chat (your own key) and which writes the live insights (the server's key), and whether each is ready." },
     {
       target: "providers",
-      title: "Cloud providers",
-      body: "Add an API key for a provider, test it, and use it. Each answer sends the current readings to that provider.",
+      title: "Your API keys",
+      body: "Your chat uses your own key: add one for a provider, test it, and use it. It is linked to your account and stored encrypted. Live insights use the server's key.",
     },
     {
       target: "advisor-settings",
