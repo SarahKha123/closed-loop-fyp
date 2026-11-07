@@ -10,6 +10,7 @@ import type { useTheme, Theme } from "../../lib/theme"
 import { inputCompact } from "../../lib/ui"
 import { Button } from "../ui/Button"
 import { Icon, type IconName } from "../ui/Icon"
+import { TOUR_EVENT } from "./Tour"
 
 const ROLE_KEY = "closed-loop:profile"
 
@@ -108,6 +109,18 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
             <button type="button" className={menuItem} onClick={() => setEditingRole(true)}>
               <Icon name="user" className="text-ink-muted" /> {role ? "Edit role" : "Add your role"}
             </button>
+            {!studyMode && (
+              <button
+                type="button"
+                className={menuItem}
+                onClick={() => {
+                  menu.current?.hidePopover()
+                  window.dispatchEvent(new Event(TOUR_EVENT))
+                }}
+              >
+                <Icon name="overview" className="text-ink-muted" /> Take the tour
+              </button>
+            )}
             <button type="button" className={menuItem} onClick={() => void auth.logout()}>
               <Icon name="logout" className="text-ink-muted" /> Log out
             </button>

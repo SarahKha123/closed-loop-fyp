@@ -8,6 +8,7 @@ import { AdvisorPanel } from "../components/shell/AdvisorPanel"
 import { NoModelDialog } from "../components/shell/NoModelDialog"
 import { Sidebar } from "../components/shell/Sidebar"
 import { ToastStack } from "../components/shell/ToastStack"
+import { Tour } from "../components/shell/Tour"
 import { TopBar } from "../components/shell/TopBar"
 import { AuthProvider, useAuth } from "../context/AuthContext"
 import { ChatProvider, useChat } from "../context/ChatContext"
@@ -78,6 +79,7 @@ function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
         </div>
       </div>
       <NoModelDialog studyMode={studyMode} />
+      <Tour studyMode={studyMode} />
     </div>
   )
 }

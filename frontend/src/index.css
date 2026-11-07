@@ -161,9 +161,12 @@
     outline-offset: 1px;
   }
 
+  /* Scrollbars hidden everywhere; wheel, touch, keyboard and trackpad still scroll. */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
   }
 }
 

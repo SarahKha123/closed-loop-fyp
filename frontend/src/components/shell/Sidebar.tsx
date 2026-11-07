@@ -45,6 +45,7 @@ export function Sidebar({ studyMode, theme }: { studyMode: boolean; theme: Retur
             key={item.to}
             to={item.to}
             title={item.label}
+            data-tour={item.to === "/work-orders" ? "work-orders" : undefined}
             activeOptions={{ exact: item.to === "/" }}
             className={navItem}
             activeProps={{ className: navActive }}
@@ -63,7 +64,7 @@ export function Sidebar({ studyMode, theme }: { studyMode: boolean; theme: Retur
         ))}
       </nav>
 
-      <div className="px-2 pt-5">
+      <div className="px-2 pt-5" data-tour="components">
         <div className="px-3 pb-1.5 text-sm text-ink-faint max-lg:sr-only">Components</div>
         <div className="flex flex-col gap-px">
           {COMPONENTS.map((c) => {

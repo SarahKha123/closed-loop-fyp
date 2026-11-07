@@ -42,7 +42,7 @@ export function TopBar({
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-canvas px-5">
-      <div className="flex items-center gap-2 rounded-lg border border-line bg-surface py-1 pr-1 pl-3">
+      <div data-tour="replay" className="flex items-center gap-2 rounded-lg border border-line bg-surface py-1 pr-1 pl-3">
         <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${statusStyle.tone}`}>
           <span className={`h-2 w-2 rounded-full ${statusStyle.dot}`} />
           {statusStyle.text}
@@ -137,6 +137,7 @@ export function TopBar({
             onClick={onToggleAdvisor}
             title={advisorOpen ? "Hide Advisor" : "Show Advisor"}
             aria-label="Toggle Advisor"
+            data-tour="advisor"
             aria-pressed={advisorOpen}
           >
             <Icon name="chat" />

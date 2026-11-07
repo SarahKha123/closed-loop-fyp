@@ -77,7 +77,7 @@ export function RigSchematic({ overview, className = "" }: { overview: Overview 
   const v = (n: number | undefined) => (k && n != null ? String(n) : "—")
 
   return (
-    <section aria-label="Rig" className={`flex min-h-0 flex-col rounded-xl border border-line bg-surface ${className}`}>
+    <section aria-label="Rig" data-tour="rig" className={`flex min-h-0 flex-col rounded-xl border border-line bg-surface ${className}`}>
       <div className="grid grid-cols-2 gap-3 p-4 @2xl:relative @2xl:block @2xl:min-h-[224px] @2xl:flex-1 @2xl:p-0">
         {/* The inset frame everything is placed in: 48px top and bottom, 7% at the sides. */}
         <div className="contents @2xl:absolute @2xl:inset-x-[7%] @2xl:inset-y-12 @2xl:block">
