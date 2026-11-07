@@ -74,11 +74,11 @@ def _fernet() -> Fernet:
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest()))
 
 
-def _encrypt(key: str) -> str:
+def encrypt(key: str) -> str:
     return _fernet().encrypt(key.encode()).decode()
 
 
-def _decrypt(token: str | None) -> str:
+def decrypt(token: str | None) -> str:
     if not token:
         return ""
     try:
@@ -101,7 +101,7 @@ def get(user_id: int, provider: str) -> dict[str, Any]:
     row = repo.user_clouds(user_id).get(provider) or {}
     return {
         "provider": provider,
-        "api_key": _decrypt(row.get("api_key_enc")),
+        "api_key": decrypt(row.get("api_key_enc")),
         "model": row.get("model") or "",
         "base_url": (row.get("base_url") or PROVIDERS[provider][1]).rstrip("/"),
     }
@@ -134,7 +134,7 @@ def save(user_id: int, provider: str, *, api_key: str | None, model: str | None,
         raise CloudError("base URL must start with https:// or http://")
     fields: dict[str, str | None] = {}
     if api_key is not None:
-        fields["api_key_enc"] = _encrypt(api_key.strip()) if api_key.strip() else None
+        fields["api_key_enc"] = encrypt(api_key.strip()) if api_key.strip() else None
     if model is not None:
         fields["model"] = model.strip()
     if base_url is not None:

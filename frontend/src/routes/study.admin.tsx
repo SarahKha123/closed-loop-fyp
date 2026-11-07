@@ -9,6 +9,7 @@ import { PageHeader } from "../components/PageHeader"
 import { Button } from "../components/ui/Button"
 import { Card, CardHeader } from "../components/ui/Card"
 import { EmptyState } from "../components/ui/EmptyState"
+import { useAuth } from "../context/AuthContext"
 import { useLive } from "../context/LiveContext"
 import { api } from "../lib/api"
 import type { StudyCondition, StudyLogRow, StudyPlan, StudyTask } from "../lib/api"
@@ -24,6 +25,18 @@ const CONDITION_LABEL: Record<StudyCondition, string> = { dashboard_only: "Dashb
 const seconds = (ms: number | null) => (ms == null ? "—" : `${(ms / 1000).toFixed(1)} s`)
 
 function StudyAdminPage() {
+  // The API answers 403 to anyone else; participants use the researcher's (admin's) account.
+  if (useAuth().user?.role !== "admin") {
+    return (
+      <EmptyState icon="shield" title="Admins only">
+        The study is run from the researcher's admin account.
+      </EmptyState>
+    )
+  }
+  return <StudyAdmin />
+}
+
+function StudyAdmin() {
   const { settings } = useLive()
   const [taskSets, setTaskSets] = useState<Record<string, StudyTask[]>>({})
   const [active, setActive] = useState<StudyLogRow | null>(null)

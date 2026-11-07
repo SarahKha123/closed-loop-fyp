@@ -67,7 +67,6 @@ shell wins over `.env`.
 | `BACKEND_PORT` | `8000` | the API (and the UI with `start`) |
 | `FRONTEND_PORT` | `5173` | the Vite dev server (`dev` only) |
 | `KEY_ENCRYPTION_SECRET` | *(empty: a random `config/secret.key`)* | encrypts users' saved keys; keep it stable or they become unreadable |
-| `ALLOW_SIGNUP` | `true` | `false` on a deployed server: no sign-up, no new Google accounts, no demo account |
 | `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS` | `2` | CPU threads for the ML predictor |
 | `CLOSED_LOOP_CONFIG_DIR` | repo `config/` | where the config files and the database live |
 | `CLOSED_LOOP_STATIC_DIR` | *(unset)* | serve a built UI from this folder (`start` sets `frontend/dist`) |
@@ -92,7 +91,7 @@ file holds only what differs from the defaults in
 | `grounding.hideUnverified` | `false` | don't show insights that failed the check (still saved) |
 | `monitor.confirmCycles` | `1` | Critical cycles in a row before an automatic work order |
 | `monitor.autoCloseOnRecovery` | `false` | on: automatic work orders also close when the component is Optimal again, logged as unverified outcomes; off: a technician closes every one with an outcome |
-| `notifications.email` | `true` | email each new work order to `NOTIFY_EMAIL_TO` (only once `SMTP_*` is set in `.env`; never in study mode) |
+| `notifications.email` | `true` | email each new work order to everyone who turned it on in their profile menu (once an admin has set the Gmail sender up; never in study mode) |
 | `chat.maxTurns` | `10` | user/assistant exchanges sent to the model |
 | `chat.tools` | `true` | chat tools and work-order proposals; off → streamed, snapshot-only answers |
 | `study.enabled` | `false` | study mode: participants can't change the setup (see Study mode) |
@@ -282,8 +281,8 @@ and `TRIGGER` in `AdvisorPanel.tsx`.
 - **Update `docs/API.md`** in the same change as any endpoint change.
 - **Never edit `Daedalus/`.** It's a reference project; read it for
   patterns, but all changes go in this repo's own code.
-- **Secrets** go in `.env` (`KEY_ENCRYPTION_SECRET`, SMTP, Google) or, for
-  users' keys, the database (encrypted); never in `.env.example` or the code. Never commit the database or the trained models.
+- **Secrets** go in `.env` (`KEY_ENCRYPTION_SECRET`) or the database, encrypted
+  (users' API keys, and the Gmail and Google secrets saved on the Admin page); never in `.env.example` or the code. Never commit the database or the trained models.
 - **Requirements are unpinned.** `requirements*.txt` list package names only,
   so the project keeps installing in future; anything version-sensitive (the
   trained models) is rebuilt instead.

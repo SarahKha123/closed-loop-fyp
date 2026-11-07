@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import db, monitor, repo, settings, work_orders
+from app.services import auth, db, monitor, repo, settings, work_orders
 from tests.test_monitor import _cycle
 
 
@@ -89,6 +89,7 @@ def test_close_api_requires_outcome_and_records_user(client):
     bare = client.post(f"/api/work-orders/{wo['id']}/close", json={"note": "done"})
     assert bare.status_code == 422  # finding, action and matchedPrediction are required
 
+    auth.add_user("demo", "Demo Engineer", "demo", "demo@x.com")
     client.post("/api/auth/login", json={"username": "demo", "password": "demo"})
     ok = client.post(f"/api/work-orders/{wo['id']}/close",
                      json={"finding": "false alarm, sensor fault", "action": "no_action", "matchedPrediction": "no"})

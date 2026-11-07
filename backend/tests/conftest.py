@@ -24,11 +24,13 @@ def fresh_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture(autouse=True)
 def signed_in():
-    """Every API test runs as a signed-in user (id 1); tests/test_access.py checks the guard itself."""
+    """Every API test runs as a signed-in, active admin (id 1); test_access.py and test_accounts.py check the guards."""
     from app.api.auth import current_user
     from app.main import app
 
-    app.dependency_overrides[current_user] = lambda: {"id": 1, "username": "tester", "displayName": "Tester",
-                                                      "email": None, "avatarUrl": None}
+    app.dependency_overrides[current_user] = lambda: {
+        "id": 1, "username": "tester", "displayName": "Tester", "email": "tester@example.com", "avatarUrl": None,
+        "role": "admin", "status": "active", "notifyWorkOrders": True,
+    }
     yield
     app.dependency_overrides.pop(current_user, None)

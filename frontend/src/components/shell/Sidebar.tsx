@@ -4,7 +4,9 @@
 // The current page is marked the data-terminal way: ink label, one accent underline exactly as wide as the label.
 
 import { Link } from "@tanstack/react-router"
+import { useAuth } from "../../context/AuthContext"
 import { useLive } from "../../context/LiveContext"
+import { usePendingCount } from "../../features/admin/usePendingCount"
 import { COMPONENTS } from "../../lib/api"
 import { conditionStyle } from "../../lib/status"
 import { Icon, Mark, type IconName } from "../ui/Icon"
@@ -12,11 +14,12 @@ import type { useTheme } from "../../lib/theme"
 import { ModelCard } from "./ModelCard"
 import { ProfileMenu } from "./ProfileMenu"
 
-const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models"; label: string; icon: IconName }[] = [
+const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models" | "/admin"; label: string; icon: IconName }[] = [
   { to: "/", label: "Overview", icon: "overview" },
   { to: "/work-orders", label: "Work orders", icon: "workorder" },
   { to: "/sensors", label: "Sensors", icon: "sensor" },
   { to: "/models", label: "AI model", icon: "models" },
+  { to: "/admin", label: "Admin", icon: "shield" },
 ]
 
 const navItem =
@@ -28,6 +31,8 @@ export function Sidebar({ studyMode, theme }: { studyMode: boolean; theme: Retur
   const { overview } = useLive()
   const byName = new Map(overview?.components.map((c) => [c.component, c]))
   const openOrders = overview?.kpis.openWorkOrders ?? 0
+  const admin = useAuth().user?.role === "admin"
+  const pending = usePendingCount()
 
   return (
     <aside className="flex h-full w-14 shrink-0 flex-col border-r border-line bg-canvas lg:w-[232px]">
@@ -40,7 +45,7 @@ export function Sidebar({ studyMode, theme }: { studyMode: boolean; theme: Retur
       </div>
 
       <nav className="flex flex-col gap-px px-2 pt-2" aria-label="Main">
-        {NAV.filter((item) => !(studyMode && item.to === "/models")).map((item) => (
+        {NAV.filter((item) => !(studyMode && (item.to === "/models" || item.to === "/admin")) && (admin || item.to !== "/admin")).map((item) => (
           <Link
             key={item.to}
             to={item.to}
@@ -58,6 +63,14 @@ export function Sidebar({ studyMode, theme }: { studyMode: boolean; theme: Retur
                 aria-label={`${openOrders} open`}
               >
                 {openOrders}
+              </span>
+            )}
+            {item.to === "/admin" && pending > 0 && (
+              <span
+                className="tabular text-sm font-medium text-warning-text max-lg:absolute max-lg:top-0.5 max-lg:right-1.5 max-lg:text-xs"
+                aria-label={`${pending} ${pending === 1 ? "account" : "accounts"} waiting for approval`}
+              >
+                {pending}
               </span>
             )}
           </Link>

@@ -1,4 +1,4 @@
-"""Email notifications: which events send, what the email says, how failures surface — against a fake SMTP server."""
+"""Email: which events send, to whom, what it says, how failures surface — against a fake SMTP server."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import events, monitor, notify, settings, work_orders
+from app.services import auth, events, monitor, notify, repo, server_config, settings, work_orders
 from tests.test_monitor import _cycle
 
 
@@ -40,9 +40,12 @@ class FakeSMTP:
 
 @pytest.fixture
 def smtp(fresh_db, monkeypatch):
-    monkeypatch.setenv("SMTP_USER", "closedloop@gmail.com")
-    monkeypatch.setenv("SMTP_APP_PASSWORD", "abcd efgh ijkl mnop")
-    monkeypatch.setenv("NOTIFY_EMAIL_TO", "a@x.com, b@y.com")
+    server_config.save({"smtp.user": "closedloop@gmail.com", "smtp.password": "abcd efgh ijkl mnop"},
+                       {"id": None}, (None, None), "email")
+    auth.add_user("a", "A", "pw1234", "a@x.com")  # the first admin: work-order emails on
+    b = auth.add_user("b", "B", "pw1234", "b@y.com", role="engineer", status="active")
+    repo.update_profile(b["id"], notify_work_orders=True)
+    auth.add_user("c", "C", "pw1234", "c@z.com", role="engineer", status="active")  # didn't ask for them
     monkeypatch.delenv("APP_URL", raising=False)
     monkeypatch.setattr(notify.smtplib, "SMTP", FakeSMTP)
     FakeSMTP.sent, FakeSMTP.fail_login = [], False
@@ -64,14 +67,12 @@ def test_only_new_work_orders_while_enabled(smtp):
     assert not notify.should_send(_opened(wo))  # never in study mode
 
 
-def test_not_configured(fresh_db, monkeypatch):
-    monkeypatch.delenv("SMTP_APP_PASSWORD", raising=False)
-    monkeypatch.setenv("SMTP_USER", "closedloop@gmail.com")
+def test_not_configured(fresh_db):
+    server_config.save({"smtp.user": "closedloop@gmail.com"}, {"id": None}, (None, None), "email")  # no password
     wo = work_orders.open_manual("valve")
-    assert not notify.should_send(_opened(wo))
-    assert notify.status() == {"configured": False, "sender": "closedloop@gmail.com", "recipients": 0}
+    assert not notify.should_send(_opened(wo)) and not notify.configured()
     with pytest.raises(notify.NotifyError, match="isn't set up"):
-        notify.send_test()
+        notify.send_test("a@x.com")
 
 
 def test_email_for_an_automatic_work_order(smtp, monkeypatch):
@@ -84,9 +85,9 @@ def test_email_for_an_automatic_work_order(smtp, monkeypatch):
     monkeypatch.setenv("APP_URL", "https://closedloop.example/")
     assert "Open the work orders: https://closedloop.example/work-orders" in notify.compose(wo).get_content()
 
-    notify.send(msg)
+    notify.send(msg, repo.emails(work_orders=True))
     [sent] = smtp
-    assert sent["To"] == "a@x.com, b@y.com" and sent["From"] == "Closed Loop <closedloop@gmail.com>"
+    assert sent["Bcc"] == "a@x.com, b@y.com" and sent["From"] == "Closed Loop <closedloop@gmail.com>"
 
 
 def test_worker_emails_each_opened_work_order(smtp):
@@ -109,13 +110,25 @@ def test_worker_emails_each_opened_work_order(smtp):
     assert [m["Subject"] for m in smtp] == [f"[Closed Loop] High priority: Pump work order raised ({wo['id']})"]
 
 
+def test_sign_up_and_decision_emails(smtp):
+    import threading
+    pending = auth.add_user("d", "Dee", "pw1234", "d@w.com")
+    notify.signed_up(pending)
+    for t in threading.enumerate():
+        if t.name == "notify-signup":
+            t.join()
+    assert smtp[-1]["Bcc"] == "a@x.com" and "Dee is waiting for approval" in smtp[-1]["Subject"]  # admins only
+    assert notify.decided(pending, approved=True) is None
+    assert smtp[-1]["Bcc"] == "d@w.com" and smtp[-1]["Subject"] == "[Closed Loop] Your account was approved"
+
+
 def test_api_status_and_test_email(smtp):
     with TestClient(app) as c:
-        st = c.get("/api/notifications").json()
-        assert st == {"configured": True, "sender": "closedloop@gmail.com", "recipients": 2}
-        assert c.post("/api/notifications/test").json() == {"sent": True}
+        st = c.get("/api/admin/server").json()["email"]
+        assert st == {"sender": "closedloop@gmail.com", "passwordHint": "…mnop"}
+        assert c.post("/api/admin/email/test").json() == {"sent": True, "to": "tester@example.com"}
         assert smtp[-1]["Subject"] == "[Closed Loop] Test email"
 
         FakeSMTP.fail_login = True
-        bad = c.post("/api/notifications/test")
+        bad = c.post("/api/admin/email/test")
         assert bad.status_code == 400 and "App Password" in bad.json()["detail"]

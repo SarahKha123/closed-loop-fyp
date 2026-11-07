@@ -22,9 +22,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import (
-    auth, chat, cloud, dashboard, health, insights, models, notifications, replay, settings, stream, study, work_orders,
+    admin, auth, chat, cloud, dashboard, health, insights, models, replay, settings, stream, study, work_orders,
 )
-from .services import auth as auth_service
 from .services import db, events, ingest, monitor, notify, paths
 from .services import insights as insight_service
 from .services import replay as replay_service
@@ -37,7 +36,6 @@ paths.ensure_dirs()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db.init_db()  # create the shared data layer on first start; a no-op afterwards
-    auth_service.ensure_demo_user()  # someone to log in as (demo / demo) until real accounts are added
     events.bind(asyncio.get_running_loop())
 
     # The live replay. If the dataset can't load, the rest of the API still runs
@@ -100,15 +98,18 @@ app.add_middleware(
         "http://127.0.0.1:4173",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
 
 app.include_router(health.router)
 app.include_router(auth.router)
-# Everything else needs a signed-in session: the sign-in page is not the only guard.
-for _router in (notifications, models, chat, replay, stream, dashboard, work_orders, cloud, insights, settings, study):
+# Everything else needs an active account: the sign-in page is not the only guard.
+for _router in (models, chat, replay, stream, dashboard, work_orders, cloud, insights, settings):
     app.include_router(_router.router, dependencies=[Depends(auth.current_user)])
+# Admins only (the UI hides these too, but this is the guard). Study participants use the researcher's account.
+for _router in (admin, study):
+    app.include_router(_router.router, dependencies=[Depends(auth.admin_user)])
 
 
 _static_dir = Path(os.environ.get("CLOSED_LOOP_STATIC_DIR") or "/nonexistent")

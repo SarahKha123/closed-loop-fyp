@@ -1,4 +1,4 @@
-// Signed out, the sign-in page (AuthScreen) is the only screen. Signed in, the app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, the no-model prompt.
+// Signed out, the sign-in page (AuthScreen) is the only screen; waiting for approval, PendingScreen. Signed in, the app shell every page renders inside: providers, sidebar, top bar, the page column, the Advisor, the no-model prompt.
 // Fixed to the viewport — the page itself never scrolls; a tall view scrolls inside its own column.
 // In study mode participants can't change the setup (no models page, model card or replay controls),
 // and the study condition decides the Advisor: hidden (dashboard only) or always open (dashboard + AI).
@@ -15,6 +15,7 @@ import { ChatProvider, useChat } from "../context/ChatContext"
 import { LiveProvider, useLive } from "../context/LiveContext"
 import { ModelsProvider } from "../context/ModelsContext"
 import { AuthScreen } from "../features/auth/AuthScreen"
+import { PendingScreen } from "../features/auth/PendingScreen"
 import { useTheme } from "../lib/theme"
 
 export const Route = createRootRoute({
@@ -29,12 +30,13 @@ function RootLayout() {
   )
 }
 
-/** The dashboard (and its live stream) only mounts once someone is signed in. */
+/** The dashboard (and its live stream) only mounts once an active account is signed in. */
 function Gate() {
   const { user } = useAuth()
   const theme = useTheme() // here, not in Shell, so the sign-in page has the saved theme too
   if (user === undefined) return <div className="h-screen bg-canvas" /> // still asking the backend
   if (user === null) return <AuthScreen />
+  if (user.status !== "active") return <PendingScreen user={user} />
   return (
     <ModelsProvider>
       <LiveProvider>
@@ -50,9 +52,9 @@ function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
   const { open, setOpen } = useChat()
   const study = useLive().settings?.study
   const studyMode = study?.enabled ?? false
-  // The AI model page and the researcher's study page are settings pages: they get the full width.
+  // The AI model, Admin and study pages are settings pages: they get the full width.
   const path = useRouterState({ select: (s) => s.location.pathname })
-  const fullWidth = useRouterState({ select: (s) => /^\/(models|study)/.test(s.location.pathname) })
+  const fullWidth = useRouterState({ select: (s) => /^\/(models|study|admin)/.test(s.location.pathname) })
   const advisor = fullWidth ? "none" : !studyMode ? (open ? "open" : "closed") : study?.condition === "dashboard_ai" ? "pinned" : "none"
 
   return (

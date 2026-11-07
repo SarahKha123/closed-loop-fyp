@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.api.auth import current_user
 from app.main import app
-from app.services import auth, cloud, db, model_config, repo
+from app.services import cloud, db, model_config, repo
 
 
 @pytest.fixture
@@ -25,8 +25,8 @@ def test_every_route_but_auth_and_health_needs_a_session(fresh_db, anonymous):
 
 def test_keys_are_per_user_encrypted_and_never_returned(fresh_db, monkeypatch):
     monkeypatch.delenv("KEY_ENCRYPTION_SECRET", raising=False)
-    alice = repo.insert_user("alice", "Alice", "x")["id"]
-    bob = repo.insert_user("bob", "Bob", "x")["id"]
+    alice = repo.insert_user("alice", "Alice", "x", "alice@x.com")["id"]
+    bob = repo.insert_user("bob", "Bob", "x", "bob@x.com")["id"]
     cloud.save(alice, "groq", api_key="gsk-alice-secret-1234", model="m", base_url=None)
 
     with db.read() as conn:
@@ -50,12 +50,8 @@ def test_keys_are_per_user_encrypted_and_never_returned(fresh_db, monkeypatch):
     assert cloud.get(alice, "groq")["api_key"] == ""
 
 
-def test_signup_closed_and_failed_logins_limited(fresh_db, monkeypatch, anonymous):
-    monkeypatch.setenv("ALLOW_SIGNUP", "false")
-    auth.ensure_demo_user()
-    assert repo.user_count() == 0  # no demo/demo on a locked-down server
+def test_no_built_in_account_and_failed_logins_limited(fresh_db, anonymous):
     with TestClient(app) as c:
-        r = c.post("/api/auth/register", json={"username": "eve", "password": "secret"})
-        assert r.status_code == 403
+        assert repo.user_count() == 0  # no demo/demo: nobody has a known password
         codes = [c.post("/api/auth/login", json={"username": "x", "password": "y"}).status_code for _ in range(11)]
         assert codes[:10] == [401] * 10 and codes[10] == 429

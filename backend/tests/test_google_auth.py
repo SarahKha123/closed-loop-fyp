@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import auth, db, google_auth, repo
+from app.services import auth, db, google_auth, repo, server_config
 
 CLIENT_ID = "test-client.apps.googleusercontent.com"
 
@@ -27,8 +27,8 @@ def _jwt(claims: dict) -> str:
 @pytest.fixture
 def google(fresh_db, monkeypatch):
     """Google configured, with a fake token endpoint whose ID token claims a test can tweak."""
-    monkeypatch.setenv("GOOGLE_CLIENT_ID", CLIENT_ID)
-    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "secret")
+    server_config.save({"google.client_id": CLIENT_ID, "google.client_secret": "secret"},
+                       {"id": None}, (None, None), "google")
     monkeypatch.setenv("APP_URL", "http://localhost:5173")
     fake = {"claims": {}, "calls": []}
 
@@ -53,7 +53,9 @@ def _sign_in(c: TestClient, fake: dict, **query) -> httpx.Response:
 
 
 def _events() -> list[str]:
-    return [e["event"] + (f":{e['reason']}" if e["reason"] else "") for e in reversed(repo.auth_events())]
+    """Sign-in events, oldest first (the fixture's own `settings` row left out)."""
+    return [e["event"] + (f":{e['reason']}" if e["reason"] else "") for e in reversed(repo.auth_events())
+            if e["event"] != "settings"]
 
 
 def test_start_redirects_to_google_with_pkce(google):
@@ -79,6 +81,7 @@ def test_sign_up_then_sign_in(google, fresh_db):
 
     user = c.get("/api/auth/me").json()["user"]
     assert user["email"] == "sarah@gmail.com" and user["displayName"] == "Sarah K" and user["avatarUrl"]
+    assert (user["role"], user["status"]) == ("admin", "active")  # nobody else yet: the first admin
 
     cookie = c.cookies[auth.COOKIE]
     with sqlite3.connect(fresh_db) as conn:
@@ -87,7 +90,7 @@ def test_sign_up_then_sign_in(google, fresh_db):
 
     fake["claims"] = {"name": "Sarah Khalilah"}
     _sign_in(c, fake)
-    assert repo.user_count() == 2  # demo + Sarah: matched on `sub`, not duplicated
+    assert repo.user_count() == 1  # matched on `sub`, not duplicated
     assert c.get("/api/auth/me").json()["user"]["displayName"] == "Sarah Khalilah"
     assert _events() == ["signup", "login", "login"]
 
@@ -110,7 +113,7 @@ def test_failures_redirect_and_are_audited(google, query, claims, reason):
     res = _sign_in(c, fake, **query)
     assert res.headers["location"] == f"/?authError={reason}"
     assert auth.COOKIE not in c.cookies and "google_flow=\"\"" in res.headers["set-cookie"]
-    assert _events() == [f"login_failed:{reason}"] and repo.user_count() == 1
+    assert _events() == [f"login_failed:{reason}"] and repo.user_count() == 0
 
 
 def test_exchange_failure(google, monkeypatch):
@@ -120,14 +123,31 @@ def test_exchange_failure(google, monkeypatch):
     assert _sign_in(c, fake).headers["location"] == "/?authError=exchange"
 
 
-def test_not_configured(fresh_db, monkeypatch):
-    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+def test_not_configured(fresh_db):
     with TestClient(app, follow_redirects=False) as c:
         assert c.get("/api/auth/me").json()["googleSignIn"] is False
         assert c.get("/api/auth/google").status_code == 404
 
 
+def test_email_of_a_password_account_is_never_linked(google):
+    c, fake = google
+    auth.add_user("sarah", "Sarah", "pw1234", "sarah@gmail.com")
+    assert _sign_in(c, fake).headers["location"] == "/?authError=exists"
+    assert repo.user_count() == 1 and _events() == ["login_failed:exists"]
+
+
+def test_disabled_google_account_is_refused(google):
+    c, fake = google
+    auth.add_user("boss", "Boss", "pw1234", "boss@x.com")  # the admin
+    _sign_in(c, fake)
+    sarah = c.get("/api/auth/me").json()["user"]
+    assert sarah["status"] == "pending"
+    repo.change_account(sarah["id"], {"id": 1}, (None, None), action="reject")
+    assert _sign_in(c, fake).headers["location"] == "/?authError=disabled"
+
+
 def test_password_sign_in_is_audited_and_sessions_expire(fresh_db, monkeypatch):
+    auth.add_user("demo", "Demo", "demo", "demo@x.com")
     with TestClient(app) as c:
         c.post("/api/auth/login", json={"username": "demo", "password": "nope"})
         c.post("/api/auth/login", json={"username": "demo", "password": "demo"})
@@ -161,4 +181,5 @@ def test_migrates_a_v1_database(tmp_path, monkeypatch):
         assert {"GoogleSub", "Email", "AvatarURL", "LastLoginAt"} <= cols
         assert conn.execute("SELECT COUNT(*) FROM tbl_Session").fetchone()[0] == 0  # raw tokens dropped
         assert conn.execute("SELECT COUNT(*) FROM tbl_User").fetchone()[0] == 1  # accounts kept
+        assert conn.execute("SELECT Role, Status FROM tbl_User").fetchone() == ("admin", "active")  # v4
         assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION

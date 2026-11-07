@@ -52,7 +52,7 @@ event bus (services/events.py) ──────────────► /ap
           │
           ├──► insight engine (services/insights.py) ◄── also "work_order" events
           │
-          └ "work_order" opened ──► notifier (services/notify.py) ──► email to NOTIFY_EMAIL_TO (Gmail SMTP)
+          └ "work_order" opened ──► notifier (services/notify.py) ──► email to who asked (Gmail SMTP)
                  trigger: condition change · risk threshold crossed · work order opened/closed
                  snapshot.build() → prompts → advisor.complete() → grounding.validate()
                  → one rewrite if it fails → tbl_Insight, publishes "insight"
@@ -251,9 +251,20 @@ study mode or on the AI model page itself.
   keys read as "no key" and users paste them again.
 - **No response ever contains a key**, only `key_hint` (the last four
   characters); a key a provider echoes in an error message is scrubbed.
-- **Accounts:** `ALLOW_SIGNUP=false` on a deployed server closes sign-up and
-  first-time Google sign-ins and skips the demo account; failed sign-ins are
-  limited to 10 per IP per 15 minutes.
+- **Accounts:** anyone may sign up; while there is no active admin the next
+  sign-up becomes one, and everyone after waits (`pending`, reaching nothing
+  but `/api/auth`) until an admin approves them. Two roles: `admin` (accounts,
+  the Admin page, study, settings for everyone) and `engineer`. The server
+  enforces them (`current_user` = active, `admin_user` = admin), the last
+  active admin can't be removed, and every admin action is audited with its
+  actor. No built-in account. Failed sign-ins are limited to 10 per IP per
+  15 minutes.
+- **Server settings** that used to be `.env` (the Gmail sender, Google
+  sign-in) live in `tbl_ServerSetting`, secrets Fernet-encrypted like API keys
+  and write-only (services/server_config.py).
+- **Schema changes** are numbered SQL files in `backend/app/migrations/`,
+  each one transaction, applied by `db.init_db()` to any older database (and
+  to fresh ones, from the v3 baseline in `db.SCHEMA`).
 - Cloud models receive the Advisor's prompt, including the current readings,
   and the AI model page says so.
 

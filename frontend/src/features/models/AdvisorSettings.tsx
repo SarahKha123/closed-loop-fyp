@@ -1,11 +1,12 @@
 // How the Advisor behaves: the runtime toggles (config/settings.json via /api/settings). Each change saves at once.
+// Everyone sees them; only an admin changes them (the API refuses anyone else), so for an engineer they are read-only.
 
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { api } from "../../lib/api"
 import type { Settings } from "../../lib/api"
 import { card } from "../../lib/ui"
-import { Button } from "../../components/ui/Button"
+import { useAuth } from "../../context/AuthContext"
 
 type Patch = Parameters<typeof api.saveSettings>[0]
 
@@ -47,56 +48,26 @@ function NumberField({ value, min, max, step = 1, onSave }: { value: number; min
   )
 }
 
-type EmailStatus = Awaited<ReturnType<typeof api.notifications>>
-
-/** Email on new work orders: whether .env sets it up, the mute toggle, and a test send. */
-function EmailRows({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boolean) => void }) {
-  const [status, setStatus] = useState<EmailStatus | null>(null)
-  const [test, setTest] = useState<{ busy: boolean; result: string | null; ok: boolean }>({ busy: false, result: null, ok: false })
-
-  useEffect(() => {
-    api.notifications().then(setStatus).catch(() => setStatus(null))
-  }, [])
-
-  async function sendTest() {
-    setTest({ busy: true, result: null, ok: false })
-    try {
-      await api.sendTestEmail()
-      setTest({ busy: false, result: "Sent — check the inbox.", ok: true })
-    } catch (err) {
-      setTest({ busy: false, result: err instanceof Error ? err.message : "could not send", ok: false })
-    }
-  }
-
-  const configured = status?.configured ?? false
-  const summary = !status
-    ? "Checking…"
-    : configured
-      ? `Sending from ${status.sender} to ${status.recipients} recipient${status.recipients === 1 ? "" : "s"}. Never in study mode.`
-      : "Not set up: add SMTP_USER, SMTP_APP_PASSWORD and NOTIFY_EMAIL_TO to .env, then restart."
-
+/** The server-wide switch for work-order emails. Who gets them is each person's own choice (profile menu);
+ *  the Gmail sender is set on the Admin page. */
+function EmailRow({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boolean) => void }) {
+  const { emailSetUp } = useAuth()
   return (
-    <>
-      <Row label="Email on new work orders" hint={summary}>
-        <input type="checkbox" className={toggle} disabled={!configured} checked={configured && enabled} onChange={(e) => onToggle(e.target.checked)} />
-      </Row>
-      <div className="flex items-center justify-between gap-6 px-4 py-3">
-        <span className="min-w-0 text-sm">
-          {test.result ? (
-            <span role="status" className={test.ok ? "text-good-text" : "text-critical-text"}>{test.result}</span>
-          ) : (
-            <span className="text-ink-faint">Checks the Gmail App Password without waiting for a work order.</span>
-          )}
-        </span>
-        <Button size="sm" className="shrink-0 whitespace-nowrap" disabled={!configured || test.busy} onClick={() => void sendTest()}>
-          {test.busy ? "Sending…" : "Send test email"}
-        </Button>
-      </div>
-    </>
+    <Row
+      label="Email on new work orders"
+      hint={
+        emailSetUp
+          ? "Sent to everyone who turned on \u201cEmail me when a work order opens\u201d in their profile menu. Never in study mode."
+          : "Not set up yet: an admin adds the Gmail sender on the Admin page."
+      }
+    >
+      <input type="checkbox" className={toggle} disabled={!emailSetUp} checked={emailSetUp && enabled} onChange={(e) => onToggle(e.target.checked)} />
+    </Row>
   )
 }
 
 export function AdvisorSettings() {
+  const readOnly = useAuth().user?.role !== "admin"
   const [s, setS] = useState<Settings | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -133,12 +104,15 @@ export function AdvisorSettings() {
           Advisor behaviour
         </h2>
         <p className="text-sm text-ink-muted">
-          Each change saves at once to <code className="font-mono">config/settings.json</code> and applies to the next
-          event. No restart.
+          {readOnly
+            ? "These apply to everyone. Only an admin can change them."
+            : "These apply to everyone. Each change saves at once and applies to the next event. No restart."}
         </p>
       </div>
       {error && <div className="text-base text-critical-text">{error}</div>}
 
+      {/* A disabled fieldset turns every control inside read-only in one place; they stay legible. */}
+      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0 disabled:[&_input]:cursor-not-allowed">
       <div className="grid items-start gap-x-6 gap-y-5 @5xl:grid-cols-2">
       <div className="flex flex-col gap-5">
       {section(
@@ -195,12 +169,13 @@ export function AdvisorSettings() {
           <Row label="Close automatically on recovery" hint="Off (default): a technician closes every work order with what they found. On: automatic ones also close when the component is Optimal again, logged as unverified.">
             <input type="checkbox" className={toggle} checked={s.monitor.autoCloseOnRecovery} onChange={(e) => void save({ monitor: { autoCloseOnRecovery: e.target.checked } })} />
           </Row>
-          <EmailRows enabled={s.notifications.email} onToggle={(on) => void save({ notifications: { email: on } })} />
+          <EmailRow enabled={s.notifications.email} onToggle={(on) => void save({ notifications: { email: on } })} />
         </>,
       )}
 
       </div>
       </div>
+      </fieldset>
     </section>
   )
 }

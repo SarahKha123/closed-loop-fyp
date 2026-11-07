@@ -30,28 +30,36 @@ stores only the SHA-256 of its value; sessions expire after `SESSION_TTL_DAYS` (
 who is using the dashboard, and every other endpoint requires it (`401` without). Every signup, login, failed login and logout is recorded in
 `tbl_AuthEvent` (with IP and user agent).
 
-Two ways in: a username and password (while `ALLOW_SIGNUP` is true, a `demo` / `demo` account is
-created on first start and people sign up from the sign-in page; either way, add accounts with
-`backend/.venv/bin/python -m app.services.auth add <username> "<Display Name>"`), or Google, when
-`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are set in `.env` (see docs/GOOGLE_AUTH_PORTABLE.md for the
-Google Cloud console setup). Google accounts are matched on Google's stable `sub`, never on email.
+Two ways in: a username, email and password, or Google once an admin has saved its client on the
+Admin page (`/api/admin/google`; docs/GOOGLE_AUTH_PORTABLE.md §3 has the Google Cloud console setup).
+Google accounts are matched on Google's stable `sub`; one whose email already belongs to another
+account is refused (`authError=exists`), never linked.
 
-`ALLOW_SIGNUP=false` (for a deployed server) closes new accounts: `register` answers `403`, a Google
-account signing in for the first time is sent back with `authError=signup`, and no demo account is made.
-After 10 failed sign-ins from one IP within 15 minutes, `login` answers `429` until the window passes.
+**Accounts and roles.** Anyone may sign up. While the server has no active admin, the next sign-up
+becomes one; everyone after starts `pending` and can sign in but reaches nothing except `/api/auth`
+(other routes answer `403`) until an admin approves them. `disabled` accounts (rejected or switched
+off) can't sign in (`403`; Google: `authError=disabled`). Roles: `admin` (everything, plus `/api/admin`,
+`/api/study` and changing `/api/settings`) and `engineer` (the dashboard, the Advisor, their own keys).
+There is no built-in account. After 10 failed sign-ins from one IP within 15 minutes, `login`
+answers `429` until the window passes.
 
 ### `GET /api/auth/me`
-`{"user": {"id": 1, "username": "demo", "displayName": "Demo Engineer", "email": null, "avatarUrl": null}, "googleSignIn": false, "signupAllowed": true}`;
+`{"user": {"id": 1, "username": "sarah", "displayName": "Sarah Khalilah", "email": "sarah@x.com", "avatarUrl": null, "role": "admin", "status": "active", "notifyWorkOrders": true}, "googleSignIn": false, "emailSetUp": true}`;
 `user` is `null` when nobody is signed in. `googleSignIn` says whether to offer "Continue with Google";
-`signupAllowed` whether to offer "Create an account".
+`emailSetUp` whether an admin has saved the Gmail sender.
+
+### `PATCH /api/auth/me`
+Your own settings: body `{"email": "…", "notifyWorkOrders": true}` (either) → `{"user": {...}}`. `400` for an
+invalid email or one that belongs to another account.
 
 ### `POST /api/auth/login`
-Body `{"username": "demo", "password": "demo"}` → `{"user": {...}}` and sets the cookie. `401` if wrong, `429` after too many failures.
+Body `{"username": "sarah", "password": "…"}` → `{"user": {...}}` and sets the cookie. `401` if wrong, `403` for a disabled account, `429` after too many failures.
 
 ### `POST /api/auth/register`
-Body `{"username": "sarah", "displayName": "Sarah Khalilah", "password": "…"}` (`displayName` optional,
-password at least 4 characters) → `{"user": {...}}`, already signed in (sets the cookie). `400` if the
-username is taken (usernames are case-insensitive), `403` while sign-up is closed.
+Body `{"username": "sarah", "email": "sarah@x.com", "displayName": "Sarah Khalilah", "password": "…"}`
+(`displayName` optional, password at least 4 characters) → `{"user": {...}}`, already signed in (sets the
+cookie): `pending`, or the active admin when there is none. The admins are emailed. `400` if the username
+or email is taken (both case-insensitive) or the email is invalid.
 
 ### `POST /api/auth/logout`
 Ends the session and clears the cookie → `{"user": null}`.
@@ -412,20 +420,32 @@ is `dashboard_only` or `dashboard_ai`. Every change is also published as a
 
 ---
 
-## Notifications
+## Admin
 
-A plain-text email to `NOTIFY_EMAIL_TO` for every work order that opens (automatic or manual; closing
-sends nothing), through Gmail's SMTP server with an App Password (services/notify.py). Set
-`SMTP_USER`, `SMTP_APP_PASSWORD` and `NOTIFY_EMAIL_TO` in `.env`; `APP_URL` adds a link to the Work
-orders page. Muted by the `notifications.email` setting, and never sent in study mode. A failed send is
-logged and dropped; the work order is unaffected.
+Admins only (`403` otherwise). Every change is audited in `tbl_AuthEvent` with the acting admin.
 
-### `GET /api/notifications`
-`{"configured": true, "sender": "you@gmail.com", "recipients": 2}` — never the password.
+| Endpoint | |
+|---|---|
+| `GET /api/admin/users` | `{users, pendingCount}`, pending first; each user adds `google`, `createdAt`, `lastLoginAt` |
+| `POST /api/admin/users/{id}/approve` · `/reject` | pending → active / disabled → `{user, notice}`; `notice` says when the applicant couldn't be emailed |
+| `POST /api/admin/users/{id}/disable` · `/enable` | active ↔ disabled; disabling signs them out at once and stops them driving the replay |
+| `PUT /api/admin/users/{id}/role` | `{"role": "admin" \| "engineer"}` |
+| `GET /api/admin/server` | `{email: {sender, passwordHint}, google: {clientId, secretHint, redirectUri}}` |
+| `PUT /api/admin/email` · `DELETE` | `{sender, password?}`: the Gmail account that sends (password omitted: keep the saved one) |
+| `POST /api/admin/email/test` | a test email to your own address → `{sent, to}` |
+| `PUT /api/admin/google` · `DELETE` | `{clientId, clientSecret?}`: Google sign-in on or off |
 
-### `POST /api/notifications/test`
-Sends a test email → `{"sent": true}`. `400` with the reason if email isn't set up or Gmail refuses
-(e.g. "Gmail refused the login: check SMTP_USER and that SMTP_APP_PASSWORD is an App Password").
+A change that would leave no active admin is refused (`400`). The App Password and client secret are
+write-only, stored Fernet-encrypted (`tbl_ServerSetting`); responses carry only their last four characters.
+Each pending sign-up and admin action is also published as an `accounts` event (`{"pending": n}`).
+
+### Email
+
+Through Gmail's SMTP server with the App Password (services/notify.py), to accounts, never a fixed list:
+a new sign-up to every active admin; the decision to the applicant; every work order that opens
+(automatic or manual; closing sends nothing) to each active user with `notifyWorkOrders` on. Work-order
+emails are muted by the `notifications.email` setting and never sent in study mode. `APP_URL` adds links.
+A failed send is logged and dropped; nothing else is affected.
 
 ---
 

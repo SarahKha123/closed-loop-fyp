@@ -1,19 +1,19 @@
-"""Email notifications: a plain-text email to a fixed list for every work order that opens.
+"""Email: work orders that open, new sign-ups for the admins, and approval decisions for the applicant.
 
 Sent through Gmail's SMTP server with an App Password (Python's smtplib, no other dependency).
-Configured in .env:
+The sender is set by an admin on the Admin page (services/server_config.py: smtp.user and the
+encrypted smtp.password); recipients are accounts, never a fixed list:
 
-    SMTP_USER=you@gmail.com            the Gmail account that sends
-    SMTP_APP_PASSWORD=abcdefghijklmnop  a Google App Password, spaces removed (needs 2-Step Verification), not the account password
-    NOTIFY_EMAIL_TO=a@x.com,b@y.com    who receives them
-    APP_URL=https://…                  optional: adds a link to the Work orders page
+    work order opened    every active user with "Email me when a work order opens" on (their own switch)
+    someone signed up    every active admin
+    approved / rejected  the applicant
 
 Rules (docs/API.md: Notifications):
 - Every work order that opens, automatic or manual. Closing one sends nothing.
-- Muted by the `notifications.email` setting, and always in study mode.
+- Work-order emails are muted by the `notifications.email` setting, and always in study mode.
 - One email per work order: the monitor opens at most one automatic work order per component until a
   technician closes it, so a fast replay can't flood the inbox.
-- A failed send is logged and dropped. The work order itself is never affected.
+- A failed send is logged and dropped. The work order, sign-up or approval itself is never affected.
 
 `run()` listens on the event bus like the other workers; the slow SMTP call runs off the event loop.
 """
@@ -25,10 +25,11 @@ import logging
 import os
 import smtplib
 import ssl
+import threading
 from email.message import EmailMessage
 from typing import Any
 
-from . import events, settings, work_orders
+from . import events, repo, server_config, settings, work_orders
 
 log = logging.getLogger(__name__)
 
@@ -41,24 +42,21 @@ class NotifyError(RuntimeError):
     """Email isn't set up, or the SMTP server refused (the message says which)."""
 
 
-def _config() -> tuple[str, str, list[str]]:
-    user = os.environ.get("SMTP_USER", "").strip()
-    password = os.environ.get("SMTP_APP_PASSWORD", "").replace(" ", "")  # Google shows it in groups of four
-    to = [a.strip() for a in os.environ.get("NOTIFY_EMAIL_TO", "").split(",") if a.strip()]
-    return user, password, to
+def _sender() -> tuple[str, str]:
+    user = server_config.get("smtp.user")
+    password = server_config.get("smtp.password").replace(" ", "")  # Google shows it in groups of four
+    return user, password
 
 
-def status() -> dict[str, Any]:
-    """What the Settings page shows. Never includes the password."""
-    user, password, to = _config()
-    return {"configured": bool(user and password and to), "sender": user or None, "recipients": len(to)}
+def configured() -> bool:
+    return all(_sender())
 
 
 def should_send(event: dict[str, Any]) -> bool:
     if event.get("type") != "work_order" or event.get("action") != "opened":
         return False
     s = settings.get()
-    return bool(s["notifications"]["email"]) and not s["study"]["enabled"] and status()["configured"]
+    return bool(s["notifications"]["email"]) and not s["study"]["enabled"] and configured()
 
 
 def compose(wo: dict[str, Any]) -> EmailMessage:
@@ -78,7 +76,7 @@ def compose(wo: dict[str, Any]) -> EmailMessage:
     app_url = os.environ.get("APP_URL", "").strip().rstrip("/")
     if app_url:
         lines += ["", f"Open the work orders: {app_url}/work-orders"]
-    lines += ["", "— Closed Loop predictive maintenance. Mute these in Settings → Work orders."]
+    lines += ["", "— Closed Loop predictive maintenance. Turn these off in your profile menu: Email me when a work order opens."]
 
     msg = EmailMessage()
     msg["Subject"] = f"{SUBJECT_PREFIX} {wo['priority']} priority: {wo['component']} {reason} ({wo['id']})"
@@ -86,12 +84,14 @@ def compose(wo: dict[str, Any]) -> EmailMessage:
     return msg
 
 
-def send(msg: EmailMessage) -> None:
-    """Send to NOTIFY_EMAIL_TO. Blocking: call it off the event loop."""
-    user, password, to = _config()
-    if not (user and password and to):
-        raise NotifyError("email isn't set up: add SMTP_USER, SMTP_APP_PASSWORD and NOTIFY_EMAIL_TO to .env")
-    msg["From"], msg["To"] = f"Closed Loop <{user}>", ", ".join(to)
+def send(msg: EmailMessage, to: list[str]) -> None:
+    """Send to `to`, each address in Bcc so recipients don't see each other. Blocking: call it off the event loop."""
+    user, password = _sender()
+    if not (user and password):
+        raise NotifyError("email isn't set up: an admin adds the Gmail sender on the Admin page")
+    if not to:
+        raise NotifyError("nobody to send to")
+    msg["From"], msg["To"], msg["Bcc"] = f"Closed Loop <{user}>", f"Closed Loop <{user}>", ", ".join(to)
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
             smtp.starttls(context=ssl.create_default_context())
@@ -100,18 +100,64 @@ def send(msg: EmailMessage) -> None:
             except smtplib.SMTPException as exc:
                 # A wrong password answers 535, but an unknown account just gets disconnected: same advice for both.
                 raise NotifyError(
-                    f"Gmail refused the login ({exc}): check SMTP_USER and that SMTP_APP_PASSWORD is an App Password"
+                    f"Gmail refused the login ({exc}): check the Gmail address, and that the password is an App Password"
                 ) from exc
             smtp.send_message(msg)
     except (smtplib.SMTPException, OSError) as exc:
         raise NotifyError(f"could not send: {exc}") from exc
 
 
-def send_test() -> None:
+def _plain(subject: str, *lines: str) -> EmailMessage:
     msg = EmailMessage()
-    msg["Subject"] = f"{SUBJECT_PREFIX} Test email"
-    msg.set_content("Email notifications work. You'll get one like this whenever a work order opens.")
-    send(msg)
+    msg["Subject"] = f"{SUBJECT_PREFIX} {subject}"
+    msg.set_content("\n".join(lines))
+    return msg
+
+
+def _link(path: str) -> list[str]:
+    app_url = os.environ.get("APP_URL", "").strip().rstrip("/")
+    return ["", f"{app_url}{path}"] if app_url else []
+
+
+def send_test(to: str) -> None:
+    send(_plain("Test email", "Email from Closed Loop works. Work orders, sign-ups and approvals will arrive like this."), [to])
+
+
+def signed_up(user: dict[str, Any]) -> None:
+    """Tell every active admin someone is waiting. Runs in a thread: sign-up never waits for Gmail."""
+    if not configured():
+        return
+
+    def go() -> None:
+        who = f"{user['displayName']} ({user['email'] or user['username']})"
+        try:
+            send(_plain(f"{user['displayName']} is waiting for approval",
+                        f"{who} signed up and is waiting for approval.", "",
+                        "Approve or reject them on the Admin page.", *_link("/admin")),
+                 repo.emails(admins=True))
+        except NotifyError:
+            log.warning("notify: no sign-up email for %s", user["username"], exc_info=True)
+
+    threading.Thread(target=go, name="notify-signup", daemon=True).start()
+
+
+def decided(user: dict[str, Any], approved: bool) -> str | None:
+    """Tell the applicant. Returns why they weren't told (no email set up, no address, a failed send), or None."""
+    if not configured():
+        return "Email isn't set up, so they weren't told. Let them know yourself."
+    if not user["email"]:
+        return "Their account has no email address, so they weren't told. Let them know yourself."
+    if approved:
+        msg = _plain("Your account was approved", f"Hi {user['displayName']},", "",
+                     "An administrator approved your Closed Loop account. You can sign in now.", *_link("/"))
+    else:
+        msg = _plain("Your account was not approved", f"Hi {user['displayName']},", "",
+                     "An administrator did not approve your Closed Loop account.")
+    try:
+        send(msg, [user["email"]])
+    except NotifyError as exc:
+        return f"They weren't told: {exc}"
+    return None
 
 
 async def run() -> None:
@@ -123,7 +169,9 @@ async def run() -> None:
             if not should_send(event):
                 continue
             try:
-                await asyncio.to_thread(send, compose(event["workOrder"]))
+                to = repo.emails(work_orders=True)
+                if to:
+                    await asyncio.to_thread(send, compose(event["workOrder"]), to)
             except Exception:  # noqa: BLE001 — a lost alert must not stop the notifier
                 log.warning("notify: no email for %s", event["workOrder"].get("id"), exc_info=True)
     finally:

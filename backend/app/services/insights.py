@@ -46,6 +46,13 @@ def drive(user: dict[str, Any]) -> None:
     _driver = {"id": user["id"], "username": user["username"]}
 
 
+def forget(user_id: int) -> None:
+    """A switched-off account stops driving: insights wait for the next person to press Play."""
+    global _driver
+    if _driver is not None and _driver["id"] == user_id:
+        _driver = None
+
+
 def status() -> dict[str, Any]:
     """Who pays for live insights now, and whether their model can answer: resolve() plus `driver`."""
     d = _driver

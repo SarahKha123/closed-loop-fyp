@@ -1,10 +1,10 @@
-// The first screen: sign in, or create an account — with a password, or with Google when the backend has it
-// set up (otherwise its button explains what is missing). Shown by the root until someone is signed in;
-// after that the page that was asked for (any URL) renders.
+// The first screen: sign in, or create an account — with a password and an email, or with Google when an
+// admin has set it up (otherwise its button explains what is missing). Shown by the root until someone is
+// signed in; a new account then waits for an admin's approval (PendingScreen), unless it is the first.
 // A failed Google sign-in comes back as /?authError=<reason> (api/auth.py).
 
 import { useState } from "react"
-import type { FormEvent } from "react"
+import type { FormEvent, ReactNode } from "react"
 import { Button } from "../../components/ui/Button"
 import { Mark } from "../../components/ui/Icon"
 import { LoopDrawing } from "./LoopDrawing"
@@ -19,7 +19,8 @@ const field = "flex flex-col gap-1 text-sm font-medium text-ink-muted"
 const GOOGLE_ERRORS: Record<string, string> = {
   cancelled: "Google sign-in was cancelled.",
   state: "That sign-in link expired. Please try again.",
-  signup: "This Google account has no access yet. Ask the administrator to add you.",
+  exists: "An account with this email already exists. Sign in with your username and password.",
+  disabled: "This account isn't active. Ask an administrator.",
 }
 
 /** The error a failed Google sign-in redirected back with, removed from the URL so a reload doesn't show it again. */
@@ -44,12 +45,13 @@ function GoogleMark() {
 }
 
 export function AuthScreen() {
-  const { signedIn, googleSignIn, signupAllowed } = useAuth()
+  const { signedIn, googleSignIn, notice } = useAuth()
   const [mode, setMode] = useState<Mode>("signin")
   const [username, setUsername] = useState("")
   const [displayName, setDisplayName] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(takeAuthError)
+  const [error, setError] = useState<string | null>(() => takeAuthError() ?? notice)
   const [busy, setBusy] = useState(false)
 
   const signup = mode === "signup"
@@ -64,7 +66,7 @@ export function AuthScreen() {
     setBusy(true)
     setError(null)
     try {
-      const res = signup ? await api.register(username, displayName, password) : await api.login(username, password)
+      const res = signup ? await api.register(username, email, displayName, password) : await api.login(username, password)
       signedIn(res.user)
     } catch (err) {
       setError(err instanceof Error ? err.message : signup ? "Could not create the account" : "Sign in failed")
@@ -73,46 +75,26 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="grid min-h-screen w-full bg-canvas text-ink lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-      {/* What this is, drawn from the rig itself: the closed hydraulic loop the four monitored components sit on. */}
-      <section className="flex flex-col gap-10 border-line px-6 py-8 max-lg:border-b lg:border-r lg:px-12 lg:py-12">
-        <div className="flex items-center gap-2.5">
-          <Mark size={24} />
-          <span className="text-lg font-semibold">Closed Loop</span>
-        </div>
-        {/* Headline and drawing as one group in the middle, so no empty band opens between them. */}
-        <div className="flex flex-col gap-12 lg:my-auto">
-        <div className="max-w-[560px]">
-          <h1 className="text-4xl font-semibold tracking-tight">Predictive maintenance for a hydraulic test rig</h1>
-          <p className="mt-4 text-lg text-ink-muted">
-            Every cycle is scored by four trained models. A local or cloud language model explains what changed, and a
-            Critical prediction becomes a work order.
-          </p>
-        </div>
-        <div className="max-lg:hidden">
-          <LoopDrawing />
-        </div>
-        </div>
-      </section>
+    <AuthLayout>
 
-      <div className="flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-[380px]">
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <div>
             <h2 className="text-2xl font-semibold">{signup ? "Create an account" : "Sign in"}</h2>
             <p className="mt-1 text-base text-ink-muted">
-              {signup ? "Your name is recorded on the work orders you close." : "Sign in to open the dashboard."}
+              {signup
+                ? "An admin approves new accounts. Your name is recorded on the work orders you close."
+                : "Sign in to open the dashboard."}
             </p>
           </div>
 
-          {/* A real navigation, not fetch: the browser has to go to Google and back. Always shown; until the
-              backend has GOOGLE_CLIENT_ID / _SECRET, clicking it says so instead of leaving for Google. */}
+          {/* A real navigation, not fetch: the browser has to go to Google and back. Always shown; until an admin
+              has set Google sign-in up, clicking it says so instead of leaving for Google. */}
           <a
             href="/api/auth/google"
             onClick={(e) => {
               if (googleSignIn) return
               e.preventDefault()
-              setError("Google sign-in isn't set up yet: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart.")
+              setError("Google sign-in isn't set up yet. An admin adds it on the Admin page.")
             }}
             className="inline-flex h-10 w-full items-center justify-center gap-2.5 rounded-lg border border-line-strong bg-surface text-base font-medium text-ink transition-colors hover:bg-surface-2"
           >
@@ -126,6 +108,21 @@ export function AuthScreen() {
             Username
             <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required maxLength={100} className={input} />
           </label>
+          {signup && (
+            <label className={field}>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+                maxLength={200}
+                className={input}
+              />
+              <span className="text-xs font-normal text-ink-faint">We email you here when an admin approves your account.</span>
+            </label>
+          )}
           {signup && (
             <label className={field}>
               Full name
@@ -157,22 +154,44 @@ export function AuthScreen() {
             {busy ? (signup ? "Creating account…" : "Signing in…") : signup ? "Create account" : "Sign in"}
           </Button>
 
-          {signupAllowed && (
-            <p className="text-center text-base text-ink-muted">
-              {signup ? "Already have an account? " : "New here? "}
-              <button type="button" onClick={() => switchTo(signup ? "signin" : "signup")} className="font-medium text-accent-text hover:underline">
-                {signup ? "Sign in" : "Create an account"}
-              </button>
-            </p>
-          )}
-        </form>
-
-        {!signup && signupAllowed && (
-          <p className="mt-4 text-center text-sm text-ink-faint">
-            Demo account: <span className="font-mono">demo</span> / <span className="font-mono">demo</span>
+          <p className="text-center text-base text-ink-muted">
+            {signup ? "Already have an account? " : "New here? "}
+            <button type="button" onClick={() => switchTo(signup ? "signin" : "signup")} className="font-medium text-accent-text hover:underline">
+              {signup ? "Sign in" : "Create an account"}
+            </button>
           </p>
-        )}
-      </div>
+        </form>
+    </AuthLayout>
+  )
+}
+
+/** The sign-in screens' frame: what this is on the left (drawn from the rig), the form or status on the right. */
+export function AuthLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid min-h-screen w-full bg-canvas text-ink lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      {/* What this is, drawn from the rig itself: the closed hydraulic loop the four monitored components sit on. */}
+      <section className="flex flex-col gap-10 border-line px-6 py-8 max-lg:border-b lg:border-r lg:px-12 lg:py-12">
+        <div className="flex items-center gap-2.5">
+          <Mark size={24} />
+          <span className="text-lg font-semibold">Closed Loop</span>
+        </div>
+        {/* Headline and drawing as one group in the middle, so no empty band opens between them. */}
+        <div className="flex flex-col gap-12 lg:my-auto">
+        <div className="max-w-[560px]">
+          <h1 className="text-4xl font-semibold tracking-tight">Predictive maintenance for a hydraulic test rig</h1>
+          <p className="mt-4 text-lg text-ink-muted">
+            Every cycle is scored by four trained models. A cloud language model explains what changed, and a
+            Critical prediction becomes a work order.
+          </p>
+        </div>
+        <div className="max-lg:hidden">
+          <LoopDrawing />
+        </div>
+        </div>
+      </section>
+
+      <div className="flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-[380px]">{children}</div>
       </div>
     </div>
   )

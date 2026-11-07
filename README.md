@@ -44,7 +44,7 @@ Everything runs directly on your machine — no Docker.
 ./closed-loop.sh start    # http://localhost:8000 — then add a key on the AI model page
 ```
 
-Then sign in (`demo` / `demo`), and on **AI model** add your own key for one
+Then create an account (the first one becomes the admin), and on **AI model** add your own key for one
 provider, test it and press *Use*. Press play in the top bar: the live insights
 run on the key of whoever presses Play.
 
@@ -67,14 +67,13 @@ Any small host that runs Python works. Set these in the host's secrets:
 ```bash
 # Encrypts each user's saved key. Long and random; keep it, or saved keys become unreadable
 KEY_ENCRYPTION_SECRET=…
-# No public sign-up, no demo/demo account
-ALLOW_SIGNUP=false
 COOKIE_SECURE=true             # served over HTTPS
 APP_URL=https://your-host…
 ```
 
-Then add accounts with `backend/.venv/bin/python -m app.services.auth add <username> "<Name>"`
-(from `backend/`). Each person signs in and adds **their own** API key on the
+Then sign up first: the first account becomes the **admin**. Everyone who signs
+up after you waits until you approve them on the **Admin** page, where you also
+set up the Gmail sender and Google sign-in (no `.env` editing). Each person signs in and adds **their own** API key on the
 AI model page for their chat: it is stored encrypted, linked to their account,
 and never sent back to a browser. Every API route needs a signed-in session.
 If the host wipes its disk on redeploy, put `config/` on a persistent volume

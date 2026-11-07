@@ -25,6 +25,7 @@ export type StreamEvent =
   | { type: "insight_notice"; text: string; needsKey?: boolean }
   | { type: "settings"; settings: Settings }
   | { type: "study"; action: "task_loading" | "task_started" | "task_ended"; taskId?: string }
+  | { type: "accounts"; pending: number }
   | { type: "reconnected" }
 
 type Listener = (event: StreamEvent) => void

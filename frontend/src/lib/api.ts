@@ -111,12 +111,32 @@ export interface WorkOrder {
 export const isSystem = (by: string) => by.startsWith("system")
 
 /** A signed-in account (/api/auth): a password one, or a Google one (email + avatar). */
+export type Role = "admin" | "engineer"
+export type AccountStatus = "pending" | "active" | "disabled"
+
 export interface User {
   id: number
   username: string
   displayName: string
   email: string | null
   avatarUrl: string | null
+  role: Role
+  status: AccountStatus
+  /** "Email me when a work order opens" */
+  notifyWorkOrders: boolean
+}
+
+/** A row on the Admin page's Users view. */
+export interface Account extends User {
+  google: boolean
+  createdAt: string
+  lastLoginAt: string | null
+}
+
+/** GET /api/admin/server — secrets come back only as their last four characters. */
+export interface ServerConfig {
+  email: { sender: string | null; passwordHint: string | null }
+  google: { clientId: string | null; secretHint: string | null; redirectUri: string }
 }
 
 export type OutcomeAction = "repaired" | "replaced" | "no_action" | "escalated"
@@ -275,11 +295,16 @@ export const api = {
     request<WorkOrder>("/api/work-orders", { method: "POST", body: JSON.stringify({ component, note }) }),
   closeWorkOrder: (id: string, outcome: OutcomeInput) =>
     request<WorkOrder>(`/api/work-orders/${id}/close`, { method: "POST", body: JSON.stringify(outcome) }),
-  me: () => request<{ user: User | null; googleSignIn: boolean; signupAllowed: boolean }>("/api/auth/me"),
+  me: () => request<{ user: User | null; googleSignIn: boolean; emailSetUp: boolean }>("/api/auth/me"),
+  updateMe: (patch: { email?: string; notifyWorkOrders?: boolean }) =>
+    request<{ user: User }>("/api/auth/me", { method: "PATCH", body: JSON.stringify(patch) }),
   login: (username: string, password: string) =>
     request<{ user: User }>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
-  register: (username: string, displayName: string, password: string) =>
-    request<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify({ username, displayName, password }) }),
+  register: (username: string, email: string, displayName: string, password: string) =>
+    request<{ user: User }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ username, email, displayName, password }),
+    }),
   logout: () => request<{ user: null }>("/api/auth/logout", { method: "POST" }),
   workOrderHistory: () => request<{ outcomes: WorkOrderOutcome[] }>("/api/work-orders/history"),
   outcomeStats: () => request<OutcomeStats>("/api/work-orders/outcome-stats"),
@@ -292,9 +317,22 @@ export const api = {
       body: JSON.stringify({ id, approve }),
     }),
   settings: () => request<Settings>("/api/settings"),
-  /** Email on new work orders (docs/API.md: Notifications). The App Password never leaves the backend. */
-  notifications: () => request<{ configured: boolean; sender: string | null; recipients: number }>("/api/notifications"),
-  sendTestEmail: () => request<{ sent: true }>("/api/notifications/test", { method: "POST", timeoutMs: 30000 }),
+  /** Admins only (api/admin.py). Secrets are write-only: the App Password and client secret never come back. */
+  admin: {
+    users: () => request<{ users: Account[]; pendingCount: number }>("/api/admin/users"),
+    act: (id: number, action: "approve" | "reject" | "disable" | "enable") =>
+      request<{ user: Account; notice: string | null }>(`/api/admin/users/${id}/${action}`, { method: "POST", timeoutMs: 30000 }),
+    setRole: (id: number, role: Role) =>
+      request<{ user: Account }>(`/api/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
+    server: () => request<ServerConfig>("/api/admin/server"),
+    saveEmail: (sender: string, password?: string) =>
+      request<ServerConfig>("/api/admin/email", { method: "PUT", body: JSON.stringify({ sender, password }) }),
+    clearEmail: () => request<ServerConfig>("/api/admin/email", { method: "DELETE" }),
+    testEmail: () => request<{ sent: true; to: string }>("/api/admin/email/test", { method: "POST", timeoutMs: 30000 }),
+    saveGoogle: (clientId: string, clientSecret?: string) =>
+      request<ServerConfig>("/api/admin/google", { method: "PUT", body: JSON.stringify({ clientId, clientSecret }) }),
+    clearGoogle: () => request<ServerConfig>("/api/admin/google", { method: "DELETE" }),
+  },
   saveSettings: (patch: DeepPartial<Settings>) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
   study: {

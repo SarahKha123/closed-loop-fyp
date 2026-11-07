@@ -553,7 +553,25 @@ def _user_row(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["UserID"], "username": row["Username"], "displayName": row["DisplayName"],
         "email": row["Email"], "avatarUrl": row["AvatarURL"],
+        "role": row["Role"], "status": row["Status"], "notifyWorkOrders": bool(row["NotifyWorkOrders"]),
     }
+
+
+class AccountError(ValueError):
+    """An account change or sign-in the rules refuse. `reason` is a short code the API and UI map to words."""
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
+def _first_admin_or_pending(conn: sqlite3.Connection) -> tuple[str, str, int]:
+    """(role, status, notify) for a new sign-up: the admin if there is no active one, else a pending engineer.
+
+    Called inside the inserting transaction, so two people signing up at once can't both become admin.
+    """
+    has_admin = conn.execute("SELECT 1 FROM tbl_User WHERE Role = 'admin' AND Status = 'active'").fetchone()
+    return ("engineer", "pending", 0) if has_admin else ("admin", "active", 1)
 
 
 def user_with_hash(username: str) -> tuple[dict[str, Any], str] | None:
@@ -567,11 +585,19 @@ def user_count() -> int:
         return int(conn.execute("SELECT COUNT(*) FROM tbl_User").fetchone()[0])
 
 
-def insert_user(username: str, display_name: str, password_hash: str) -> dict[str, Any]:
+def insert_user(username: str, display_name: str, password_hash: str, email: str | None = None,
+                *, role: str | None = None, status: str | None = None) -> dict[str, Any]:
+    """A new password account. Without role/status, the sign-up rule decides (first admin, else pending).
+
+    Raises sqlite3.IntegrityError for a taken username or email.
+    """
     with db.write() as conn:
+        auto_role, auto_status, notify = _first_admin_or_pending(conn)
+        role, status = role or auto_role, status or auto_status
         cur = conn.execute(
-            "INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt) VALUES (?, ?, ?, ?)",
-            (username, display_name, password_hash, _now()),
+            "INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, Email, Role, Status, NotifyWorkOrders)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (username, display_name, password_hash, _now(), email, role, status, int(role == "admin")),
         )
         row = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (cur.lastrowid,)).fetchone()
     return _user_row(row)
@@ -589,10 +615,11 @@ def set_password(username: str, password_hash: str) -> bool:
 
 
 def _log(conn: sqlite3.Connection, event: str, client: Client, *, user_id: int | None = None,
-         email: str | None = None, reason: str | None = None) -> None:
+         email: str | None = None, reason: str | None = None, actor_id: int | None = None) -> None:
     conn.execute(
-        "INSERT INTO tbl_AuthEvent (Event, UserID, Email, Reason, IP, UserAgent, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (event, user_id, email, reason, *client, _now()),
+        "INSERT INTO tbl_AuthEvent (Event, UserID, ActorID, Email, Reason, IP, UserAgent, CreatedAt)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (event, user_id, actor_id, email, reason, *client, _now()),
     )
 
 
@@ -617,28 +644,40 @@ def start_session(user: dict[str, Any], token_hash: str, ttl: timedelta, client:
 
 
 def google_sign_in(sub: str, email: str, name: str, picture: str | None,
-                   token_hash: str, ttl: timedelta, client: Client) -> dict[str, Any]:
+                   token_hash: str, ttl: timedelta, client: Client) -> tuple[dict[str, Any], bool]:
     """Find or create the account for a Google `sub`, start its session and audit it — one transaction,
-    so a sign-in is never saved without its audit row, or the reverse."""
+    so a sign-in is never saved without its audit row, or the reverse. Returns (user, created).
+
+    Raises AccountError("exists") when another account has this email, ("disabled") for a switched-off one.
+    """
     with db.write() as conn:
-        row = conn.execute("SELECT UserID FROM tbl_User WHERE GoogleSub = ?", (sub,)).fetchone()
+        row = conn.execute("SELECT UserID, Status FROM tbl_User WHERE GoogleSub = ?", (sub,)).fetchone()
+        taken = conn.execute("SELECT 1 FROM tbl_User WHERE Email = ? COLLATE NOCASE AND GoogleSub IS NOT ?",
+                             (email, sub)).fetchone()
+        if taken:
+            # Never link accounts by email: that is how account takeovers happen.
+            raise AccountError("exists", "An account with this email already exists. Sign in with your password.")
         if row:
+            if row["Status"] == "disabled":
+                raise AccountError("disabled", "This account isn't active. Ask an administrator.")
             user_id, events = row["UserID"], ("login",)
             conn.execute("UPDATE tbl_User SET Email = ?, DisplayName = ?, AvatarURL = ? WHERE UserID = ?",
                          (email, name, picture, user_id))
         else:
             events = ("signup", "login")
-            insert = ("INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, GoogleSub, Email, AvatarURL)"
-                      " VALUES (?, ?, '', ?, ?, ?, ?)")
+            role, status, notify = _first_admin_or_pending(conn)
+            insert = ("INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, GoogleSub, Email, AvatarURL,"
+                      " Role, Status, NotifyWorkOrders) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)")
             try:
-                user_id = conn.execute(insert, (email, name, _now(), sub, email, picture)).lastrowid
+                user_id = conn.execute(insert, (email, name, _now(), sub, email, picture, role, status, notify)).lastrowid
             except sqlite3.IntegrityError:
                 # ponytail: a password account already uses this email as its username; suffix rather than merge
                 # (merging would need proof both belong to the same person). Add account linking if that matters.
-                user_id = conn.execute(insert, (f"{email}#{sub[-6:]}", name, _now(), sub, email, picture)).lastrowid
+                user_id = conn.execute(insert, (f"{email}#{sub[-6:]}", name, _now(), sub, email, picture,
+                                                role, status, notify)).lastrowid
         user = _user_row(conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone())
         _open_session(conn, user, token_hash, ttl, client, events)
-    return user
+    return user, "signup" in events
 
 
 def session_user(token_hash: str) -> dict[str, Any] | None:
@@ -669,8 +708,8 @@ def auth_events(limit: int = 100) -> list[dict[str, Any]]:
     """Newest first."""
     with db.read() as conn:
         rows = conn.execute("SELECT * FROM tbl_AuthEvent ORDER BY EventID DESC LIMIT ?", (limit,)).fetchall()
-    return [{"event": r["Event"], "userId": r["UserID"], "email": r["Email"], "reason": r["Reason"],
-             "ip": r["IP"], "createdAt": r["CreatedAt"]} for r in rows]
+    return [{"event": r["Event"], "userId": r["UserID"], "actorId": r["ActorID"], "email": r["Email"],
+             "reason": r["Reason"], "ip": r["IP"], "createdAt": r["CreatedAt"]} for r in rows]
 
 
 def failed_logins_since(ip: str | None, since: str) -> int:
@@ -681,9 +720,118 @@ def failed_logins_since(ip: str | None, since: str) -> int:
         ).fetchone()[0])
 
 
-def google_user_exists(sub: str) -> bool:
+# ── account administration (api/admin.py) ────────────────────────────────────
+
+
+def users() -> list[dict[str, Any]]:
+    """Every account for the Users page: pending first, then by name."""
     with db.read() as conn:
-        return conn.execute("SELECT 1 FROM tbl_User WHERE GoogleSub = ?", (sub,)).fetchone() is not None
+        rows = conn.execute(
+            "SELECT * FROM tbl_User ORDER BY Status <> 'pending', DisplayName COLLATE NOCASE"
+        ).fetchall()
+    return [{**_user_row(r), "google": r["GoogleSub"] is not None, "createdAt": r["CreatedAt"],
+             "lastLoginAt": r["LastLoginAt"]} for r in rows]
+
+
+def user(user_id: int) -> dict[str, Any] | None:
+    with db.read() as conn:
+        row = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone()
+    return _user_row(row) if row else None
+
+
+def pending_count() -> int:
+    with db.read() as conn:
+        return int(conn.execute("SELECT COUNT(*) FROM tbl_User WHERE Status = 'pending'").fetchone()[0])
+
+
+# What each admin action may start from, and the audit event it writes.
+_MOVES = {
+    "approve": ({"pending"}, "active"),
+    "reject": ({"pending"}, "disabled"),
+    "disable": ({"active"}, "disabled"),
+    "enable": ({"disabled"}, "active"),
+}
+
+
+def change_account(user_id: int, actor: dict[str, Any], client: Client, *,
+                   action: str | None = None, role: str | None = None) -> dict[str, Any]:
+    """One admin action (`action`: approve | reject | disable | enable) or a role change, audited.
+
+    Leaving the server without an active admin is refused, whoever asks. Switching an
+    account off ends its sessions at once. Raises AccountError.
+    """
+    with db.write() as conn:
+        row = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone()
+        if row is None:
+            raise AccountError("missing", f"no account {user_id}")
+        status, new_role = row["Status"], role or row["Role"]
+        if action:
+            allowed, status = _MOVES[action]
+            if row["Status"] not in allowed:
+                raise AccountError("state", f"can't {action} an account that is {row['Status']}")
+        if new_role not in ("admin", "engineer"):
+            raise AccountError("role", f"unknown role {new_role!r}")
+        was_admin = row["Role"] == "admin" and row["Status"] == "active"
+        if was_admin and not (new_role == "admin" and status == "active"):
+            admins = conn.execute("SELECT COUNT(*) FROM tbl_User WHERE Role = 'admin' AND Status = 'active'").fetchone()[0]
+            if admins <= 1:
+                raise AccountError("last_admin", "This is the only admin. Make someone else an admin first.")
+        conn.execute("UPDATE tbl_User SET Status = ?, Role = ? WHERE UserID = ?", (status, new_role, user_id))
+        if status == "disabled":
+            conn.execute("DELETE FROM tbl_Session WHERE UserID = ?", (user_id,))
+        _log(conn, action or "role", client, user_id=user_id, actor_id=actor["id"],
+             email=row["Email"] or row["Username"], reason=None if action else new_role)
+        out = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone()
+    return _user_row(out)
+
+
+def make_admin(username: str) -> bool:
+    """The CLI's way back in: this account becomes an active admin."""
+    with db.write() as conn:
+        cur = conn.execute("UPDATE tbl_User SET Role = 'admin', Status = 'active' WHERE Username = ?", (username,))
+    return bool(cur.rowcount)
+
+
+def update_profile(user_id: int, *, email: str | None = None, notify_work_orders: bool | None = None) -> dict[str, Any]:
+    """A user's own settings. Raises sqlite3.IntegrityError if the email belongs to another account."""
+    with db.write() as conn:
+        if email is not None:
+            conn.execute("UPDATE tbl_User SET Email = ? WHERE UserID = ?", (email or None, user_id))
+        if notify_work_orders is not None:
+            conn.execute("UPDATE tbl_User SET NotifyWorkOrders = ? WHERE UserID = ?", (int(notify_work_orders), user_id))
+        row = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone()
+    return _user_row(row)
+
+
+def emails(*, admins: bool = False, work_orders: bool = False) -> list[str]:
+    """Addresses of active accounts: the admins, or everyone who asked for work-order emails."""
+    where = "Role = 'admin'" if admins else "NotifyWorkOrders = 1" if work_orders else "1"
+    with db.read() as conn:
+        rows = conn.execute(
+            f"SELECT Email FROM tbl_User WHERE Status = 'active' AND Email IS NOT NULL AND {where}"  # noqa: S608 — fixed
+        ).fetchall()
+    return [r["Email"] for r in rows]
+
+
+# ── server settings an admin saves (tbl_ServerSetting; secrets arrive encrypted) ──
+
+
+def server_settings() -> dict[str, str]:
+    with db.read() as conn:
+        return {r["Key"]: r["Value"] for r in conn.execute("SELECT Key, Value FROM tbl_ServerSetting")}
+
+
+def save_server_settings(values: dict[str, str | None], actor: dict[str, Any], client: Client, section: str) -> None:
+    """Upsert the given keys (None clears one), audited as one `settings` event."""
+    with db.write() as conn:
+        for key, value in values.items():
+            conn.execute(
+                "INSERT INTO tbl_ServerSetting (Key, Value, UpdatedAt, UpdatedBy) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value, UpdatedAt = excluded.UpdatedAt,"
+                " UpdatedBy = excluded.UpdatedBy",
+                (key, value, _now(), actor["id"]),
+            )
+        _log(conn, "settings", client, user_id=actor["id"], actor_id=actor["id"], reason=section)
 
 
 # ── per-user cloud keys (services/cloud.py does the encryption) ──────────────

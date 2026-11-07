@@ -4,8 +4,9 @@ The tables are the FYP1 interim report's four data contracts (Tables 3.1–3.3),
 plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4),
 `tbl_StudyLog` for the user study, `tbl_WorkOrderOutcome` for what technicians
 found when closing work orders, and `tbl_User` / `tbl_Session` / `tbl_AuthEvent`
-for sign-in (services/auth.py), and `tbl_UserCloud` / `tbl_UserModel` for each
-user's own cloud keys (services/cloud.py). Design notes:
+for sign-in (services/auth.py), `tbl_UserCloud` / `tbl_UserModel` for each
+user's own cloud keys (services/cloud.py), and `tbl_ServerSetting` for what an
+admin sets on the Admin page. Design notes:
 
 - One `tbl_SensorReading` row per *cycle*: the 17 sensors are shared by all
   four components, so the reading belongs to the cycle and the per-component
@@ -20,6 +21,11 @@ lets the dashboard read while the replay writes; writes are still serialised
 through one lock, because SQLite allows a single writer.
 
 All SQL that *uses* these tables lives in `repo.py`.
+
+Schema changes: `SCHEMA` below is the v3 baseline. Each later version is a file
+in `app/migrations/` (`NNNN_<name>.sql`, one transaction that ends by setting
+`PRAGMA user_version`), applied in order to any database below that number,
+fresh ones included, so a new and an upgraded database end up identical.
 """
 
 from __future__ import annotations
@@ -28,10 +34,14 @@ import sqlite3
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 from . import paths
 
-SCHEMA_VERSION = 3  # 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent; 3: per-user cloud keys (see _migrate)
+# 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent; 3: per-user cloud keys (see _migrate);
+# 4: roles, account approval, server settings (migrations/0004_accounts_and_roles.sql)
+SCHEMA_VERSION = 4
+MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
 
 # component key (as in ml.labels.COMPONENTS) → seeded tbl_Equipment row.
 # Criticality is an assumption for the demo rig: the pump and valve sit on the
@@ -166,6 +176,7 @@ CREATE TABLE IF NOT EXISTS tbl_WorkOrderOutcome (
 -- Sign-in (services/auth.py). Like tbl_StudyLog, these survive a replay reset.
 -- A Google account has GoogleSub (its stable id: accounts are matched on it, never on email),
 -- Username = its email, and an empty PasswordHash (no password sign-in).
+-- v4 adds Role, Status and NotifyWorkOrders (migrations/0004_accounts_and_roles.sql).
 CREATE TABLE IF NOT EXISTS tbl_User (
   UserID       INTEGER PRIMARY KEY,
   Username     TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -284,10 +295,23 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 if col not in have:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")  # noqa: S608 — fixed names
         conn.execute("DELETE FROM tbl_Session")  # v1 stored raw tokens; v2 stores only their hash
+    conn.commit()
+    for path in migration_files():
+        if int(path.name[:4]) > conn.execute("PRAGMA user_version").fetchone()[0]:
+            try:
+                conn.executescript(path.read_text())
+            except sqlite3.Error as exc:
+                conn.rollback()
+                raise RuntimeError(f"database migration {path.name} failed, nothing was changed: {exc}") from exc
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_User_GoogleSub ON tbl_User(GoogleSub)")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_Session_UserID ON tbl_Session(UserID)")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_AuthEvent_CreatedAt ON tbl_AuthEvent(CreatedAt DESC)")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_AuthEvent_IP ON tbl_AuthEvent(IP, Event, CreatedAt)")
+
+
+def migration_files() -> list[Path]:
+    """app/migrations/NNNN_*.sql, in order."""
+    return sorted(MIGRATIONS.glob("[0-9][0-9][0-9][0-9]_*.sql"))
 
 
 def equipment_id(component: str) -> str:
