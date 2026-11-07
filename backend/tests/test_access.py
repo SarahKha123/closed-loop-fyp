@@ -36,14 +36,14 @@ def test_keys_are_per_user_encrypted_and_never_returned(fresh_db, monkeypatch):
     assert cloud.get(bob, "groq")["api_key"] == ""  # Bob can't see Alice's key
     assert all("gsk-alice-secret-1234" not in str(p) for p in cloud.public(alice))
 
-    # Chat uses the user's own key only: no fallback to the server's.
+    # Only the user's own key answers: there is no server key, so CLOUD_* in the environment does nothing.
     monkeypatch.setenv("CLOUD_PROVIDER", "groq")
     monkeypatch.setenv("CLOUD_API_KEY", "gsk-server-key-9999")
     monkeypatch.setenv("CLOUD_MODEL", "big")
     model_config.select(alice, "groq")
+    model_config.select(bob, "groq")
     assert model_config.resolve(alice)["resolved"] is True
     assert model_config.resolve(bob)["resolved"] is False
-    assert model_config.resolve(None)["tag"] == "big"  # insights: the server key
 
     # A changed secret makes saved keys unreadable (no key), never a crash.
     monkeypatch.setenv("KEY_ENCRYPTION_SECRET", "another-secret")

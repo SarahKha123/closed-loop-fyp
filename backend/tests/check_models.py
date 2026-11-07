@@ -10,14 +10,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx  # noqa: E402
 
-from app.services import advisor, cloud, db, model_config, repo  # noqa: E402
+from app.services import advisor, cloud, db, insights, model_config, repo  # noqa: E402
 
 db.init_db()
 uid = repo.insert_user("checker", "Checker", "x")["id"]
 
-# No provider chosen: unresolved, for the user and for live insights.
+# No provider chosen: unresolved.
 assert model_config.resolve(uid)["resolved"] is False
-assert model_config.resolve(None)["resolved"] is False
 
 # A user's own key: unresolved until key + model exist, then resolved to their provider.
 model_config.select(uid, "openai")
@@ -28,11 +27,10 @@ assert (r["resolved"], r["provider"], r["tag"]) == (True, "openai", "m-1"), r
 assert all("sk-abcdefgh1234" not in str(p) for p in cloud.public(uid))
 assert advisor.choose(uid) == advisor.Target(label="openai/m-1", provider="openai", user_id=uid)
 
-# Live insights use the server key from the environment, never a user's.
-os.environ.update(CLOUD_PROVIDER="groq", CLOUD_API_KEY="gsk-env-key-9999", CLOUD_MODEL="llama-3.1-8b-instant")
-assert advisor.choose() == advisor.Target(label="groq/llama-3.1-8b-instant", provider="groq")
-for k in ("CLOUD_PROVIDER", "CLOUD_API_KEY", "CLOUD_MODEL"):
-    del os.environ[k]
+# Live insights run on the replay driver's key; nobody driving means none.
+assert insights.status()["resolved"] is False
+insights.drive({"id": uid, "username": "checker"})
+assert insights.status()["resolved"] is True and insights.status()["driver"] == "checker"
 
 # SSE parsing: content deltas joined, empty deltas and [DONE] handled.
 sse = (

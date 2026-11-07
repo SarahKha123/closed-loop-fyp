@@ -2,7 +2,8 @@
 
     GET  /api/insights?limit=50   newest first (unverified ones left out when grounding.hideUnverified)
     GET  /api/insights/{id}       one insight with the snapshot it was written from
-    POST /api/insights/generate   "summarise now": one insight about the current state, outside the triggers
+    POST /api/insights/generate   "summarise now": one insight about the current state, outside the triggers,
+                                 on the clicker's own key (the triggered ones use the replay driver's)
 
 New insights also arrive live as `insight` events on /api/stream.
 """
@@ -11,9 +12,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..services import advisor, insights, repo, settings
+from .auth import current_user
 
 router = APIRouter(prefix="/api/insights", tags=["insights"])
 
@@ -33,9 +35,9 @@ def get_insight(insight_id: int) -> dict[str, Any]:
 
 
 @router.post("/generate")
-def generate() -> dict[str, Any]:
+def generate(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
     try:
-        return insights.generate("manual", ["The engineer asked for a summary of the current state"])
+        return insights.generate("manual", ["The engineer asked for a summary of the current state"], user_id=user["id"])
     except advisor.NoModel as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except insights.NoData as exc:

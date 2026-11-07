@@ -1,5 +1,5 @@
-// Which cloud model answers this user's chat (their own key), and which writes the
-// live insights (the server's key). Shared by the sidebar's ModelCard, the Advisor
+// Which cloud model answers this user's chat (their own key), and who pays for the
+// live insights (whoever drives the replay, on their own key). Shared by the sidebar's ModelCard, the Advisor
 // panel and the AI model page; the backend is the source of truth, this only caches it.
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"

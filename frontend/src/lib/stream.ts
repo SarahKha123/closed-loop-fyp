@@ -22,7 +22,7 @@ export type StreamEvent =
     }
   | { type: "work_order"; action: "opened" | "closed"; workOrder: { id: string; component: string } }
   | { type: "insight"; insight: Insight }
-  | { type: "insight_notice"; text: string }
+  | { type: "insight_notice"; text: string; needsKey?: boolean }
   | { type: "settings"; settings: Settings }
   | { type: "study"; action: "task_loading" | "task_started" | "task_ended"; taskId?: string }
   | { type: "reconnected" }

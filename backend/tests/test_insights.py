@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services import advisor, insights, repo, settings
+from app.services import advisor, cloud, insights, model_config, repo, settings
 from tests.test_monitor import _cycle
 
 GROUNDED = "The accumulator turned Critical at cycle 11 with a 99.0% failure probability."
@@ -16,7 +16,8 @@ def stub_model(monkeypatch):
     """advisor.complete returns the queued replies in order; records the messages it got."""
     replies: list[str] = []
     calls: list[list[dict]] = []
-    monkeypatch.setattr(advisor, "choose", lambda user_id=None: advisor.Target(label="stub", provider="openai"))
+    monkeypatch.setattr(advisor, "choose", lambda user_id: advisor.Target(label="stub", provider="openai", user_id=user_id))
+    monkeypatch.setattr(insights, "_driver", {"id": 1, "username": "tester"})  # someone is driving the replay
 
     def complete(target, messages):
         calls.append(list(messages))
@@ -91,3 +92,30 @@ def test_settings_validation(fresh_db):
         with pytest.raises(settings.SettingsError):
             settings.update(bad)
     assert settings.get()["insights"]["threshold"] == 0.7  # a rejected patch changes nothing
+
+
+def test_insights_run_on_the_replay_drivers_key(fresh_db, monkeypatch):
+    """No server key: nobody driving, or a driver without a key, pauses insights with a notice that names the fix."""
+    monkeypatch.setattr(insights, "_driver", None)
+    assert insights.status()["resolved"] is False and insights.status()["driver"] is None
+    with pytest.raises(advisor.NoModel, match="Nobody is driving"):
+        insights.generate("manual")
+
+    # Pressing a replay control makes you the driver (api/replay.py), and your key pays.
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        c.post("/api/replay/pause")
+    assert insights.status()["driver"] == "tester"
+    with pytest.raises(advisor.NoModel, match="tester is driving the replay and has no working API key"):
+        insights.generate("manual")
+
+    alice = repo.insert_user("alice", "Alice", "x")["id"]
+    cloud.save(alice, "groq", api_key="gsk-alice-1234", model="m", base_url=None)
+    model_config.select(alice, "groq")
+    insights.drive({"id": alice, "username": "alice"})
+    s = insights.status()
+    assert (s["resolved"], s["driver"], s["tag"]) == (True, "alice", "m")
+    assert advisor.choose(alice).user_id == alice

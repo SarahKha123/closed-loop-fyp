@@ -105,8 +105,8 @@ services never import from `api`.
 | `services/insights.py` | The insight engine: triggers, coalescing, cooldown, generate → check → retry → store |
 | `services/grounding.py` | The grounding check: every number, WO ID and condition must be in what the model was given |
 | `services/tools.py` | Chat tools (status, history, propose a work order), the tool loop, pending confirmations |
-| `services/model_config.py` | Which provider answers: read/write the file (or `CLOUD_PROVIDER`), and why it can or can't |
-| `services/cloud.py` | Cloud providers: stored settings and `CLOUD_*` overrides, key masking, test, streamed and tool-calling chat |
+| `services/model_config.py` | Which of a user's providers answers, and why it can or can't |
+| `services/cloud.py` | Cloud providers: each user's encrypted settings, key masking, test, streamed and tool-calling chat |
 | `services/jsonfile.py` | Safe read + atomic write for the config files |
 
 The ML code lives next to it in `backend/ml/` (features, labels, training,
@@ -134,16 +134,18 @@ refuses to delete a database that holds study log rows unless given `--force`.
 
 ### Model selection
 
-Two models, never mixed:
+Every key is a user's own; there is no server key:
 
 | | Whose key | Where it lives | Picked by |
 |---|---|---|---|
-| **Chat** | the signed-in user's own | `tbl_UserCloud` (Fernet-encrypted) | that user, on the AI model page (`tbl_UserModel`) |
-| **Live insights** | the server's | `CLOUD_PROVIDER`, `CLOUD_API_KEY`, `CLOUD_MODEL` (+ `CLOUD_BASE_URL`) in the environment | whoever deploys it |
+| **Chat** | the signed-in user's | `tbl_UserCloud` (Fernet-encrypted) | that user, on the AI model page (`tbl_UserModel`) |
+| **Live insights** | the replay *driver's*: whoever last pressed a replay control (in memory; after a restart the replay is paused, so the next Play decides) | the same | the driver's own model choice |
+| **Summarise now** | whoever clicks it | the same | their own model choice |
 
-A user without a key of their own can't chat on the server's key, and
-insights never use a user's key. `model_config.resolve(user_id)` (or
-`resolve(None)` for insights) says what answers and, when nothing can, why.
+A user without a key gets no answers, and insights pause with a notice
+naming the driver and linking to the AI model page.
+`model_config.resolve(user_id)` and `insights.status()` say what answers and,
+when nothing can, why.
 `advisor.Target` carries the `user_id`, and `cloud.config()` decrypts the key
 only for the call that uses it.
 
@@ -249,8 +251,6 @@ study mode or on the AI model page itself.
   keys read as "no key" and users paste them again.
 - **No response ever contains a key**, only `key_hint` (the last four
   characters); a key a provider echoes in an error message is scrubbed.
-- **The server key** lives only in the environment and is used only by the
-  insight engine.
 - **Accounts:** `ALLOW_SIGNUP=false` on a deployed server closes sign-up and
   first-time Google sign-ins and skips the demo account; failed sign-ins are
   limited to 10 per IP per 15 minutes.

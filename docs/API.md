@@ -71,13 +71,12 @@ signed in. Any failure → 302 to `/?authError=cancelled|state|exchange|token` a
 
 ## Model selection
 
-Two models, never mixed. **Chat** answers from the signed-in user's own
-provider and key (no fallback to the server's). **Live insights**, which
-belong to no one user, use the server's key: `CLOUD_PROVIDER`,
-`CLOUD_API_KEY`, `CLOUD_MODEL` (+ `CLOUD_BASE_URL`) from the environment.
+There is no server key. **Chat** answers from the signed-in user's own
+provider and key. **Live insights** run on the key of the replay's *driver*:
+whoever last pressed a replay control. **Summarise now** runs on the clicker's.
 
 ### `GET /api/models/active`
-The user's chat model, plus the insights model, each with why it can or can't answer.
+The user's chat model, plus `insights`: who drives the replay and whether their model can answer.
 ```json
 {
   "provider": "groq",              // null until the user picks one
@@ -85,7 +84,7 @@ The user's chat model, plus the insights model, each with why it can or can't an
   "tag": "llama-3.3-70b-versatile", // the provider's model id
   "resolved": true,                // false: `reason` says what's missing
   "reason": "Answering from Groq.",
-  "insights": {"provider": "groq", "label": "Groq", "tag": "llama-3.1-8b-instant", "resolved": true, "reason": "…"}
+  "insights": {"driver": "sharvin", "provider": "groq", "label": "Groq", "tag": "llama-3.1-8b-instant", "resolved": true, "reason": "…"}  // driver null: nobody has pressed a replay control yet
 }
 ```
 
@@ -162,6 +161,7 @@ restart it resumes after the last stored cycle.
 
 ### `POST /api/replay/play` · `/pause` · `/step`
 `step` writes exactly one cycle (works while paused). `play` on a finished replay is a `400`.
+Every control (these, `speed`, `seek`, `reset`) makes the caller the replay's driver: live insights run on their key.
 
 ### `POST /api/replay/speed`
 Body `{"secondsPerCycle": 0.5}` — between 0.05 and 60.
@@ -191,7 +191,7 @@ sent after 15 s of silence to keep the connection open.
 | `prediction` | a cycle was scored | `{"cycle": 733, "predictions": [{"component": "Cooler", "condition": "Degraded", "failureProbability": 0.98, "changedFrom": "Critical", "predictionId": 2917, "equipmentId": "COOLER-1"}, …]}` | M4 |
 | `work_order` | a work order opened or closed | `{"action": "opened" \| "closed", "workOrder": {...}}` | M6 |
 | `insight` | the AI produced an insight | the insight (as in `GET /api/insights`) | M7 |
-| `insight_notice` | the insight engine can't reach a model (sent once, until an insight succeeds) | `{"text": "Insights paused: …"}` | M7 |
+| `insight_notice` | the insight engine can't reach a model (once per distinct reason, until an insight succeeds) | `{"text": "Insights paused: …", "needsKey": true}`; `needsKey`: the fix is an API key on the AI model page | M7 |
 | `settings` | runtime settings changed (`PUT /api/settings`, or a study condition switch) | `{"settings": {…}}` — the `GET /api/settings` object | M11 |
 | `study` | a study task is loading, has started or has ended | `{"action": "task_loading" \| "task_started" \| "task_ended", "taskId": "A1"}` (`task_loading` has no `taskId`) | M11 |
 
@@ -382,7 +382,7 @@ Newest first, chat answers excluded (unverified ones too when `grounding.hideUnv
 One insight plus the `snapshot` it was written from. `404` if unknown.
 
 ### `POST /api/insights/generate`
-"Summarise now" — waits for the model and returns the new insight (also sent
+"Summarise now" — on the caller's own key; waits for the model and returns the new insight (also sent
 on the stream). `503` no model · `409` nothing scored yet · `502` the model failed.
 
 ---

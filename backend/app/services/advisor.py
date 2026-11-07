@@ -30,11 +30,11 @@ class NoTools(ReplyError):
 
 @dataclass(frozen=True)
 class Target:
-    """What will answer: a provider, labelled `provider/model`, on a user's own key or (user_id None) the server's."""
+    """What will answer: a provider, labelled `provider/model`, on a user's own key."""
 
     label: str
     provider: str
-    user_id: int | None = None
+    user_id: int
     model: str | None = None  # None: the saved model. The evaluation sets it to compare models.
 
 
@@ -50,8 +50,8 @@ def trim_history(messages: list[dict[str, str]], max_turns: int = MAX_TURNS) -> 
     return system + rest[-2 * max_turns:]
 
 
-def choose(user_id: int | None = None) -> Target:
-    """A user's chat model, or (None) the server's model for live insights. Raises NoModel if none can answer."""
+def choose(user_id: int) -> Target:
+    """The model a user answers on (their chat, or insights while they drive). Raises NoModel if none can answer."""
     resolved = model_config.resolve(user_id)
     if not resolved["resolved"]:
         raise NoModel(resolved["reason"])

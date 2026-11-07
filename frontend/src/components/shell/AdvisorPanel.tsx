@@ -1,6 +1,7 @@
 // The right-hand Advisor: live insights it writes when the data changes, then a chat about the live readings,
 // both answered by the active cloud model and grounding-checked against the snapshot it was given.
 
+import { Link } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { useChat } from "../../context/ChatContext"
 import type { ActionState } from "../../context/ChatContext"
@@ -146,7 +147,17 @@ function InsightsFeed() {
         </Button>
       </div>
       {(error ?? insightNotice) && (
-        <div className="mx-4 mb-2 rounded-md bg-warning-bg px-2.5 py-1.5 text-sm text-warning-text">{error ?? insightNotice}</div>
+        <div className="mx-4 mb-2 rounded-md bg-warning-bg px-2.5 py-1.5 text-sm text-warning-text">
+          {error ?? insightNotice?.text}
+          {(insightNotice?.needsKey || error?.includes("API key")) && (
+            <>
+              {" "}
+              <Link to="/models" className="font-medium underline">
+                Add your key
+              </Link>
+            </>
+          )}
+        </div>
       )}
       <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3">
         {insights.length === 0 ? (

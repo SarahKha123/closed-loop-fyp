@@ -11,8 +11,7 @@
 #                               refuses while it holds user-study logs, unless --force
 #
 # Everything runs directly on this machine — no containers. The Advisor answers
-# from a cloud API: add a key on the Models page, or set CLOUD_PROVIDER /
-# CLOUD_API_KEY / CLOUD_MODEL in .env (what a deployed server does).
+# from a cloud API on each user's own key, added on the AI model page.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -176,9 +175,9 @@ cmd_reset_db() {
 
 cmd_status() {
   head_ "API"
-  if curl -fsS --max-time 3 "http://localhost:${BACKEND_PORT}/api/models/active" >/dev/null 2>&1; then
+  if curl -fsS --max-time 3 "http://localhost:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
     ok "reachable on :${BACKEND_PORT}"
-    curl -fsS --max-time 3 "http://localhost:${BACKEND_PORT}/api/models/active" | python3 -m json.tool 2>/dev/null | sed 's/^/  /'
+    curl -fsS --max-time 3 "http://localhost:${BACKEND_PORT}/api/health" | python3 -m json.tool 2>/dev/null | sed 's/^/  /'
   else
     warn "API not reachable on :${BACKEND_PORT} — is it running?"
   fi

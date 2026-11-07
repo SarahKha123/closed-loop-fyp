@@ -66,15 +66,15 @@ shell wins over `.env`.
 |---|---|---|
 | `BACKEND_PORT` | `8000` | the API (and the UI with `start`) |
 | `FRONTEND_PORT` | `5173` | the Vite dev server (`dev` only) |
-| `CLOUD_PROVIDER` / `CLOUD_API_KEY` / `CLOUD_MODEL` / `CLOUD_BASE_URL` | *(empty)* | the server key: writes the live insights (never used for chat); insights pause without it |
 | `KEY_ENCRYPTION_SECRET` | *(empty: a random `config/secret.key`)* | encrypts users' saved keys; keep it stable or they become unreadable |
 | `ALLOW_SIGNUP` | `true` | `false` on a deployed server: no sign-up, no new Google accounts, no demo account |
 | `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS` | `2` | CPU threads for the ML predictor |
 | `CLOSED_LOOP_CONFIG_DIR` | repo `config/` | where the config files and the database live |
 | `CLOSED_LOOP_STATIC_DIR` | *(unset)* | serve a built UI from this folder (`start` sets `frontend/dist`) |
 
-Each user's own key (for their chat) is saved on the AI model page, encrypted
-in the database. The `CLOUD_*` server key is only for live insights.
+There is no server key. Each user's own key is saved on the AI model page,
+encrypted in the database; it answers their chat, and the live insights while
+they drive the replay.
 
 ### Runtime settings (`config/settings.json`)
 
@@ -187,8 +187,8 @@ backend/.venv/bin/python eval/system_perf.py --yes [--speed 0.2]          # Part
   row each, plus `<name>.config.json` (models, prompt version). Re-running
   with the same `--out` resumes. Models are `cloud:<provider>` or
   `cloud:<provider>/<model>`, so one key can compare a small and a large
-  model. Keys come from the `CLOUD_*` server key, or with `--user <username>`
-  from that account's keys saved on the AI model page. Use `--limit` and `--repeats 1` for a
+  model. `--user <username>` (required) names the account whose keys, saved
+  on the AI model page, run the models. Use `--limit` and `--repeats 1` for a
   quick pass.
 - **`analyse.py`** writes `<name>.report.md` (grounding accuracy,
   hallucination rate, regeneration rate, coverage, latency) and two charts:
@@ -266,7 +266,7 @@ and `TRIGGER` in `AdvisorPanel.tsx`.
 | `[vite] http proxy error … ECONNREFUSED 127.0.0.1:8000` | the backend isn't answering. `dev` waits for it now, so this only appears if the backend stopped or restarted (a reload after a backend edit) — check its output above |
 | `the backend exited during startup` | the backend's error is printed just above; often port 8000 is taken (`BACKEND_PORT=8001 ./closed-loop.sh dev`) |
 | `backend/.venv missing or broken` | run `./closed-loop.sh setup` |
-| The Advisor says no model can answer | chat: add your own key and model on **AI model** and press *Use*. Live insights paused: set `CLOUD_PROVIDER` / `CLOUD_API_KEY` / `CLOUD_MODEL` in `.env` |
+| The Advisor says no model can answer | chat: add your own key and model on **AI model** and press *Use*. Live insights paused: whoever last pressed a replay control has no working key; they add one, or someone with a key presses Play |
 | `reset-db` refuses | the database holds study logs — export them, then `reset-db --force` |
 
 ## Conventions
@@ -282,7 +282,7 @@ and `TRIGGER` in `AdvisorPanel.tsx`.
 - **Update `docs/API.md`** in the same change as any endpoint change.
 - **Never edit `Daedalus/`.** It's a reference project; read it for
   patterns, but all changes go in this repo's own code.
-- **Secrets** go in `.env` (the server key, `KEY_ENCRYPTION_SECRET`) or, for
+- **Secrets** go in `.env` (`KEY_ENCRYPTION_SECRET`, SMTP, Google) or, for
   users' keys, the database (encrypted); never in `.env.example` or the code. Never commit the database or the trained models.
 - **Requirements are unpinned.** `requirements*.txt` list package names only,
   so the project keeps installing in future; anything version-sensitive (the

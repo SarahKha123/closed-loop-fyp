@@ -16,6 +16,11 @@ answers don't queue behind insights.
 Each insight: snapshot → model → grounding check → (one retry with the
 mismatches) → saved to tbl_Insight → published as an `insight` event. If no
 model can answer, one `insight_notice` says so, not one per event.
+
+Whose key: the *driver's*, the user who last pressed a replay control
+(api/replay.py calls drive()). Kept in memory only: after a restart the replay
+is paused, so whoever presses Play next drives. There is no server key.
+"Summarise now" (api/insights.py) runs on the clicker's own key instead.
 """
 
 from __future__ import annotations
@@ -24,7 +29,7 @@ import asyncio
 import logging
 from typing import Any
 
-from . import advisor, events, grounding, prompts, repo, settings, snapshot
+from . import advisor, events, grounding, model_config, prompts, repo, settings, snapshot
 
 log = logging.getLogger(__name__)
 
@@ -33,9 +38,43 @@ class NoData(RuntimeError):
     """Nothing has been scored yet, so there is nothing to talk about."""
 
 
-def generate(trigger_type: str, trigger_events: list[str] | None = None) -> dict[str, Any]:
-    """Write, check, store and publish one insight. Raises advisor.NoModel / advisor.ReplyError / NoData."""
-    target = advisor.choose()
+_driver: dict[str, Any] | None = None  # {"id", "username"} of whoever last touched the replay controls
+
+
+def drive(user: dict[str, Any]) -> None:
+    global _driver
+    _driver = {"id": user["id"], "username": user["username"]}
+
+
+def status() -> dict[str, Any]:
+    """Who pays for live insights now, and whether their model can answer: resolve() plus `driver`."""
+    d = _driver
+    if d is None:
+        return {"driver": None, "provider": None, "label": None, "tag": None, "resolved": False,
+                "reason": "Nobody is driving the replay yet. Whoever presses Play pays for live insights with their own key."}
+    out = {"driver": d["username"], **model_config.resolve(d["id"])}
+    if not out["resolved"]:
+        out["reason"] = (f"{d['username']} is driving the replay and has no working API key. "
+                         "Add yours on the AI model page, then press Play.")
+    return out
+
+
+def _driver_target() -> advisor.Target:
+    d = _driver
+    if d is not None:
+        try:
+            return advisor.choose(d["id"])
+        except advisor.NoModel:
+            pass
+    raise advisor.NoModel(status()["reason"])
+
+
+def generate(trigger_type: str, trigger_events: list[str] | None = None, *, user_id: int | None = None) -> dict[str, Any]:
+    """Write, check, store and publish one insight, on `user_id`'s key or (None) the driver's.
+
+    Raises advisor.NoModel / advisor.ReplyError / NoData.
+    """
+    target = advisor.choose(user_id) if user_id is not None else _driver_target()
     snap = snapshot.build(trigger_events)
     if snap["cycle"] is None:
         raise NoData("no cycle has been scored yet — start the replay")
@@ -87,7 +126,7 @@ class Engine:
         self.pending: list[tuple[str, str]] = []  # (trigger type, one-line description)
         self.last_fp: dict[str, float] = {}       # component → last failure probability, for threshold crossings
         self.task: asyncio.Task[None] | None = None
-        self.paused_notice_sent = False
+        self.notice: str | None = None  # the last insight_notice sent; cleared by a success
 
     def triggers(self, event: dict[str, Any]) -> list[tuple[str, str]]:
         """What in this event is worth an insight."""
@@ -129,8 +168,10 @@ class Engine:
     async def _run(self, kind: str, lines: list[str]) -> None:
         try:
             await asyncio.to_thread(generate, kind, lines)
-            self.paused_notice_sent = False
-        except (advisor.NoModel, advisor.ReplyError, NoData) as exc:
+            self.notice = None
+        except advisor.NoModel as exc:
+            self._notice(f"Insights paused: {exc}", needs_key=True)
+        except (advisor.ReplyError, NoData) as exc:
             self._notice(f"Insights paused: {exc}")
         except Exception as exc:  # noqa: BLE001 — a bad generation must not stop the engine
             log.exception("insights: generation failed")
@@ -142,10 +183,11 @@ class Engine:
                 self.task = None
             self._kick()
 
-    def _notice(self, text: str) -> None:
-        if not self.paused_notice_sent:
-            self.paused_notice_sent = True
-            events.publish({"type": "insight_notice", "text": text})
+    def _notice(self, text: str, *, needs_key: bool = False) -> None:
+        """Once per distinct problem, so a new driver without a key is told too. `needsKey` adds the UI's link."""
+        if text != self.notice:
+            self.notice = text
+            events.publish({"type": "insight_notice", "text": text, "needsKey": needs_key})
 
 
 async def run() -> None:

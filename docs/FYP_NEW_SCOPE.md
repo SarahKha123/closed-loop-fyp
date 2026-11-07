@@ -376,8 +376,7 @@ warning or dropped. Every check is logged in `tbl_Insight`.
 Gemini, Groq, OpenRouter, DeepSeek and Ollama Cloud all speak the
 OpenAI-compatible chat API. Each signed-in user chats on their own key and
 model, saved encrypted against their account on the AI model page; the live
-insights, which belong to no one user, use the server's key from its
-environment.
+insights run on the key of whoever drives the replay (last pressed Play).
 *(Already implemented in this repo.)*
 
 **3.5.5 Chat with actions.** The Advisor answers questions using the same

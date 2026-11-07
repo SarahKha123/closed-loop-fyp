@@ -1,6 +1,6 @@
 """`/api/models` — which cloud model answers, for the signed-in user and for live insights.
 
-    GET  /api/models/active   the user's chat model, plus `insights`: the server's model for live insights
+    GET  /api/models/active   the user's chat model, plus `insights`: who drives the replay and so pays for live insights
     POST /api/models/select   the user picks one of their providers ({"provider": "groq"})
 
 Each user's keys and models are managed under `/api/cloud`.
@@ -12,14 +12,14 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from ..services import model_config
+from ..services import insights, model_config
 from .auth import current_user
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 
 
 def _active(user_id: int) -> dict[str, Any]:
-    return {**model_config.resolve(user_id), "insights": model_config.resolve(None)}
+    return {**model_config.resolve(user_id), "insights": insights.status()}
 
 
 @router.get("/active")

@@ -11,6 +11,7 @@ import type { ReactNode } from "react"
 import { api } from "../lib/api"
 import type { ConditionEvent, Insight, Overview, ReplayState, Settings, Trend } from "../lib/api"
 import { conditionRank } from "../lib/status"
+import { useModels } from "./ModelsContext"
 import { onStatus, subscribe } from "../lib/stream"
 import type { StreamStatus } from "../lib/stream"
 
@@ -35,7 +36,8 @@ interface LiveValue {
   toasts: Toast[]
   insights: Insight[]
   /** "Insights paused: …" — set when the engine can't reach a model, cleared by the next insight. */
-  insightNotice: string | null
+  /** Why insights are paused; `needsKey` when the fix is adding an API key on the AI model page. */
+  insightNotice: { text: string; needsKey: boolean } | null
   /** null until loaded; kept current by `settings` events (a change in any tab). */
   settings: Settings | null
   dismissToast: (id: number) => void
@@ -60,13 +62,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [trend, setTrend] = useState<Trend | null>(null)
   const [events, setEvents] = useState<ConditionEvent[]>([])
   const [replay, setReplay] = useState<ReplayState | null>(null)
+  const models = useModels()
   const [connection, setConnection] = useState<StreamStatus>("connecting")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [controlError, setControlError] = useState<string | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
-  const [insightNotice, setInsightNotice] = useState<string | null>(null)
+  const [insightNotice, setInsightNotice] = useState<{ text: string; needsKey: boolean } | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
 
   const pending = useRef<number | null>(null)
@@ -154,7 +157,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         setInsights((xs) => [e.insight, ...xs.filter((x) => x.id !== e.insight.id)].slice(0, 50))
         setInsightNotice(null)
       } else if (e.type === "insight_notice") {
-        setInsightNotice(e.text)
+        setInsightNotice({ text: e.text, needsKey: e.needsKey ?? false })
       } else if (e.type === "settings") {
         setSettings(e.settings)
       } else if (e.type === "reconnected") {
@@ -184,7 +187,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   )
 
   const control = {
-    play: () => run(api.replay.play),
+    play: async () => {
+      await run(api.replay.play)
+      // Pressing Play makes you the driver: live insights now run on your key.
+      if (models.active && !models.active.resolved)
+        pushToast({ title: "Replay running without live insights", detail: "Add your API key on the AI model page to get them.", tone: "info" })
+    },
     pause: () => run(api.replay.pause),
     step: () => run(api.replay.step),
     reset: (cycle?: number) => run(() => api.replay.reset(cycle)),

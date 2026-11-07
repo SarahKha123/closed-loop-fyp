@@ -4,19 +4,13 @@ Every provider listed speaks the OpenAI `/chat/completions` + `/models` shape,
 Anthropic and Gemini included via their compatibility endpoints, so one client
 covers them all.
 
-Two kinds of key, never mixed:
-
-- **Each user's own keys** answer that user's chat. They live in the database
-  (`tbl_UserCloud`), encrypted with Fernet under the server's
-  `KEY_ENCRYPTION_SECRET` (or a secret generated once into
-  `config/secret.key`, owner-only). The plain key exists only in memory for
-  the request that uses it; no response carries it, only `key_hint` (its
-  last four characters).
-- **The server key** writes the live insights, which belong to no one user:
-  `CLOUD_PROVIDER` + `CLOUD_API_KEY` + `CLOUD_MODEL` (+ `CLOUD_BASE_URL`), from
-  the environment only. It never reaches a browser either.
-
-`user_id=None` below means the server key.
+Every key belongs to a user. A user's keys answer their chat, and the live
+insights while they drive the replay (services/insights.py). There is no
+server key. Keys live in the database (`tbl_UserCloud`), encrypted with Fernet
+under the server's `KEY_ENCRYPTION_SECRET` (or a secret generated once into
+`config/secret.key`, owner-only). The plain key exists only in memory for the
+request that uses it; no response carries it, only `key_hint` (its last four
+characters).
 """
 
 from __future__ import annotations
@@ -96,31 +90,20 @@ def _decrypt(token: str | None) -> str:
 # ── settings ─────────────────────────────────────────────────────────────────
 
 
-def env_provider() -> str | None:
-    """The server's provider, from `CLOUD_PROVIDER`, if it names a known one."""
-    pid = os.environ.get("CLOUD_PROVIDER", "").strip().lower()
-    return pid if pid in PROVIDERS else None
-
-
 def _check(provider: str) -> None:
     if provider not in PROVIDERS:
         raise CloudError(f"unknown provider {provider!r}")
 
 
-def get(user_id: int | None, provider: str) -> dict[str, Any]:
+def get(user_id: int, provider: str) -> dict[str, Any]:
     """One provider's settings, key decrypted — for calling the provider only, never for a response."""
     _check(provider)
-    if user_id is None:
-        own = provider == env_provider()
-        stored = {f: os.environ.get(f"CLOUD_{f.upper()}", "").strip() if own else "" for f in ("api_key", "model", "base_url")}
-    else:
-        row = repo.user_clouds(user_id).get(provider) or {}
-        stored = {"api_key": _decrypt(row.get("api_key_enc")), "model": row.get("model") or "", "base_url": row.get("base_url") or ""}
+    row = repo.user_clouds(user_id).get(provider) or {}
     return {
         "provider": provider,
-        "api_key": stored["api_key"],
-        "model": stored["model"],
-        "base_url": (stored["base_url"] or PROVIDERS[provider][1]).rstrip("/"),
+        "api_key": _decrypt(row.get("api_key_enc")),
+        "model": row.get("model") or "",
+        "base_url": (row.get("base_url") or PROVIDERS[provider][1]).rstrip("/"),
     }
 
 
@@ -207,7 +190,7 @@ def test(user_id: int, provider: str) -> list[str]:
     return sorted(str(m.get("id")) for m in items if isinstance(m, dict) and m.get("id"))
 
 
-def config(user_id: int | None, provider: str, model: str | None = None) -> dict[str, Any]:
+def config(user_id: int, provider: str, model: str | None = None) -> dict[str, Any]:
     """`get()`, with `model` (when given) in place of the saved one; raises if anything is missing."""
     cfg = get(user_id, provider)
     cfg["model"] = model or cfg["model"]

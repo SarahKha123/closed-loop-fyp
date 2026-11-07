@@ -6,6 +6,8 @@
     POST /api/replay/seek   {"cycle": 1665}
 
 Every control returns the new state, and also publishes it on /api/stream.
+Whoever presses a control becomes the replay's driver: the live insights run
+on their own API key from then on (services/insights.py).
 503 if the dataset couldn't be loaded (the reason is in the message).
 """
 
@@ -13,9 +15,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
+from ..services import insights
 from ..services.replay import DEFAULT_START, Replay, ReplayError
+from .auth import current_user
 
 router = APIRouter(prefix="/api/replay", tags=["replay"])
 
@@ -25,6 +29,13 @@ def _replay(request: Request) -> Replay:
     if replay is None:
         reason = getattr(request.app.state, "dataset_error", None) or "the replay is not running"
         raise HTTPException(status_code=503, detail=f"replay unavailable: {reason}")
+    return replay
+
+
+def _control(request: Request, user: dict[str, Any] = Depends(current_user)) -> Replay:
+    """The replay, for a control: its presser drives (pays for) the live insights from now on."""
+    replay = _replay(request)
+    insights.drive(user)
     return replay
 
 
@@ -38,8 +49,7 @@ def get_state(request: Request) -> dict[str, Any]:
 
 
 @router.post("/play")
-def play(request: Request) -> dict[str, Any]:
-    replay = _replay(request)
+def play(replay: Replay = Depends(_control)) -> dict[str, Any]:
     try:
         replay.play()
     except ReplayError as exc:
@@ -48,23 +58,20 @@ def play(request: Request) -> dict[str, Any]:
 
 
 @router.post("/pause")
-def pause(request: Request) -> dict[str, Any]:
-    replay = _replay(request)
+def pause(replay: Replay = Depends(_control)) -> dict[str, Any]:
     replay.pause()
     return replay.state()
 
 
 @router.post("/step")
-async def step(request: Request) -> dict[str, Any]:
-    replay = _replay(request)
+async def step(replay: Replay = Depends(_control)) -> dict[str, Any]:
     if await replay.step() is None:
         raise HTTPException(status_code=400, detail="the replay has finished — seek back or reset")
     return replay.state()
 
 
 @router.post("/reset")
-async def reset(request: Request, cycle: int = Body(default=DEFAULT_START, embed=True)) -> dict[str, Any]:
-    replay = _replay(request)
+async def reset(replay: Replay = Depends(_control), cycle: int = Body(default=DEFAULT_START, embed=True)) -> dict[str, Any]:
     try:
         await replay.reset(cycle)
     except ReplayError as exc:
@@ -73,8 +80,7 @@ async def reset(request: Request, cycle: int = Body(default=DEFAULT_START, embed
 
 
 @router.post("/speed")
-def speed(request: Request, seconds_per_cycle: float = Body(..., embed=True, alias="secondsPerCycle")) -> dict[str, Any]:
-    replay = _replay(request)
+def speed(replay: Replay = Depends(_control), seconds_per_cycle: float = Body(..., embed=True, alias="secondsPerCycle")) -> dict[str, Any]:
     try:
         replay.set_speed(seconds_per_cycle)
     except ReplayError as exc:
@@ -83,8 +89,7 @@ def speed(request: Request, seconds_per_cycle: float = Body(..., embed=True, ali
 
 
 @router.post("/seek")
-async def seek(request: Request, cycle: int = Body(..., embed=True)) -> dict[str, Any]:
-    replay = _replay(request)
+async def seek(replay: Replay = Depends(_control), cycle: int = Body(..., embed=True)) -> dict[str, Any]:
     try:
         await replay.seek(cycle)
     except ReplayError as exc:

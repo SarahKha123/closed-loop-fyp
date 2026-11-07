@@ -45,9 +45,8 @@ Everything runs directly on your machine — no Docker.
 ```
 
 Then sign in (`demo` / `demo`), and on **AI model** add your own key for one
-provider, test it and press *Use* (your chat). For live insights, set the
-server key (`CLOUD_PROVIDER`, `CLOUD_API_KEY`, `CLOUD_MODEL`) in `.env`. Press
-play in the top bar.
+provider, test it and press *Use*. Press play in the top bar: the live insights
+run on the key of whoever presses Play.
 
 | Command | What it does |
 |---|---|
@@ -55,7 +54,7 @@ play in the top bar.
 | `./closed-loop.sh start` | Build the dashboard once and serve it with the API on one port (lightest; for demos) |
 | `./closed-loop.sh dev` | Hot-reload backend (:8000) + Vite (:5173), for editing code; Vite starts once the API answers |
 | `./closed-loop.sh test` | Backend tests, frontend type check and lint |
-| `./closed-loop.sh status` | Does the API answer, and which model is active |
+| `./closed-loop.sh status` | Does the API answer (the models are per user, on the AI model page) |
 | `./closed-loop.sh reset-db` | Delete the database (recreated empty on the next start); refuses while it holds study logs unless `--force` |
 
 Ctrl-C stops everything the command started. Something not working? See
@@ -66,10 +65,6 @@ Ctrl-C stops everything the command started. Something not working? See
 Any small host that runs Python works. Set these in the host's secrets:
 
 ```bash
-# The server key: writes the live insights (never used for chat)
-CLOUD_PROVIDER=groq            # openai, anthropic, google, groq, openrouter, deepseek, ollama, custom
-CLOUD_API_KEY=gsk_…
-CLOUD_MODEL=llama-3.1-8b-instant
 # Encrypts each user's saved key. Long and random; keep it, or saved keys become unreadable
 KEY_ENCRYPTION_SECRET=…
 # No public sign-up, no demo/demo account

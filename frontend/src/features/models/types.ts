@@ -14,7 +14,8 @@ export interface ResolvedModel {
 
 /** GET /api/models/active — the signed-in user's chat model (their own key), plus the server's model for live insights. */
 export interface ActiveModel extends ResolvedModel {
-  insights: ResolvedModel
+  /** Live insights run on the key of whoever last pressed a replay control (`driver`, a username). */
+  insights: ResolvedModel & { driver: string | null }
 }
 
 /** GET /api/cloud — one provider's settings. Never includes the key itself. */
