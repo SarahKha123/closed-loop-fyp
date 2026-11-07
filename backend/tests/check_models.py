@@ -12,26 +12,32 @@ import httpx  # noqa: E402
 
 from app.services import advisor, cloud, model_config  # noqa: E402
 
-GB = 1024**3
-hw = {"ram": {"total_bytes": 8 * GB}}
+# No provider chosen (or an old local `auto` / `pinned` file): unresolved.
+assert model_config.resolve()["resolved"] is False
+(Path(os.environ["CLOSED_LOOP_CONFIG_DIR"]) / "model_config.json").write_text('{"mode": "pinned", "pinned": "qwen3:1.7b"}')
+assert model_config.resolve()["provider"] is None
 
-# Auto never picks an embedding model, even when it's the only "fit".
-installed = [
-    {"name": "nomic-embed-text", "size_bytes": 1 * GB, "embedding": True},
-    {"name": "qwen3:1.7b", "size_bytes": int(0.5 * GB), "embedding": False},
-]
-assert model_config.resolve(installed, hw)["tag"] == "qwen3:1.7b"
-assert model_config.resolve(installed[:1], hw)["resolved"] is False
-
-# Cloud mode: unresolved until key + model exist, then resolved to the provider.
-model_config.write(mode="cloud", provider="openai")
-assert model_config.resolve([], {})["resolved"] is False
+# Unresolved until key + model exist, then resolved to the provider.
+model_config.write("openai")
+assert model_config.resolve()["resolved"] is False
 cloud.save("openai", api_key="sk-abcdefgh1234", model="m-1", base_url=None)
-r = model_config.resolve([], {})
-assert (r["resolved"], r["provider"], r["tag"]) == (True, "openai", "m-1"), r
+r = model_config.resolve()
+assert (r["resolved"], r["provider"], r["tag"], r["managed"]) == (True, "openai", "m-1", False), r
 assert all("sk-abcdefgh1234" not in str(p) for p in cloud.public())
-# ...and the Advisor routes to it without touching Ollama.
-assert advisor.choose() == advisor.Target(label="openai/m-1", cloud_provider="openai")
+assert advisor.choose() == advisor.Target(label="openai/m-1", provider="openai")
+
+# The environment overrides the files, and locks the choice.
+os.environ.update(CLOUD_PROVIDER="groq", CLOUD_API_KEY="gsk-env-key-9999", CLOUD_MODEL="llama-3.1-8b-instant")
+r = model_config.resolve()
+assert (r["resolved"], r["provider"], r["tag"], r["managed"]) == (True, "groq", "llama-3.1-8b-instant", True), r
+try:
+    model_config.write("openai")
+    raise AssertionError("expected ValueError")
+except ValueError:
+    pass
+assert all("gsk-env-key-9999" not in str(p) for p in cloud.public())
+for k in ("CLOUD_PROVIDER", "CLOUD_API_KEY", "CLOUD_MODEL"):
+    del os.environ[k]
 
 # SSE parsing: content deltas joined, empty deltas and [DONE] handled.
 sse = (

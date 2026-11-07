@@ -4,7 +4,7 @@
 
 Writes next to the first CSV:
     <name>.report.md        the tables below, ready to paste into Chapter 4
-    <name>-tradeoff.png     RQ2: hallucination rate vs median latency, one point per model (local vs cloud)
+    <name>-tradeoff.png     RQ2: hallucination rate vs median latency, one point per model (small vs large)
     <name>-validator.png    RQ3: hallucination rate with the validator off vs on, per model
 
 Metrics, per model × validator setting (failed runs are counted, then left out):

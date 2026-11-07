@@ -173,7 +173,7 @@ def converse(target: advisor.Target, messages: list[dict[str, Any]], results: li
             except ToolError as exc:
                 result = {"error": str(exc)}
             results.append({"tool": call.name, "args": call.args, "result": result})
-            messages.append(advisor.tool_result(target, call, result))
+            messages.append(advisor.tool_result(call, result))
     # Still calling tools after MAX_ROUNDS: one last reply, without tools, from what it has.
     messages.append({"role": "user", "content": "Answer now from the tool results above, without calling tools."})
     yield {"phase": "answer", "text": advisor.complete(target, messages)[0]}

@@ -8,11 +8,16 @@ via their compatibility endpoints, so one client covers them all.
 Keys live in `config/cloud.json`, which is gitignored: the model choice in
 `model_config.json` is meant to be committed, a key never is. No response
 ever carries a key, only `key_hint` (its last four characters).
+
+On a deployed server the environment wins: `CLOUD_PROVIDER` picks the provider
+and `CLOUD_API_KEY`, `CLOUD_MODEL`, `CLOUD_BASE_URL` (each optional) override
+that provider's stored settings, so no key file has to live on the host.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import threading
 from collections.abc import Iterator
 from typing import Any
@@ -30,6 +35,7 @@ PROVIDERS: dict[str, tuple[str, str, str]] = {
     "groq": ("Groq", "https://api.groq.com/openai/v1", "https://console.groq.com/keys"),
     "openrouter": ("OpenRouter", "https://openrouter.ai/api/v1", "https://openrouter.ai/keys"),
     "deepseek": ("DeepSeek", "https://api.deepseek.com/v1", "https://platform.deepseek.com/api_keys"),
+    "ollama": ("Ollama Cloud", "https://ollama.com/v1", "https://ollama.com/settings/keys"),
     "custom": ("Custom (OpenAI-compatible)", "", ""),
 }
 
@@ -51,11 +57,20 @@ def _write_all(data: dict[str, dict[str, Any]]) -> None:
     jsonfile.write_atomic(paths.CLOUD_CONFIG, data, private=True)
 
 
+def env_provider() -> str | None:
+    """The provider `CLOUD_PROVIDER` names, if it names a known one."""
+    pid = os.environ.get("CLOUD_PROVIDER", "").strip().lower()
+    return pid if pid in PROVIDERS else None
+
+
 def get(provider: str) -> dict[str, Any]:
-    """The stored settings for one provider, key included — never return this to a client."""
+    """The settings for one provider, key included — never return this to a client."""
     if provider not in PROVIDERS:
         raise CloudError(f"unknown provider {provider!r}")
-    stored = _read_all().get(provider) or {}
+    stored = dict(_read_all().get(provider) or {})
+    if provider == env_provider():
+        for field in ("api_key", "model", "base_url"):
+            stored[field] = os.environ.get(f"CLOUD_{field.upper()}", "").strip() or stored.get(field)
     return {
         "api_key": stored.get("api_key") or "",
         "model": stored.get("model") or "",
@@ -78,6 +93,7 @@ def public() -> list[dict[str, Any]]:
             "has_key": bool(key),
             "key_hint": f"…{key[-4:]}" if len(key) >= 8 else ("set" if key else None),
             "ready": bool(key and cfg["model"] and cfg["base_url"]),
+            "managed": pid == env_provider(),
         })
     return out
 
@@ -135,11 +151,19 @@ def test(provider: str) -> list[str]:
     return sorted(str(m.get("id")) for m in items if isinstance(m, dict) and m.get("id"))
 
 
-def chat_once(provider: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-    """One non-streamed reply that may call tools: `choices[0].message` (`tool_calls` arguments as JSON strings)."""
+def _config(provider: str, model: str | None) -> dict[str, Any]:
+    """`get()`, with `model` (when given) in place of the saved one; raises if anything is missing."""
     cfg = get(provider)
+    cfg["model"] = model or cfg["model"]
     if not (cfg["api_key"] and cfg["model"] and cfg["base_url"]):
         raise CloudError(f"{PROVIDERS[provider][0]} is not fully configured (key, model and URL)")
+    return cfg
+
+
+def chat_once(provider: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+              model: str | None = None) -> dict[str, Any]:
+    """One non-streamed reply that may call tools: `choices[0].message` (`tool_calls` arguments as JSON strings)."""
+    cfg = _config(provider, model)
     try:
         r = httpx.post(
             f"{cfg['base_url']}/chat/completions",
@@ -163,12 +187,9 @@ def chat_once(provider: str, messages: list[dict[str, Any]], tools: list[dict[st
         raise CloudError(f"{PROVIDERS[provider][0]}: unreadable reply") from exc
 
 
-def chat_stream(provider: str, messages: list[dict[str, str]]) -> Iterator[str]:
+def chat_stream(provider: str, messages: list[dict[str, str]], model: str | None = None) -> Iterator[str]:
     """Yield content deltas from `/chat/completions` with `stream: true`."""
-    cfg = get(provider)
-    if not (cfg["api_key"] and cfg["model"] and cfg["base_url"]):
-        raise CloudError(f"{PROVIDERS[provider][0]} is not fully configured (key, model and URL)")
-
+    cfg = _config(provider, model)
     try:
         with httpx.stream(
             "POST",

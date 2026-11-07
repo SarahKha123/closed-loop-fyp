@@ -123,7 +123,7 @@ function StudyAdminPage() {
 
       {!studyOn && settings && (
         <p className="rounded-lg bg-warning-bg px-3 py-2 text-base text-warning-text">
-          Study mode is off: participants would see the replay controls and the AI models page. Pin the study's model on the Models page first, then switch it on.
+          Study mode is off: participants would see the replay controls and the AI model page. Choose the study's provider on the AI model page first, then switch it on.
         </p>
       )}
       {error && <p className="rounded-lg bg-critical-bg px-3 py-2 text-base text-critical-text">{error}</p>}

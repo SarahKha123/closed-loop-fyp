@@ -1,8 +1,7 @@
 """The Advisor's answering logic: pick what to run, then stream its reply.
 
-The one place that knows a reply can come from Ollama *or* a cloud provider.
-`api/chat.py` only turns the text deltas into server-sent events, and the
-clients only know how to talk to their own backend.
+The one place that knows which cloud provider answers. `api/chat.py` only
+turns the text deltas into server-sent events.
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
-from . import cloud, model_config, ollama_client
+from . import cloud, model_config
 
 
 class NoModel(RuntimeError):
@@ -31,15 +30,15 @@ class NoTools(ReplyError):
 
 @dataclass(frozen=True)
 class Target:
-    """What will answer: a local Ollama tag, or a cloud provider id."""
+    """What will answer: a cloud provider id, labelled `provider/model`."""
 
     label: str
-    local_tag: str | None = None
-    cloud_provider: str | None = None
+    provider: str
+    model: str | None = None  # None: the provider's saved model. The evaluation sets it to compare models.
 
 
-# Small local models have short context windows; a long chat would eventually
-# overflow them. Keep system messages plus the most recent turns.
+# A long chat would eventually overflow a small model's context window (and
+# costs tokens on every turn). Keep system messages plus the most recent turns.
 MAX_TURNS = 10
 
 
@@ -52,22 +51,17 @@ def trim_history(messages: list[dict[str, str]], max_turns: int = MAX_TURNS) -> 
 
 def choose() -> Target:
     """The active model, as the Models page configured it. Raises NoModel if none can answer."""
-    resolved = model_config.resolve_now()
+    resolved = model_config.resolve()
     if not resolved["resolved"]:
-        raise NoModel(resolved["ollama_error"] or resolved["reason"])
-    if resolved["mode"] == "cloud":
-        return Target(label=f"{resolved['provider']}/{resolved['tag']}", cloud_provider=resolved["provider"])
-    return Target(label=resolved["tag"], local_tag=resolved["tag"])
+        raise NoModel(resolved["reason"])
+    return Target(label=f"{resolved['provider']}/{resolved['tag']}", provider=resolved["provider"])
 
 
 def stream_reply(target: Target, messages: list[dict[str, str]]) -> Iterator[str]:
     """Text deltas of the reply. Raises ReplyError if the model fails."""
     try:
-        if target.cloud_provider:
-            yield from cloud.chat_stream(target.cloud_provider, messages)
-        else:
-            yield from ollama_client.chat_stream(target.local_tag or "", messages)
-    except (cloud.CloudError, ollama_client.OllamaError, ollama_client.OllamaUnavailable) as exc:
+        yield from cloud.chat_stream(target.provider, messages, model=target.model)
+    except cloud.CloudError as exc:
         raise ReplyError(str(exc)) from exc
 
 
@@ -93,9 +87,8 @@ def complete(target: Target, messages: list[dict[str, str]]) -> tuple[str, int |
 
 # ── tool calls (M9) ──────────────────────────────────────────────────────────
 #
-# Ollama and OpenAI-compatible APIs describe tools the same way but differ in
-# the reply: Ollama gives `arguments` as a dict and matches results by tool
-# name; OpenAI gives a JSON string and matches by call id. Both are hidden here.
+# OpenAI-compatible replies give `arguments` as a JSON string and match results
+# by call id. Some providers send a dict instead; both are accepted.
 
 
 @dataclass(frozen=True)
@@ -115,16 +108,13 @@ def tool_round(target: Target, messages: list[dict[str, Any]], tools: list[dict[
     Raises NoTools if the model can't take tools, ReplyError on any other failure.
     """
     try:
-        if target.cloud_provider:
-            msg = cloud.chat_once(target.cloud_provider, messages, tools)
-        else:
-            msg = ollama_client.chat_once(target.local_tag or "", messages, tools)
-    except ollama_client.OllamaError as exc:
-        if "support tools" in str(exc).lower():
+        msg = cloud.chat_once(target.provider, messages, tools, model=target.model)
+    except cloud.CloudError as exc:
+        text = str(exc).lower()
+        # "does not support tools", "No endpoints found that support tool use", …
+        if "tool" in text and "support" in text:
             NO_TOOLS.add(target.label)
             raise NoTools(str(exc)) from exc
-        raise ReplyError(str(exc)) from exc
-    except (cloud.CloudError, ollama_client.OllamaUnavailable) as exc:
         raise ReplyError(str(exc)) from exc
 
     calls = []
@@ -144,9 +134,6 @@ def tool_round(target: Target, messages: list[dict[str, Any]], tools: list[dict[
     return _THINK.sub("", msg.get("content") or "").strip(), calls, assistant
 
 
-def tool_result(target: Target, call: ToolCall, result: Any) -> dict[str, Any]:
+def tool_result(call: ToolCall, result: Any) -> dict[str, Any]:
     """The message that hands a tool's result back to the model."""
-    content = json.dumps(result, ensure_ascii=False)
-    if target.cloud_provider:
-        return {"role": "tool", "tool_call_id": call.id, "content": content}
-    return {"role": "tool", "tool_name": call.name, "content": content}
+    return {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, ensure_ascii=False)}

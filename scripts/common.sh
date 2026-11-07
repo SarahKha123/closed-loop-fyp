@@ -2,7 +2,7 @@
 # Shared helpers for closed-loop.sh. Sourced, not run.
 #
 # Trimmed from Daedalus's scripts/common.sh: coloured output, a .env that
-# never silently drifts from .env.example, and an Ollama check.
+# never silently drifts from .env.example.
 #
 # Callers must `cd` to the repo root before sourcing.
 
@@ -100,14 +100,3 @@ load_env() {
 
 ensure_dirs() { mkdir -p config; }
 
-# ── readiness ─────────────────────────────────────────────────────────────────
-check_ollama() {
-  local url="${OLLAMA_BASE_URL:-http://localhost:11434}"
-  if curl -fsS --max-time 2 "${url}/api/tags" >/dev/null 2>&1; then
-    ok "Ollama reachable at ${url}"
-    return 0
-  fi
-  warn "no Ollama reachable at ${url}"
-  info "install it from https://ollama.com, or use a cloud API on the Models page"
-  return 1
-}

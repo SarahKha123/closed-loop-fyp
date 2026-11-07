@@ -9,17 +9,15 @@
     │                    backend (FastAPI :8000, one process)
     │                      ├── api/        HTTP only: validate, call a service, shape the response
     │                      └── services/   all the logic; each module owns one thing
-    │                              │                    │
-    │                              ▼                    ▼
-    │                       Ollama :11434        cloud provider APIs
-    │                       (local models)       (OpenAI-compatible /chat/completions)
+    │                              │
+    │                              ▼
+    │                       cloud provider API (OpenAI-compatible /chat/completions)
     │
-    └── config/   model_config.json   which model the Advisor uses (committed)
+    └── config/   model_config.json   which cloud provider the Advisor uses (CLOUD_PROVIDER overrides)
                   study_scenarios.json the user-study task sets A and B (committed)
                   settings.json       runtime toggles (insights, grounding, monitor, chat, study)
-                  cloud.json          cloud API keys (gitignored, 0600)
+                  cloud.json          cloud API keys and models (gitignored, 0600; CLOUD_* env overrides)
                   closed_loop.db      SQLite: readings, predictions, work orders, insights, study log (gitignored)
-                  ollama/             Ollama installed by the dashboard, no sudo (gitignored; + ollama.pid, ollama.log)
 ```
 
 Everything runs directly on the machine — no containers. `./closed-loop.sh
@@ -28,9 +26,8 @@ start` builds the frontend once and the backend serves it from
 lightest way to run it). `./closed-loop.sh dev` runs Vite with hot reload
 next to a reloading backend, and Vite proxies `/api` (`frontend/vite.config.ts`);
 it waits for `GET /api/health` before starting Vite, so the first page load
-never hits a backend that is still loading the models. Both start `ollama
-serve` if Ollama is installed but not running, and Ctrl-C stops everything
-they started (the backend, and an Ollama the script or the dashboard started).
+never hits a backend that is still loading the models. Ctrl-C stops
+everything they started.
 
 ### The closed loop
 
@@ -77,9 +74,8 @@ services never import from `api`.
 | `main.py` | Creates the app, starts the live-pipeline tasks in `lifespan`, mounts routers, serves `frontend/dist` when `CLOSED_LOOP_STATIC_DIR` is set |
 | **api/** | |
 | `api/health.py` | `GET /api/health` liveness check |
-| `api/models.py` | Local models: list, active, select, catalogue, pull, delete; the Ollama runtime: status, install, start |
+| `api/models.py` | The active model and choosing a provider |
 | `api/cloud.py` | Cloud provider settings: list, save, clear, test |
-| `api/hardware.py` | Hardware report for the Hardware tab |
 | `api/replay.py` | Replay controls |
 | `api/stream.py` | `GET /api/stream` — all live events to the browser (SSE) |
 | `api/dashboard.py` | Overview (KPIs + latest per component), trend, activity, sensors |
@@ -103,18 +99,14 @@ services never import from `api`.
 | `services/settings.py` | Runtime settings: defaults in code, overrides in `config/settings.json`, validated |
 | `services/study.py` | The user study: conditions, task presets (reset + step the replay), counterbalancing, the task clock, CSV export |
 | **services/ — the AI layer** | |
-| `services/advisor.py` | The only code that knows local vs cloud: picks the model, streams, `complete()`, tool rounds |
+| `services/advisor.py` | Picks the model, streams, `complete()`, tool rounds; turns provider errors into `NoModel` / `ReplyError` / `NoTools` |
 | `services/snapshot.py` | What the dashboard shows right now, as the AI sees it (never the true labels) |
 | `services/prompts.py` | Every prompt, each with a version stored next to what it produced |
 | `services/insights.py` | The insight engine: triggers, coalescing, cooldown, generate → check → retry → store |
 | `services/grounding.py` | The grounding check: every number, WO ID and condition must be in what the model was given |
 | `services/tools.py` | Chat tools (status, history, propose a work order), the tool loop, pending confirmations |
-| `services/model_config.py` | The model choice: read/write the file, and the policy that resolves it |
-| `services/ollama_client.py` | Everything that talks to Ollama (URL fallback, low-resource request options) |
-| `services/ollama_runtime.py` | Ollama itself: is it installed / running, install it into `config/ollama/` without sudo (Linux), start it |
-| `services/cloud.py` | Cloud providers: stored settings, key masking, test, streamed and tool-calling chat |
-| `services/catalogue.py` | The short list of suggested local models |
-| `services/hardware.py` | CPU / RAM / GPU / disk probes, each independently guarded |
+| `services/model_config.py` | Which provider answers: read/write the file (or `CLOUD_PROVIDER`), and why it can or can't |
+| `services/cloud.py` | Cloud providers: stored settings and `CLOUD_*` overrides, key masking, test, streamed and tool-calling chat |
 | `services/jsonfile.py` | Safe read + atomic write for the config files |
 
 The ML code lives next to it in `backend/ml/` (features, labels, training,
@@ -141,20 +133,15 @@ refuses to delete a database that holds study log rows unless given `--force`.
 
 ### Model selection
 
-`config/model_config.json` stores a **policy**, not just a name, so the same
-file means something on another machine:
+`config/model_config.json` names one provider; that provider's key, model and
+base URL are in `config/cloud.json`. On a deployed server `CLOUD_PROVIDER`
+(with `CLOUD_API_KEY`, `CLOUD_MODEL`, `CLOUD_BASE_URL`) overrides both files,
+and the choice is reported as `managed` so the AI model page can't change it.
 
-| mode | meaning |
-|---|---|
-| `auto` | the largest installed chat model that fits in 60% of RAM (embedding models are skipped) |
-| `pinned` | exactly this Ollama tag; unresolved if it isn't installed |
-| `cloud` | the configured model of this cloud provider; unresolved until it has a key and a model |
-
-`model_config.resolve(installed, hardware)` is the pure policy (easy to test
-with fake inputs). `model_config.resolve_now()` gathers the live inputs and
-calls it. `/api/models/active`, `/api/models/select`, the chat and the
-insight engine all go through it, so they can never disagree about what
-"auto" means.
+`model_config.resolve()` says what answers and, when nothing can, why (no
+provider chosen, no key, no model). `/api/models/active`, `/api/models/select`,
+the chat and the insight engine all go through it. Files from before the
+cloud-only change (`mode: auto | pinned`) read as "no provider chosen".
 
 ### Flow: an insight
 
@@ -166,7 +153,7 @@ pending triggers ── one generation at a time; triggers arriving meanwhile (o
    │                cooldown after it) are merged into the next one
    ▼
 snapshot.build(events)      the dashboard's current state + one line per trigger
-prompts.insight_messages()  insight-v1; `/no_think` for Qwen3
+prompts.insight_messages()  insight-v1; `/no_think` for a Qwen3 model
 advisor.complete()          full text, first-token and total time
 grounding.validate()        fails → one retry listing the mismatches → validate again
    ▼
@@ -198,11 +185,11 @@ Confirm card [Create] ── POST /api/chat/confirm {id, approve} ──► work
                                                                   → "work_order" event → toast, Work Orders page
 ```
 
-Tool calls are hidden behind `advisor.tool_round()`: Ollama returns
-arguments as objects and matches results by tool name, OpenAI-compatible APIs
-return JSON strings and match by call id. A model that refuses tools (Ollama:
-"does not support tools") is remembered for the rest of the run and answered
-from the snapshot only; `done.tools = false` makes the UI say so.
+Tool calls are hidden behind `advisor.tool_round()`: arguments arrive as JSON
+strings (a dict is accepted too) and results go back matched by call id. A
+model the provider says can't use tools (an error mentioning tool support) is
+remembered for the rest of the run and answered from the snapshot only;
+`done.tools = false` makes the UI say so.
 
 ### The grounding check (v1)
 
@@ -236,52 +223,38 @@ names.
 ```
 
 Study mode (`study.enabled`) only changes what the participant's shell
-offers: no Models page, no replay controls, no model card, no first-run model
+offers: no AI model page, no replay controls, no model card, no first-run model
 dialog; in the `dashboard_ai` condition the Advisor is pinned open, in
 `dashboard_only` it isn't rendered at all.
 
 ### Flow: first run without a model
 
 `NoModelDialog` opens when `/api/models/active` can't resolve a model and the
-mode isn't cloud. It reads `GET /api/models/runtime` and offers the next step:
-install Ollama (`POST /api/models/runtime/install`, streamed progress — the
-same release archive as Ollama's own installer, unpacked into
-`config/ollama/`), start it (`/runtime/start`), or go to **Models → Download**
-to pull a model; or switch to a cloud API instead. Dismissed per browser
-session. `./closed-loop.sh setup` offers the same install from the terminal.
-
-### Request flow: downloading a model
-
-`POST /api/models/pull {tag}` streams Ollama's pull progress, normalised to
-`{status, percent, done}` frames. Closing the request (the Cancel button)
-stops it, and Ollama resumes from the layers it already has next time.
+provider isn't set by the server. It explains that the Advisor needs a cloud
+key and links to the AI model page. Dismissed per browser session; never in
+study mode or on the AI model page itself.
 
 ### Secrets
 
 Cloud keys are written to `config/cloud.json`, which is gitignored and saved
 with owner-only permissions (0600). No response ever contains a key, only
 `key_hint` (the last four characters). Cloud models receive the Advisor's
-prompt, including the current readings, and the Cloud APIs tab says so.
+prompt, including the current readings, and the AI model page says so.
 
 ---
 
-## Running on limited hardware
+## Running on a small server
 
-The design target is a 4-core, 8 GB laptop with no GPU (measured: `qwen3:1.7b`
-on CPU writes a verified insight in ~30 s, answers a tool-using chat question
-in ~12 s). What keeps it within that:
+The language model runs at the provider, so the app itself needs little: one
+Python process scoring a cycle at a time. What keeps it light:
 
 | Where | What | Knob |
 |---|---|---|
-| Ollama, per request | context window, reply length, how long the model stays loaded, CPU threads | `OLLAMA_CONTEXT_LENGTH`, `OLLAMA_NUM_PREDICT`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_NUM_THREAD` (`.env`; sent by `ollama_client._chat_options()`) |
-| Ollama server (when the script starts it) | one request at a time, one model in RAM, smaller KV cache | `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0` |
 | Predictor | models fixed to `n_jobs=1`; BLAS/OpenMP threads capped | `OMP_NUM_THREADS` etc. (`.env`) |
-| Insight engine | one generation at a time, triggers merged, then a rest | `insights.cooldownSeconds` (Settings tab) |
-| Chat | history capped; tools optional (off = streamed, one model call) | `chat.maxTurns`, `chat.tools` (Settings tab) |
-| Prompts and tool results | rounded values, run-length history instead of rows, Qwen3 thinking off for insights | — |
+| Insight engine | one generation at a time, triggers merged, then a rest (fewer tokens, under rate limits) | `insights.cooldownSeconds` |
+| Chat | history capped; tools optional (off = streamed, one model call) | `chat.maxTurns`, `chat.tools` |
+| Prompts and tool results | rounded values, run-length history instead of rows | — |
 | Running | `start` serves the built UI from the backend: no Vite / Node process | `./closed-loop.sh start` |
-
-A cloud model removes the language model from the machine entirely.
 
 ---
 
@@ -305,7 +278,7 @@ routes/               one file per page (TanStack file-based routing)
                         related sensors, risk history, condition changes, raise a work order
   work-orders.tsx       "/work-orders" — the maintenance queue (System / User badges, trigger cycle)
   sensors.tsx           "/sensors" — all 17 channels for the current cycle (?component= highlights)
-  models.tsx            "/models" — AI models and settings (?tab=download|cloud|hardware|settings)
+  models.tsx            "/models" — the active model, cloud providers, Advisor behaviour (one page)
   study.admin.tsx       "/study/admin" — the researcher's study console (not in the nav; open in a second window)
 components/
   ui/                   primitives: Card, Button, ConditionBadge, Meter, EmptyState, Icon
@@ -313,15 +286,15 @@ components/
   shell/                Sidebar, TopBar (replay controls), AdvisorPanel (insights feed, chat,
                         grounding badges, work-order confirmation cards), ModelCard, ToastStack
                         (bottom-right of the page column, never over the Advisor), ProfileMenu
-                        (name, role, theme), NoModelDialog (first-run Ollama / model setup)
+                        (name, role, theme), NoModelDialog (first-run: add a cloud key)
   PageHeader.tsx
 features/
   dashboard/            KpiTiles, ComponentCard, TrendPanel (chart + table), ActivityFeed, StatusBanner, NewWorkOrder
-  models/               ActiveModelBanner, LocalModelsTab, CloudTab, HardwareTab, SettingsTab, types.ts
+  models/               ActiveModelBanner, ProviderList, AdvisorSettings, types.ts
 context/              React state shared across pages
   LiveContext.tsx       replay state, overview, trend, activity, insights, runtime settings; refreshed from /api/stream; toasts; replay controls
   ChatContext.tsx       the Advisor conversation, tool lookups, proposed actions (respond); panel open/closed
-  ModelsContext.tsx     installed models + the active model
+  ModelsContext.tsx     the active model; choosing a provider
 lib/
   api.ts                typed calls + response types
   stream.ts             the one shared EventSource to /api/stream
@@ -361,7 +334,7 @@ lib/
   the tools the model used, and proposed work orders with their state
   (pending → created / cancelled).
 - `ModelsContext` caches `/api/models` and `/api/models/active` so the
-  sidebar card and the AI models page agree.
+  sidebar card and the AI model page agree.
 - Per-browser conveniences live in `localStorage` / `sessionStorage`, never
   on the server: the theme (`lib/theme.ts`), the role label (`ProfileMenu`)
   and the dismissed first-run dialog.
@@ -380,9 +353,8 @@ lib/
   provider speaks it (Anthropic and Gemini through their compatibility
   endpoints), so one client covers all of them, and adding a provider is one
   line (see DEVELOPMENT.md).
-- **The Advisor is the only code that knows about both local and cloud.**
-  `services/advisor.py` dispatches (streaming, complete, tool rounds); the two
-  clients each know only their own backend.
+- **The Advisor is the only code that talks to the model.** `services/advisor.py`
+  (streaming, complete, tool rounds) calls `services/cloud.py`; nothing else does.
 - **The AI only sees what the operator sees.** The snapshot is built from
   the same queries as the dashboard and never includes `TrueCondition`; it is
   stored with each insight, so any text can be re-checked later.
@@ -391,8 +363,8 @@ lib/
   engineer confirms.
 - **Every prompt is versioned.** `prompts.INSIGHT_VERSION` / `CHAT_VERSION`
   are stored with every output, so the evaluation can tell prompt changes apart.
-- **Fail soft, explain why.** Listing models never 500s because Ollama is
-  down; it returns an empty list plus the reason. Without trained models or
+- **Fail soft, explain why.** With no provider ready, `/api/models/active`
+  still answers and says what's missing. Without trained models or
   the dataset the API still runs and says what to do. The insight engine
   survives model errors and says once that it's paused.
 - **Daedalus is a reference only.** Several modules are scaled-down versions
@@ -401,15 +373,10 @@ lib/
 
 ## Known limits (deliberate)
 
-- One model download at a time, and it stops if you leave the Models page.
-- "Fits in RAM" is estimated from file size; long conversations need extra
-  memory on top.
-- Embedding models are recognised by name/family (`embed`, `bert`), because
-  Ollama's model list has no capability field.
+- The Advisor needs network access to its provider; with the provider down,
+  insights pause and chat answers with the provider's error.
 - Proposed work orders are held in memory: a backend restart forgets
   unanswered proposals.
-- The in-app Ollama install is Linux only (x86-64 / arm64); on macOS and
-  Windows install Ollama's own app.
 - The profile is per browser, not an account: it isn't sent to the backend
   or written to any log.
 - With tools on, chat answers arrive whole rather than word by word (the tool

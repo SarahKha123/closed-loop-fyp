@@ -1,5 +1,5 @@
 // The right-hand Advisor: live insights it writes when the data changes, then a chat about the live readings,
-// both answered by the active local or cloud model and grounding-checked against the snapshot it was given.
+// both answered by the active cloud model and grounding-checked against the snapshot it was given.
 
 import { useEffect, useRef, useState } from "react"
 import { useChat } from "../../context/ChatContext"
@@ -110,7 +110,7 @@ function InsightCard({ insight: i }: { insight: Insight }) {
       <div className="mt-1.5 flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-ink-faint">
         <GroundingBadge grounded={i.grounded} validation={i.validation} />
         <span className="truncate pt-px" title={i.model}>
-          {i.mode} · {i.model}
+          {i.model}
           {i.latencyMs != null && ` · ${(i.latencyMs / 1000).toFixed(1)} s`}
           {i.attempts > 1 && " · rewritten once"}
         </span>
@@ -205,7 +205,7 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
           <div className="truncate text-sm text-ink-muted">
             {active?.tag ? (
               <>
-                <span className="font-mono">{active.tag}</span> · {active.mode === "cloud" ? "cloud" : "runs on this machine"}
+                <span className="font-mono">{active.tag}</span> · {active.label}
               </>
             ) : (
               "No model selected"

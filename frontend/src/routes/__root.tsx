@@ -50,7 +50,7 @@ function Shell({ theme }: { theme: ReturnType<typeof useTheme> }) {
   const { open, setOpen } = useChat()
   const study = useLive().settings?.study
   const studyMode = study?.enabled ?? false
-  // The AI models page and the researcher's study page are settings pages: they get the full width.
+  // The AI model page and the researcher's study page are settings pages: they get the full width.
   const path = useRouterState({ select: (s) => s.location.pathname })
   const fullWidth = useRouterState({ select: (s) => /^\/(models|study)/.test(s.location.pathname) })
   const advisor = fullWidth ? "none" : !studyMode ? (open ? "open" : "closed") : study?.condition === "dashboard_ai" ? "pinned" : "none"

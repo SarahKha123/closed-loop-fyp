@@ -7,7 +7,7 @@ reaches it through Vite's `/api` proxy. Interactive docs are generated at `/docs
 Errors use FastAPI's shape, `{"detail": "human-readable reason"}`, with
 `400` for bad input, `404` for an unknown id, `409` when the state doesn't
 allow it yet, `502` when a model failed, and `503` when what's needed
-(Ollama, a configured model, the dataset) isn't available. Streamed endpoints use server-sent events: each
+(a configured model, the dataset) isn't available. Streamed endpoints use server-sent events: each
 frame is `data: {json}\n\n`.
 
 ---
@@ -61,113 +61,37 @@ signed in. Any failure → 302 to `/?authError=cancelled|state|exchange|token` a
 
 ---
 
-## Models (local + selection)
+## Model selection
 
-### `GET /api/models`
-Installed Ollama models. Never fails because Ollama is down; `error` explains instead.
-```json
-{
-  "models": [
-    {
-      "name": "qwen3:1.7b",
-      "size_bytes": 1359298144,
-      "modified_at": "2026-10-06T…",
-      "family": "qwen3",
-      "parameter_size": "2.0B",
-      "quantization_level": "Q4_K_M",
-      "embedding": false
-    }
-  ],
-  "error": null
-}
-```
-`embedding: true` marks models that can't chat (the UI hides them, and `auto` skips them).
+The Advisor answers from one cloud provider. On a deployed server
+`CLOUD_PROVIDER` (plus `CLOUD_API_KEY`, `CLOUD_MODEL`, `CLOUD_BASE_URL`) sets
+it instead, and the choice is then `managed`: it can't be changed here.
 
 ### `GET /api/models/active`
-Which model would answer right now, and why.
+What would answer right now, and why.
 ```json
 {
-  "mode": "auto",                  // "auto" | "pinned" | "cloud"
-  "tag": "qwen3:1.7b",             // model that will run (cloud: the provider's model id)
-  "provider": null,                // cloud provider id when mode is "cloud"
-  "resolved": true,                // false = nothing can answer; see reason
-  "reason": "largest installed model that fits comfortably in 8GB RAM",
-  "config": { "mode": "auto", "pinned": null, "provider": null, "updated_at": null, … },
-  "ollama_error": null             // set when Ollama couldn't be listed
+  "provider": "groq",              // null until one is chosen
+  "label": "Groq",
+  "tag": "llama-3.3-70b-versatile", // the provider's model id
+  "resolved": true,                // false: nothing can answer; `reason` says what's missing
+  "reason": "Answering from Groq.",
+  "managed": false                 // true when CLOUD_PROVIDER sets it
 }
 ```
 
 ### `POST /api/models/select`
-Change the Advisor's model. Body is one of:
-```json
-{"mode": "auto"}
-{"mode": "pinned", "tag": "qwen3:1.7b"}
-{"mode": "cloud", "provider": "openai"}
-```
-Returns the same shape as `/active`. `400` for an unknown mode, a missing
-tag, or an unknown provider.
-
-### `GET /api/models/catalogue`
-Suggested local models for the Download tab.
-```json
-{
-  "models": [
-    {
-      "tag": "qwen3:4b",
-      "label": "Qwen3 4B",
-      "vendor": "Alibaba",
-      "params_b": 4.0,
-      "est_size_bytes": 2662879723,   // estimate: ~0.62 GB per billion params at Q4
-      "note": "Noticeably better answers, still light",
-      "installed": false,
-      "fits": true                    // within 60% of RAM; null if RAM is unknown
-    }
-  ],
-  "error": null
-}
-```
-
-### `POST /api/models/pull` (SSE)
-Body `{"tag": "llama3.2:3b"}` (any Ollama tag, including `hf.co/user/repo:Q4_K_M`).
-Frames:
-```json
-{"status": "pulling manifest", "percent": null, "done": false}
-{"status": "pulling 6a0746a1ec1a", "percent": 42.5, "done": false}
-{"status": "success", "percent": null, "done": true}
-```
-or a final `{"error": "pull model manifest: file does not exist"}`.
-Closing the connection cancels the download.
-
-### `POST /api/models/delete`
-Body `{"tag": "qwen3:1.7b"}` → `{"ok": true}`. `400` if it isn't installed,
-`503` if Ollama is unreachable.
-
-### `GET /api/models/runtime`
-Is Ollama itself installed and running (for the first-run dialog).
-```json
-{"installed": true, "running": false, "binary": "/home/…/config/ollama/bin/ollama", "can_install": true}
-```
-`binary` is the `ollama` on PATH if there is one, else the copy installed
-into `config/ollama/`. `can_install` is `true` on Linux x86-64 / arm64 only.
-
-### `POST /api/models/runtime/install` (SSE)
-Downloads Ollama's Linux release and unpacks it into `config/ollama/` (no
-sudo), then starts it. Frames are the same shape as a pull —
-`{"status": "Downloading Ollama — 512 / 1,400 MB", "percent": 37.0, "done": false}` … `{"status": "Ollama is running", "percent": 100, "done": true}`
-— or a final `{"error": "…"}`. One install at a time.
-
-### `POST /api/models/runtime/start`
-Starts `ollama serve` if it's installed but not answering, waits up to 20 s,
-and returns the `/runtime` object. Its output goes to `config/ollama.log`;
-`closed-loop.sh` stops it on Ctrl-C (via `config/ollama.pid`). `503` if it
-isn't installed or doesn't come up.
+Body `{"provider": "groq"}`. Returns the same object as `/active`. `400` for an
+unknown provider, or when `CLOUD_PROVIDER` is set.
 
 ---
 
 ## Cloud providers
 
 Provider ids: `openai`, `anthropic`, `google`, `groq`, `openrouter`,
-`deepseek`, `custom`. **No response ever includes an API key.**
+`deepseek`, `ollama` (Ollama Cloud, `https://ollama.com/v1`), `custom`.
+**No response ever includes an API key.** For the provider `CLOUD_PROVIDER`
+names, the environment's key, model and URL override the saved ones.
 
 ### `GET /api/cloud`
 ```json
@@ -182,7 +106,8 @@ Provider ids: `openai`, `anthropic`, `google`, `groq`, `openrouter`,
       "model": "",
       "has_key": false,
       "key_hint": null,          // e.g. "…5678" once a key is saved
-      "ready": false             // key + model + base URL all set
+      "ready": false,            // key + model + base URL all set
+      "managed": false           // set by CLOUD_PROVIDER; its values come from the environment
     }
   ]
 }
@@ -202,26 +127,6 @@ Calls the provider's `GET /models` with the saved key (costs nothing).
 {"ok": true, "detail": "connected — 42 models offered", "models": ["gpt-…", "…"]}
 {"ok": false, "detail": "the key was rejected", "models": []}
 ```
-
----
-
-## Hardware
-
-### `GET /api/hardware`
-```json
-{
-  "cpu":  {"model": "11th Gen Intel(R) Core(TM) i5-11400H", "arch": "x86_64",
-           "cores_physical": 2, "cores_logical": 4, "load_percent": 12.5},
-  "ram":  {"total_bytes": 8331214848, "available_bytes": 2439360512},
-  "gpu":  {"name": "NVIDIA GeForce RTX 3050 Laptop GPU", "vram_bytes": 4294967296,
-           "vram_used_bytes": 0, "driver_version": "571.96", "load_percent": 0.0},  // null if no NVIDIA GPU
-  "disk": {"path": "/usr/share/ollama/.ollama/models", "total_bytes": …, "free_bytes": …},
-  "host": {"os": "Linux", "release": "…-WSL2", "wsl": true},
-  "ollama": {"reachable": true, "version": "0.13.5"},
-  "safe_ram_fraction": 0.6
-}
-```
-Under WSL, CPU and RAM are what WSL is allowed to use, not the whole PC.
 
 ---
 
@@ -457,7 +362,7 @@ it fails.
 Newest first, chat answers excluded (unverified ones too when `grounding.hideUnverified`).
 ```json
 {"insights": [{"id": 1, "createdAt": "…", "cycle": 3, "triggerType": "work_order",
-  "triggerRef": "Work order WO-0001 opened for Cooler", "model": "qwen3:1.7b", "mode": "local",
+  "triggerRef": "Work order WO-0001 opened for Cooler", "model": "groq/llama-3.3-70b-versatile", "mode": "cloud",
   "promptVersion": "insight-v1", "text": "The Cooler changed to Critical…", "grounded": true,
   "validation": {"grounded": true, "checked": [{"claim": "WO-0001", "ok": true}], "mismatches": []},
   "attempts": 2, "latencyMs": 30926, "firstTokenMs": 16171}]}

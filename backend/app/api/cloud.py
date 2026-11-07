@@ -1,4 +1,4 @@
-"""Cloud provider settings for the Models page's cloud tab. Keys go in, never come out."""
+"""Cloud provider settings for the AI model page. Keys go in, never come out."""
 
 from __future__ import annotations
 

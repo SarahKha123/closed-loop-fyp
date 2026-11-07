@@ -98,14 +98,14 @@ const TOURS: Record<string, Step[]> = {
   models: [
     { target: "model-banner", title: "The model answering now", body: "Which language model writes the Advisor's insights and answers, and whether it is ready." },
     {
-      target: "tabs",
-      title: "Local or cloud",
-      body: "Installed and Download manage models that run on this computer: the data never leaves it, but they are slower. Cloud APIs use a hosted model: faster and more capable, but the readings are sent out. Hardware shows what this machine can run.",
+      target: "providers",
+      title: "Cloud providers",
+      body: "Add an API key for a provider, test it, and use it. Each answer sends the current readings to that provider.",
     },
     {
-      target: "tabs",
+      target: "advisor-settings",
       title: "How the Advisor behaves",
-      body: "Settings controls when insights are written, the grounding check on every answer, when work orders open, and email alerts.",
+      body: "When insights are written, the grounding check on every answer, when work orders open, and email alerts.",
     },
   ],
 }

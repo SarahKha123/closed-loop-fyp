@@ -45,7 +45,7 @@ def stub_rounds(monkeypatch):
     """advisor.tool_round returns the queued (text, calls) in order."""
     rounds: list[tuple[str, list[advisor.ToolCall]]] = []
     seen: list[list[dict]] = []
-    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="stub", local_tag="stub"))
+    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="stub", provider="openai"))
 
     def tool_round(target, messages, tool_defs):
         seen.append(list(messages))
@@ -63,7 +63,7 @@ def test_loop_runs_tools_then_answers(fresh_db, stub_rounds):
                      advisor.ToolCall("2", "create_work_order", {"component": "Pump", "note": "Replace seal"})]),
                ("The pump is Critical at 99.0%; a work order is waiting for your confirmation.", [])]
     results: list[dict] = []
-    events = list(tools.converse(advisor.Target(label="stub", local_tag="stub"), [], results))
+    events = list(tools.converse(advisor.Target(label="stub", provider="openai"), [], results))
     assert [e["phase"] for e in events] == ["tool", "confirm", "answer"]
     assert events[1]["action"]["component"] == "Pump" and repo.list_work_orders() == []
     assert [r["tool"] for r in results] == ["get_equipment_status", "create_work_order"]
@@ -90,7 +90,7 @@ def test_chat_endpoint_with_tools_and_confirm(fresh_db, stub_rounds):
 def test_model_without_tools_falls_back_to_streaming(fresh_db, monkeypatch):
     from app.main import app
 
-    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="tiny", local_tag="tiny"))
+    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="tiny", provider="openai"))
     monkeypatch.setattr(advisor, "NO_TOOLS", set())
 
     def refuse(*_):

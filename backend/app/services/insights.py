@@ -46,7 +46,7 @@ def generate(trigger_type: str, trigger_events: list[str] | None = None) -> dict
 
     insight_id = repo.insert_insight(
         trigger_type=trigger_type, trigger_ref="; ".join(trigger_events or []) or None,
-        model=target.label, mode="cloud" if target.cloud_provider else "local",
+        model=target.label, mode="cloud",
         prompt_version=prompts.INSIGHT_VERSION, snapshot=snap, text=text, cycle=snap["cycle"],
         grounded=None if check is None else check["grounded"], validation=check,
         attempts=attempts, latency_ms=total_ms, first_token_ms=first_ms,
@@ -65,7 +65,7 @@ def write(target: advisor.Target, snap: dict[str, Any], *, check: bool) -> dict[
     evaluation measures exactly what the app does. `firstCheck` is the verdict
     on the first attempt (None with the check off).
     """
-    no_think = bool(target.local_tag and target.local_tag.lower().startswith("qwen3"))
+    no_think = "qwen3" in target.label.lower()  # Qwen3 hosts (e.g. Groq) honour /no_think
     messages = prompts.insight_messages(snap, no_think=no_think)
     text, first_ms, total_ms = advisor.complete(target, messages)
     attempts, result, first_check = 1, None, None

@@ -1,30 +1,32 @@
 import { useModels } from "../../context/ModelsContext"
 import { card } from "../../lib/ui"
 
-/** "Advisor is using …" — the resolved model, its mode, and the backend's reason. */
+/** What answers the Advisor right now: the model id, its provider, and the backend's reason. */
 export function ActiveModelBanner() {
-  const { active, modelsLoading } = useModels()
-  const modeText =
-    active?.mode === "cloud"
-      ? `Cloud · ${active.provider}`
-      : active?.mode === "pinned"
-        ? "Local · pinned"
-        : "Local · auto (largest installed model that fits in RAM)"
+  const { active, loading, error } = useModels()
+  const dot = loading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"
+  // A ready model needs no explanation; only say why when nothing can answer.
+  const reason = error ? `Couldn't reach the backend: ${error}` : active && !active.resolved ? active.reason : null
 
   return (
-    <div data-tour="model-banner" className={`${card} flex items-center gap-4 p-4`}>
-      <span
-        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-          modelsLoading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"
-        }`}
-      />
-      <div className="min-w-0">
-        <div className="text-sm font-medium text-ink-muted">Advisor is using</div>
-        <div className="truncate font-mono text-lg font-semibold">{active?.tag ?? "nothing yet"}</div>
+    <div data-tour="model-banner" className={`${card} flex flex-wrap items-center gap-x-4 gap-y-1 p-4`}>
+      <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} />
+      <div className="min-w-0 grow">
+        <div className="text-sm text-ink-muted">Advisor is using</div>
+        {active?.tag ? (
+          <div className="truncate font-mono text-lg font-semibold text-ink">{active.tag}</div>
+        ) : (
+          <div className="text-lg font-semibold text-ink">{loading ? "…" : "No model yet"}</div>
+        )}
       </div>
-      <div className="ml-auto text-right">
-        <div className="text-base font-medium text-ink-muted">{modeText}</div>
-        {active && <div className="text-sm text-ink-faint">{active.reason}</div>}
+      <div className="min-w-0 text-left @3xl:text-right">
+        {active?.label && (
+          <div className="text-base font-medium text-ink">
+            {active.label}
+            {active.managed && <span className="font-normal text-ink-muted"> · set by server</span>}
+          </div>
+        )}
+        {reason && <div className="text-sm text-ink-muted">{reason}</div>}
       </div>
     </div>
   )

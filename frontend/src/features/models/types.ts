@@ -1,34 +1,17 @@
 // Shapes of the model-related backend responses. Field names match the
 // JSON exactly — see docs/API.md for each endpoint.
 
-export interface OllamaModel {
-  name: string
-  size_bytes: number | null
-  family: string | null
-  parameter_size: string | null
-  quantization_level: string | null
-  embedding?: boolean
-}
-
+/** GET /api/models/active — which cloud provider answers, and why (or why not). */
 export interface ActiveModel {
-  mode: "auto" | "pinned" | "cloud"
+  provider: string | null
+  /** The provider's display name. */
+  label: string | null
+  /** The provider's model id. */
   tag: string | null
-  provider?: string | null
   resolved: boolean
   reason: string
-  ollama_error: string | null
-}
-
-/** GET /api/models/catalogue — a suggested model to download. */
-export interface CatalogueModel {
-  tag: string
-  label: string
-  vendor: string
-  params_b: number
-  est_size_bytes: number
-  note: string
-  installed: boolean
-  fits: boolean | null
+  /** Fixed by the server's CLOUD_PROVIDER environment variable; can't be changed here. */
+  managed: boolean
 }
 
 /** GET /api/cloud — one provider's settings. Never includes the key itself. */
@@ -42,7 +25,5 @@ export interface CloudProvider {
   has_key: boolean
   key_hint: string | null
   ready: boolean
+  managed: boolean
 }
-
-/** POST /api/models/pull — one SSE progress frame. */
-export type PullEvent = { status: string; percent: number | null; done: boolean } | { error: string }

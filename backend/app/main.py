@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import (
-    auth, chat, cloud, dashboard, hardware, health, insights, models, notifications, replay, settings, stream, study, work_orders,
+    auth, chat, cloud, dashboard, health, insights, models, notifications, replay, settings, stream, study, work_orders,
 )
 from .services import auth as auth_service
 from .services import db, events, ingest, monitor, notify, paths
@@ -108,7 +108,6 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(notifications.router)
 app.include_router(models.router)
-app.include_router(hardware.router)
 app.include_router(chat.router)
 app.include_router(replay.router)
 app.include_router(stream.router)

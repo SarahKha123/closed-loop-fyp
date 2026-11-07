@@ -1,4 +1,4 @@
-// Settings tab: the runtime toggles (config/settings.json via /api/settings). Each change saves at once.
+// How the Advisor behaves: the runtime toggles (config/settings.json via /api/settings). Each change saves at once.
 
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
@@ -96,7 +96,7 @@ function EmailRows({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boo
   )
 }
 
-export function SettingsTab() {
+export function AdvisorSettings() {
   const [s, setS] = useState<Settings | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -127,10 +127,16 @@ export function SettingsTab() {
 
   // Two columns from 1024px (the AI side, then the maintenance side), one below; each column stacks its sections.
   return (
-    <div className="flex flex-col gap-5">
-      <p className="text-base text-ink-faint">
-        Saved to <code className="font-mono">config/settings.json</code> and applied to the next event — no restart.
-      </p>
+    <section data-tour="advisor-settings" aria-labelledby="advisor-settings-title" className="flex flex-col gap-5">
+      <div>
+        <h2 id="advisor-settings-title" className="text-xl font-semibold text-ink">
+          Advisor behaviour
+        </h2>
+        <p className="text-sm text-ink-muted">
+          Each change saves at once to <code className="font-mono">config/settings.json</code> and applies to the next
+          event. No restart.
+        </p>
+      </div>
       {error && <div className="text-base text-critical-text">{error}</div>}
 
       <div className="grid items-start gap-x-6 gap-y-5 @5xl:grid-cols-2">
@@ -145,7 +151,7 @@ export function SettingsTab() {
           <Row label="Failure probability threshold (%)" hint="A failure probability crossing this, either way, triggers an insight.">
             <NumberField key={Math.round(s.insights.threshold * 100)} value={Math.round(s.insights.threshold * 100)} min={5} max={95} step={5} onSave={(v) => void save({ insights: { threshold: v / 100 } })} />
           </Row>
-          <Row label="Rest between insights (s)" hint="Changes during the rest are merged into the next insight. Raise it on a slow machine so chat answers don't wait behind insights.">
+          <Row label="Rest between insights (s)" hint="Changes during the rest are merged into the next insight. Raise it to spend fewer tokens or stay under a provider's rate limit.">
             <NumberField key={s.insights.cooldownSeconds} value={s.insights.cooldownSeconds} min={0} max={600} step={5} onSave={(v) => void save({ insights: { cooldownSeconds: v } })} />
           </Row>
         </>,
@@ -168,10 +174,10 @@ export function SettingsTab() {
         "Chat",
         "How questions to the Advisor are answered.",
         <>
-          <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Small local models have short context windows.">
+          <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Fewer keeps each request small and cheap.">
             <NumberField key={s.chat.maxTurns} value={s.chat.maxTurns} min={1} max={50} onSave={(v) => void save({ chat: { maxTurns: v } })} />
           </Row>
-          <Row label="Let the Advisor use tools" hint="Look up status and history, and propose work orders you confirm. Off: answers stream word by word from the dashboard values only — quicker on a slow machine.">
+          <Row label="Let the Advisor use tools" hint="Look up status and history, and propose work orders you confirm. Off: answers stream word by word from the dashboard values only, and work with models that can't call tools.">
             <input type="checkbox" className={toggle} checked={s.chat.tools} onChange={(e) => void save({ chat: { tools: e.target.checked } })} />
           </Row>
         </>,
@@ -195,6 +201,6 @@ export function SettingsTab() {
 
       </div>
       </div>
-    </div>
+    </section>
   )
 }

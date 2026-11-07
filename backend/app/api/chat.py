@@ -84,7 +84,7 @@ def chat(messages: list[dict[str, str]] = Body(..., embed=True)) -> StreamingRes
         check = grounding.validate(answer, seen) if conf["grounding"]["enabled"] and snap["cycle"] else None
         repo.insert_insight(
             trigger_type="chat", trigger_ref=turns[-1]["content"][:500], model=target.label,
-            mode="cloud" if target.cloud_provider else "local", prompt_version=prompts.CHAT_VERSION,
+            mode="cloud", prompt_version=prompts.CHAT_VERSION,
             snapshot=seen, text=answer, cycle=snap["cycle"], grounded=check and check["grounded"],
             validation=check, latency_ms=round((time.perf_counter() - start) * 1000), first_token_ms=first,
         )

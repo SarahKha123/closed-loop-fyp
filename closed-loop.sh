@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
 # Closed Loop — single entry point for everything you'd want to run.
 #
-#   ./closed-loop.sh setup      one-time: dependencies, .env, trained models,
-#                               and (if you agree) Ollama
+#   ./closed-loop.sh setup      one-time: dependencies, .env, trained models
 #   ./closed-loop.sh start      build the dashboard once and serve it with the API
 #                               on one port (lightest; use this for demos)
 #   ./closed-loop.sh dev        hot-reload backend + Vite dev server (for coding)
 #   ./closed-loop.sh test       backend tests + frontend type check and lint
-#   ./closed-loop.sh status     whether the API and Ollama answer
+#   ./closed-loop.sh status     whether the API answers, and which model it uses
 #   ./closed-loop.sh reset-db   delete the database (recreated empty on next start);
 #                               refuses while it holds user-study logs, unless --force
 #
-# Everything runs directly on this machine — no containers. Both `start` and
-# `dev` start `ollama serve` if Ollama is installed but not running (with the
-# low-resource limits from .env), and stop it again on Ctrl-C.
+# Everything runs directly on this machine — no containers. The Advisor answers
+# from a cloud API: add a key on the Models page, or set CLOUD_PROVIDER /
+# CLOUD_API_KEY / CLOUD_MODEL in .env (what a deployed server does).
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -27,7 +26,7 @@ BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 PY=backend/.venv/bin/python
 
-usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
 
 CMD="${1:-help}"
 
@@ -81,63 +80,10 @@ cmd_setup() {
     ok "models trained"
   fi
 
-  head_ "Local language models (optional)"
-  install_ollama
-  # Models aren't pulled here: the dashboard asks for one on first open and
-  # downloads it from the Models page, where the catalogue shows what fits.
-
   head_ "Done"
   say "  ${DIM}Run it:${RESET}      ./closed-loop.sh start"
   say "  ${DIM}Hot reload:${RESET}  ./closed-loop.sh dev"
   say ""
-}
-
-# Offer to install Ollama with its official script (needs sudo). Optional: a
-# cloud API works without it, so declining or a failed install isn't fatal.
-install_ollama() {
-  local bin
-  bin=$(ollama_bin)
-  if [ -n "$bin" ]; then ok "ollama $("$bin" --version 2>/dev/null | tail -1)"; return 0; fi
-  warn "Ollama not installed — the Advisor needs it to run models on this machine"
-  if [ ! -t 0 ]; then
-    info "install it from https://ollama.com, or use a cloud API on the Models page"
-    return 0
-  fi
-  local answer
-  read -r -p "    Install Ollama now? (≈1.4 GB download, no sudo) [Y/n] " answer || answer=n
-  case "${answer:-y}" in
-    [yY]*) ;;
-    *) info "skipped — install it later from the dashboard's popup, or use a cloud API on the Models page"; return 0 ;;
-  esac
-  # The same installer as the dashboard's popup: unpacks Ollama's release into
-  # config/ollama/ with Python (no sudo, no zstd tool needed).
-  if (cd backend && .venv/bin/python -c '
-import sys
-from app.services import ollama_runtime as r
-try:
-    for f in r.install(start_after=False):
-        print(f"\r    {f[\"status\"]:<60}", end="", flush=True)
-except r.RuntimeSetupError as e:
-    print(); sys.exit(f"    {e}")
-print()
-'); then
-    ok "ollama $(config/ollama/bin/ollama --version 2>/dev/null | tail -1) installed in config/ollama/"
-    link_ollama
-  else
-    err "Ollama install failed — the message above says why; setup continues without it"
-  fi
-}
-
-# Put the local copy on PATH via ~/.local/bin (Ubuntu adds it to PATH when it
-# exists), so `ollama list` / `ollama pull` work in a terminal too.
-link_ollama() {
-  [ -x config/ollama/bin/ollama ] && ! have ollama || return 0
-  mkdir -p "$HOME/.local/bin"
-  ln -sf "$PWD/config/ollama/bin/ollama" "$HOME/.local/bin/ollama"
-  case ":$PATH:" in
-    *":$HOME/.local/bin:"*) ok "linked ~/.local/bin/ollama — 'ollama list' works in this terminal" ;;
-    *) info "linked ~/.local/bin/ollama — open a new terminal for 'ollama list' to work" ;;
-  esac
 }
 
 need_setup() {
@@ -147,52 +93,17 @@ need_setup() {
   ensure_dirs
 }
 
-# The `ollama` to run: one on PATH, else the copy the dashboard installs into
-# config/ollama/ (no sudo needed — see backend/app/services/ollama_runtime.py).
-ollama_bin() {
-  if have ollama; then command -v ollama
-  elif [ -x config/ollama/bin/ollama ]; then echo config/ollama/bin/ollama; fi
-}
-
-# Start Ollama ourselves if it's installed but not running; leave an
-# already-running one alone (it isn't ours to stop). Sets OLLAMA_PID.
-OLLAMA_PID=""
-maybe_start_ollama() {
-  local bin
-  bin=$(ollama_bin)
-  if ! check_ollama && [ -n "$bin" ]; then
-    "$bin" serve >/dev/null 2>&1 &
-    OLLAMA_PID=$!
-    ok "started ollama serve (pid $OLLAMA_PID)"
-  fi
-}
-
-# Stop the Ollama we started, and one the dashboard started (config/ollama.pid).
-stop_ollama() {
-  [ -n "$OLLAMA_PID" ] && kill "$OLLAMA_PID" 2>/dev/null
-  if [ -f config/ollama.pid ]; then
-    local pid
-    pid=$(cat config/ollama.pid)
-    # Only if that pid is still an ollama: pids get reused.
-    grep -q ollama "/proc/$pid/cmdline" 2>/dev/null && kill "$pid" 2>/dev/null
-    rm -f config/ollama.pid
-  fi
-  return 0
-}
-
 cmd_start() {
   need_setup
   head_ "Building the dashboard"
   pnpm --dir frontend build >/dev/null || fail "frontend build failed — run 'pnpm --dir frontend build' to see why"
   ok "frontend/dist ready"
-  maybe_start_ollama
 
   head_ "Starting Closed Loop"
   ok "dashboard   http://localhost:${BACKEND_PORT}"
   ok "API docs    http://localhost:${BACKEND_PORT}/docs"
   say "  ${DIM}Ctrl-C stops it${RESET}"
   say ""
-  trap 'stop_ollama' EXIT
   trap 'exit 130' INT TERM
   CLOSED_LOOP_STATIC_DIR=frontend/dist $PY -m uvicorn app.main:app --app-dir backend \
     --port "$BACKEND_PORT" --timeout-graceful-shutdown 3
@@ -205,7 +116,7 @@ stop_dev() {
   if [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null; then
     wait "$API_PID" 2>/dev/null || true # let uvicorn finish logging before the prompt returns
   fi
-  stop_ollama
+  return 0
 }
 
 # Block until the backend answers, so Vite's first proxied requests don't hit
@@ -222,7 +133,6 @@ wait_for_api() {
 
 cmd_dev() {
   need_setup
-  maybe_start_ollama
 
   head_ "Starting dev servers"
   trap 'stop_dev' EXIT
@@ -272,8 +182,6 @@ cmd_status() {
   else
     warn "API not reachable on :${BACKEND_PORT} — is it running?"
   fi
-  head_ "Ollama"
-  check_ollama || true
   say ""
 }
 

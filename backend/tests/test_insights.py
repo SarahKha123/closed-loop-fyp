@@ -16,7 +16,7 @@ def stub_model(monkeypatch):
     """advisor.complete returns the queued replies in order; records the messages it got."""
     replies: list[str] = []
     calls: list[list[dict]] = []
-    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="stub", local_tag="stub"))
+    monkeypatch.setattr(advisor, "choose", lambda: advisor.Target(label="stub", provider="openai"))
 
     def complete(target, messages):
         calls.append(list(messages))
@@ -33,7 +33,7 @@ def test_grounded_insight_is_stored_once(fresh_db, stub_model):
     replies.append(GROUNDED)
     ins = insights.generate("condition_change", ["Accumulator changed from Optimal to Critical at cycle 11"])
     assert ins["grounded"] is True and ins["attempts"] == 1 and ins["cycle"] == 11
-    assert ins["mode"] == "local" and ins["promptVersion"] == "insight-v1" and ins["latencyMs"] == 20
+    assert ins["mode"] == "cloud" and ins["promptVersion"] == "insight-v1" and ins["latencyMs"] == 20
     assert len(calls) == 1
     snap = repo.insight(ins["id"], snapshot=True)["snapshot"]
     assert next(c for c in snap["components"] if c["component"] == "Accumulator")["changedFrom"] == "Optimal"

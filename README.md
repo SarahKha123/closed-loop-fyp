@@ -20,10 +20,10 @@ closes the loop for people:
   AI's text is checked against the data it was given; failures are rewritten
   once and otherwise marked *Unverified*.
 
-The Advisor runs on a **local model** (Ollama) or a **cloud API** (OpenAI,
-Anthropic, Gemini, Groq, OpenRouter, DeepSeek, or any OpenAI-compatible
-endpoint), chosen on the **Models** page. With nothing set up yet, the
-dashboard offers to install and start Ollama for you (Linux, no sudo).
+The Advisor answers from a **cloud model** (OpenAI, Anthropic, Gemini, Groq,
+OpenRouter, DeepSeek, Ollama Cloud, or any OpenAI-compatible endpoint), chosen
+on the **AI model** page. With nothing set up yet, the dashboard asks for an
+API key; Groq and Google Gemini both offer free ones.
 
 For the FYP's evaluation it also has:
 
@@ -36,46 +36,43 @@ For the FYP's evaluation it also has:
 
 ## Quick start
 
-Needs Python 3.11+, Node 22+ and pnpm. [Ollama](https://ollama.com) is
-optional: `setup` offers to install it (no sudo), or use a cloud API.
+Needs Python 3.11+, Node 22+ and pnpm, and an API key for one cloud provider.
 Everything runs directly on your machine — no Docker.
 
 ```bash
-./closed-loop.sh setup    # once: packages, .env, trains the ML models (~2 min), offers Ollama
-./closed-loop.sh start    # http://localhost:8000 — starts Ollama if needed
+./closed-loop.sh setup    # once: packages, .env, trains the ML models (~2 min)
+./closed-loop.sh start    # http://localhost:8000 — then add a key on the AI model page
 ```
 
-Then **Models → Download** a chat model (`qwen3:1.7b` on an 8 GB laptop) or
-add a key under **Cloud APIs**, and press play in the top bar.
+Then on **AI model**, add a key for one provider, test it, press *Use*, and
+press play in the top bar.
 
 | Command | What it does |
 |---|---|
-| `./closed-loop.sh setup` | Install / upgrade dependencies, create `.env`, train the models if missing, offer to install Ollama. Safe to re-run |
+| `./closed-loop.sh setup` | Install / upgrade dependencies, create `.env`, train the models if missing. Safe to re-run |
 | `./closed-loop.sh start` | Build the dashboard once and serve it with the API on one port (lightest; for demos) |
 | `./closed-loop.sh dev` | Hot-reload backend (:8000) + Vite (:5173), for editing code; Vite starts once the API answers |
 | `./closed-loop.sh test` | Backend tests, frontend type check and lint |
-| `./closed-loop.sh status` | Does the API answer, which model is active, is Ollama up |
+| `./closed-loop.sh status` | Does the API answer, and which model is active |
 | `./closed-loop.sh reset-db` | Delete the database (recreated empty on the next start); refuses while it holds study logs unless `--force` |
 
 Ctrl-C stops everything the command started. Something not working? See
 [Troubleshooting](docs/DEVELOPMENT.md#troubleshooting).
 
-### Low-resource machines
+### Deploying
 
-The defaults suit a 4-core, 8 GB laptop with no GPU (measured with
-`qwen3:1.7b` on CPU: a verified insight in ~30 s, a tool-using chat answer in
-~12 s). The knobs, all in `.env` (see `.env.example`):
+The Advisor only needs an API key, so any small host that runs Python works.
+Set the model in the host's environment instead of on the AI model page:
 
-- `OLLAMA_CONTEXT_LENGTH`, `OLLAMA_NUM_PREDICT`, `OLLAMA_KEEP_ALIVE`,
-  `OLLAMA_NUM_THREAD` — memory and time per request;
-- `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`, a `q8_0` KV cache —
-  one model in RAM, requests queue;
-- `OMP_NUM_THREADS` — CPU threads for the ML predictor.
+```bash
+CLOUD_PROVIDER=groq            # openai, anthropic, google, groq, openrouter, deepseek, ollama, custom
+CLOUD_API_KEY=gsk_…
+CLOUD_MODEL=llama-3.3-70b-versatile
+CLOUD_BASE_URL=                # only for `custom` or a proxy
+```
 
-In the app, **Models → Settings** has *Rest between insights* (keeps a slow
-model free for chat) and *Let the Advisor use tools* (off = one streamed
-model call per answer). On 4 GB use `qwen3:0.6b` or `gemma3:1b`, or a cloud
-API to take the model off the machine entirely.
+These override `config/cloud.json`, and the AI model page shows the provider
+as set by the server. `OMP_NUM_THREADS` (default 2) caps the ML predictor's CPU.
 
 ## Repository layout
 
@@ -83,18 +80,18 @@ API to take the model off the machine entirely.
 closed-loop-fyp/
 ├── frontend/          React + Vite dashboard (TypeScript, Tailwind, TanStack Router)
 ├── backend/           FastAPI service: replay, predictor, monitor, work orders, insights,
-│   │                  grounding check, chat tools, model selection, Ollama + cloud clients
+│   │                  grounding check, chat tools, model selection, cloud client
 │   ├── app/             the API (api/ routers, services/ logic)
 │   ├── ml/              FYP1 ML pipeline: features, labels, evaluation, training, SHAP, saved models
 │   ├── data/            the dataset (hydraulic_condition_monitoring_summary.csv)
-│   └── tests/           pytest (stub models — no Ollama or key needed)
+│   └── tests/           pytest (stub models — no API key needed)
 ├── eval/              Evaluation harness: scenarios, runner, analysis, rating sheets, system performance
-├── config/            Model choice, study tasks, settings, the SQLite database, a local Ollama
-│                      (keys, DB and Ollama gitignored)
+├── config/            Model choice, study tasks, settings, the SQLite database
+│                      (keys and DB gitignored)
 ├── docs/              Architecture, API reference, development guide, dataset, scope
 ├── scripts/common.sh  Shell helpers for closed-loop.sh
 ├── closed-loop.sh     The one entry point for running anything
-├── .env.example       Ports, Ollama address, low-resource limits (copied to .env)
+├── .env.example       Ports, cloud model, sign-in, email (copied to .env)
 └── Daedalus/          Reference project only — not part of this app, never modified
 ```
 
@@ -115,4 +112,4 @@ Frontend: [Vite](https://vite.dev), [React 19](https://react.dev), TypeScript,
 [Tailwind CSS v4](https://tailwindcss.com), pnpm.
 Backend: [FastAPI](https://fastapi.tiangolo.com), SQLite, httpx, psutil.
 ML: scikit-learn, imbalanced-learn, XGBoost, SHAP.
-AI: [Ollama](https://ollama.com) or any OpenAI-compatible API.
+AI: any OpenAI-compatible chat API.

@@ -5,18 +5,17 @@ one-retry path the app uses — on a frozen scenario snapshot, and appends one
 CSV row. Every final text is grounding-checked afterwards too, so runs with the
 validator *off* still get a hallucination score (the check just doesn't act).
 
-    backend/.venv/bin/python eval/run.py --models qwen3:1.7b,cloud:openai --validator both
+    backend/.venv/bin/python eval/run.py --models cloud:groq,cloud:ollama --validator both
 
-Models: an Ollama tag (a `-cloud` tag such as `gpt-oss:120b-cloud` is
-recorded as cloud), or `cloud:<provider>` (configured on the Models page;
-uses its saved model). Output: eval/results/<name>.csv plus <name>.config.json
-(models, prompt version, Ollama version, hardware, limits). Re-running with
-the same --out resumes: finished rows are skipped, failed ones retried.
-Each model gets one discarded warm-up call first, so load time isn't counted.
+Models: `cloud:<provider>`, configured on the Models page (uses its saved
+model), or `cloud:<provider>/<model>` to override the model for this run, so
+one key can compare a small and a large model. Output: eval/results/<name>.csv
+plus <name>.config.json (models, prompt version). Re-running with the same
+--out resumes: finished rows are skipped, failed ones retried. Each model gets
+one discarded warm-up call first, so connection setup isn't counted.
 
-On a CPU-only laptop a local insight takes ~15–30 s: 50 scenarios × 2
-validator settings × 3 repeats ≈ 2–3 hours per model. Use --limit and
---repeats for a quick pass; runs are sequential on purpose (one model in RAM).
+Runs are sequential on purpose: latency is part of what's measured, and
+parallel calls would skew it (and hit provider rate limits).
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ for line in (ROOT / ".env").read_text().splitlines() if (ROOT / ".env").exists()
     if sep and key.strip() and not key.lstrip().startswith("#") and value.strip():
         os.environ.setdefault(key.strip(), value.strip())
 
-from app.services import advisor, cloud, grounding, hardware, insights, ollama_client, prompts  # noqa: E402
+from app.services import advisor, cloud, grounding, insights, prompts  # noqa: E402
 
 SCENARIOS = ROOT / "eval" / "scenarios"
 RESULTS = ROOT / "eval" / "results"
@@ -48,15 +47,16 @@ FIELDS = ["model", "mode", "scenario", "category", "validator", "repeat", "promp
 
 
 def target_for(spec: str) -> advisor.Target:
-    if spec.startswith("cloud:"):
-        provider = spec.removeprefix("cloud:")
-        if provider not in cloud.PROVIDERS:
-            sys.exit(f"unknown cloud provider {provider!r}; one of {', '.join(cloud.PROVIDERS)}")
-        cfg = cloud.get(provider)
-        if not (cfg["api_key"] and cfg["model"]):
-            sys.exit(f"{provider} needs a key and a model — set them on the Models page first")
-        return advisor.Target(label=f"{provider}/{cfg['model']}", cloud_provider=provider)
-    return advisor.Target(label=spec, local_tag=spec)
+    if not spec.startswith("cloud:"):
+        sys.exit(f"{spec!r}: models are cloud:<provider> or cloud:<provider>/<model>")
+    provider, _, model = spec.removeprefix("cloud:").partition("/")
+    if provider not in cloud.PROVIDERS:
+        sys.exit(f"unknown cloud provider {provider!r}; one of {', '.join(cloud.PROVIDERS)}")
+    cfg = cloud.get(provider)
+    model = model or cfg["model"]
+    if not (cfg["api_key"] and model):
+        sys.exit(f"{provider} needs a key and a model — set them on the Models page first")
+    return advisor.Target(label=f"{provider}/{model}", provider=provider, model=model)
 
 
 def coverage(text: str, expected: list[dict]) -> tuple[bool, bool]:
@@ -80,10 +80,6 @@ def write_config(path: Path, args: argparse.Namespace, scenarios: list[dict]) ->
         cfg = json.loads(path.read_text())
         cfg.setdefault("resumedAt", []).append(datetime.now(timezone.utc).isoformat(timespec="seconds"))
     else:
-        try:
-            ollama = ollama_client.version()
-        except Exception:  # noqa: BLE001 — cloud-only runs don't need Ollama
-            ollama = None
         cfg = {
             "startedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "models": args.models.split(","),
@@ -91,17 +87,13 @@ def write_config(path: Path, args: argparse.Namespace, scenarios: list[dict]) ->
             "validator": args.validator,
             "promptVersion": prompts.INSIGHT_VERSION,
             "scenarios": [s["id"] for s in scenarios],
-            "ollamaVersion": ollama,
-            "limits": {k: os.environ.get(k) for k in ("OLLAMA_CONTEXT_LENGTH", "OLLAMA_NUM_PREDICT", "OLLAMA_NUM_THREAD",
-                                                       "OLLAMA_KV_CACHE_TYPE", "OLLAMA_FLASH_ATTENTION")},
-            "hardware": hardware.snapshot(),
         }
     path.write_text(json.dumps(cfg, indent=2) + "\n")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--models", required=True, help="comma-separated: Ollama tags and/or cloud:<provider>")
+    ap.add_argument("--models", required=True, help="comma-separated cloud:<provider>[/<model>]")
     ap.add_argument("--validator", choices=["on", "off", "both"], default="both")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--limit", type=int, help="only the first N scenarios (quick pass)")
@@ -131,8 +123,7 @@ def main() -> None:
             writer.writeheader()
         started, n = time.perf_counter(), 0
         for target in targets:
-            # Ollama's hosted tags (e.g. gpt-oss:120b-cloud) run remotely: they count as cloud
-            mode = "cloud" if target.cloud_provider or target.label.endswith("-cloud") else "local"
+            mode = "cloud"  # kept so the CSV columns match earlier result files
             if not all((target.label, s["id"], v, str(r)) in done
                        for s in scenarios for v in validators for r in range(1, args.repeats + 1)):
                 try:  # warm-up: load the model; not measured

@@ -16,7 +16,7 @@ const NAV: { to: "/" | "/work-orders" | "/sensors" | "/models"; label: string; i
   { to: "/", label: "Overview", icon: "overview" },
   { to: "/work-orders", label: "Work orders", icon: "workorder" },
   { to: "/sensors", label: "Sensors", icon: "sensor" },
-  { to: "/models", label: "AI models", icon: "models" },
+  { to: "/models", label: "AI model", icon: "models" },
 ]
 
 const navItem =
