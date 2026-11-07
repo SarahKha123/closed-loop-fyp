@@ -4,7 +4,7 @@ Sent through Gmail's SMTP server with an App Password (Python's smtplib, no othe
 Configured in .env:
 
     SMTP_USER=you@gmail.com            the Gmail account that sends
-    SMTP_APP_PASSWORD=abcd efgh ijkl mnop   a Google App Password (needs 2-Step Verification), not the account password
+    SMTP_APP_PASSWORD=abcdefghijklmnop  a Google App Password, spaces removed (needs 2-Step Verification), not the account password
     NOTIFY_EMAIL_TO=a@x.com,b@y.com    who receives them
     APP_URL=https://…                  optional: adds a link to the Work orders page
 
