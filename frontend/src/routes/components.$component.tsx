@@ -84,7 +84,7 @@ function ComponentPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 @4xl:grid-cols-2 @6xl:grid-cols-3">
-            <Card>
+            <Card tour="state">
               <CardHeader title="Current state" subtitle={`Cycle ${num(state.cycle)} · confidence ${state.confidence}`} />
               <div className="flex flex-col gap-3 px-4 pb-4">
                 <div className="flex items-center justify-between">
@@ -121,7 +121,7 @@ function ComponentPage() {
               </div>
             </Card>
 
-            <Card>
+            <Card tour="why">
               <CardHeader title="Why this prediction" subtitle={`Top SHAP drivers toward ${state.condition}`} />
               <ol className="flex flex-col gap-3 px-4 pb-4">
                 {state.shap.map((d, i) => (
@@ -147,7 +147,7 @@ function ComponentPage() {
               </ol>
             </Card>
 
-            <Card className="flex flex-col">
+            <Card className="flex flex-col" tour="related">
               <CardHeader
                 title="Related sensors"
                 subtitle="Most associated with this component"
@@ -173,7 +173,7 @@ function ComponentPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <Card className="flex flex-col">
+            <Card className="flex flex-col" tour="history">
               <CardHeader title="Failure probability" subtitle={`${meta.name} · last ${TREND_WINDOW} cycles`} />
               <div className="h-[260px] px-3 pb-3">
                 {trend?.cycles.length ? (

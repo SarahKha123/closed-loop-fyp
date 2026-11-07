@@ -42,8 +42,8 @@ function SensorsPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Link to="/sensors" search={{}} className={`${chip} ${!focus ? "border-accent-border bg-accent-bg text-accent-text" : "border-line text-ink-muted hover:bg-surface-3"}`}>
+      <div data-tour="sensor-filter" className="flex flex-wrap items-center gap-1.5">
+        <Link to="/sensors" search={{}} className={`${chip} ${!focus ? "border-line-strong bg-surface-3 text-ink" : "border-line text-ink-muted hover:bg-surface-3"}`}>
           All
         </Link>
         {COMPONENTS.map((c) => (
@@ -52,7 +52,7 @@ function SensorsPage() {
             to="/sensors"
             search={{ component: c.key }}
             className={`${chip} inline-flex items-center gap-1.5 ${
-              focus?.key === c.key ? "border-accent-border bg-accent-bg text-accent-text" : "border-line text-ink-muted hover:bg-surface-3"
+              focus?.key === c.key ? "border-line-strong bg-surface-3 text-ink" : "border-line text-ink-muted hover:bg-surface-3"
             }`}
           >
             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: c.series }} />
@@ -61,7 +61,7 @@ function SensorsPage() {
         ))}
       </div>
 
-      <Card>
+      <Card tour="sensor-table">
         {!data ? (
           <EmptyState icon="sensor" title="No readings yet">
             Start the replay from the top bar to see each cycle's sensor values.

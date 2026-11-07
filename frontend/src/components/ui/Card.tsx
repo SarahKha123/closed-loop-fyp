@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react"
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-xl border border-line bg-surface shadow-card ${className}`}>{children}</section>
+/** `tour`: the name the page guide (shell/Tour.tsx) uses to spotlight this panel. */
+export function Card({ children, className = "", tour }: { children: ReactNode; className?: string; tour?: string }) {
+  return <section data-tour={tour} className={`rounded-xl border border-line bg-surface shadow-card ${className}`}>{children}</section>
 }
 
 export function CardHeader({

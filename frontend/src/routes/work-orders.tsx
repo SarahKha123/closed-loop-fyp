@@ -50,7 +50,7 @@ function WorkOrdersPage() {
         />
       )}
 
-      <div role="tablist" aria-label="Work orders" className="flex items-center gap-1 border-b border-line">
+      <div data-tour="tabs" role="tablist" aria-label="Work orders" className="flex items-center gap-1 border-b border-line">
         {(["queue", "history"] as const).map((t) => (
           <button
             key={t}

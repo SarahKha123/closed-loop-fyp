@@ -118,7 +118,7 @@ export function ProfileMenu({ studyMode, theme }: { studyMode: boolean; theme: R
                   window.dispatchEvent(new Event(TOUR_EVENT))
                 }}
               >
-                <Icon name="overview" className="text-ink-muted" /> Take the tour
+                <Icon name="help" className="text-ink-muted" /> Guide to this page
               </button>
             )}
             <button type="button" className={menuItem} onClick={() => void auth.logout()}>

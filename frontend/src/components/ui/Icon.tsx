@@ -30,6 +30,7 @@ const PATHS = {
   chevronUpDown: "M7 15l5 5 5-5M7 9l5-5 5 5",
   monitor: "M2 3h20v14H2zM8 21h8M12 17v4",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+  help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01",
   logo: "M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6",
 } as const
 

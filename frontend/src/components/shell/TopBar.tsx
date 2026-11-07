@@ -7,6 +7,7 @@ import { num } from "../../lib/format"
 import type { Theme } from "../../lib/theme"
 import { Button } from "../ui/Button"
 import { Icon } from "../ui/Icon"
+import { TOUR_EVENT } from "./Tour"
 
 const SPEEDS = [0.05, 0.1, 0.25, 0.5, 1, 2, 5]
 
@@ -127,6 +128,18 @@ export function TopBar({
       <div className="grow" />
 
       <div className="flex items-center gap-1">
+        {!studyMode && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}
+            title="Guide to this page"
+            aria-label="Guide to this page"
+            data-tour="help"
+          >
+            <Icon name="help" />
+          </Button>
+        )}
         <Button size="icon" variant="ghost" onClick={onToggleTheme} title={theme.isDark ? "Light theme" : "Dark theme"} aria-label="Toggle theme">
           <Icon name={theme.isDark ? "sun" : "moon"} />
         </Button>

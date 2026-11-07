@@ -34,7 +34,7 @@ function ModelsView() {
 
       <ActiveModelBanner />
 
-      <div role="tablist" aria-label="Model settings" className="flex items-center gap-1 border-b border-line">
+      <div data-tour="tabs" role="tablist" aria-label="Model settings" className="flex items-center gap-1 border-b border-line">
         {(["installed", "download", "cloud", "hardware", "settings"] as const).map((t) => (
           <button
             key={t}

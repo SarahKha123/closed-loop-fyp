@@ -12,7 +12,7 @@ export function ActiveModelBanner() {
         : "Local · auto (largest installed model that fits in RAM)"
 
   return (
-    <div className={`${card} flex items-center gap-4 p-4`}>
+    <div data-tour="model-banner" className={`${card} flex items-center gap-4 p-4`}>
       <span
         className={`h-2.5 w-2.5 shrink-0 rounded-full ${
           modelsLoading ? "bg-ink-faint" : active?.resolved ? "bg-good" : "bg-critical"

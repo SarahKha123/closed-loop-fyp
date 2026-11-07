@@ -9,7 +9,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
         <h1 className="text-2xl leading-tight font-semibold tracking-tight text-ink">{title}</h1>
         {subtitle && <p className="mt-1 text-base text-ink-muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div data-tour="page-actions" className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   )
 }

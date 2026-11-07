@@ -115,22 +115,29 @@ export function SettingsTab() {
 
   if (!s) return <div className="text-base text-ink-faint">{error ?? "Loading settings…"}</div>
 
-  const section = (title: string, rows: ReactNode) => (
+  const section = (title: string, about: string, rows: ReactNode) => (
     <section className="flex flex-col gap-2">
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <p className="text-sm text-ink-muted">{about}</p>
+      </div>
       <div className={`${card} divide-y divide-line`}>{rows}</div>
     </section>
   )
 
+  // Two columns from 1024px (the AI side, then the maintenance side), one below; each column stacks its sections.
   return (
-    <div className="flex max-w-3xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <p className="text-base text-ink-faint">
         Saved to <code className="font-mono">config/settings.json</code> and applied to the next event — no restart.
       </p>
       {error && <div className="text-base text-critical-text">{error}</div>}
 
+      <div className="grid items-start gap-x-6 gap-y-5 @5xl:grid-cols-2">
+      <div className="flex flex-col gap-5">
       {section(
         "Live insights",
+        "When the Advisor speaks up on its own.",
         <>
           <Row label="Write insights" hint="The Advisor comments when a component changes condition, crosses the threshold, or a work order opens or closes. Off for the dashboard-only study condition.">
             <input type="checkbox" className={toggle} checked={s.insights.enabled} onChange={(e) => void save({ insights: { enabled: e.target.checked } })} />
@@ -146,6 +153,7 @@ export function SettingsTab() {
 
       {section(
         "Grounding check",
+        "How the Advisor's numbers are checked against the data.",
         <>
           <Row label="Check AI answers against the data" hint="Every number, work order and condition must be in the snapshot the model was given; one rewrite if not. Turn off to measure its effect.">
             <input type="checkbox" className={toggle} checked={s.grounding.enabled} onChange={(e) => void save({ grounding: { enabled: e.target.checked } })} />
@@ -157,7 +165,23 @@ export function SettingsTab() {
       )}
 
       {section(
+        "Chat",
+        "How questions to the Advisor are answered.",
+        <>
+          <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Small local models have short context windows.">
+            <NumberField key={s.chat.maxTurns} value={s.chat.maxTurns} min={1} max={50} onSave={(v) => void save({ chat: { maxTurns: v } })} />
+          </Row>
+          <Row label="Let the Advisor use tools" hint="Look up status and history, and propose work orders you confirm. Off: answers stream word by word from the dashboard values only — quicker on a slow machine.">
+            <input type="checkbox" className={toggle} checked={s.chat.tools} onChange={(e) => void save({ chat: { tools: e.target.checked } })} />
+          </Row>
+        </>,
+      )}
+      </div>
+
+      <div className="flex flex-col gap-5">
+      {section(
         "Work orders",
+        "When maintenance is asked for, and who hears about it.",
         <>
           <Row label="Cycles Critical before a work order" hint="Raise above 1 to ignore one-cycle blips.">
             <NumberField key={s.monitor.confirmCycles} value={s.monitor.confirmCycles} min={1} max={20} onSave={(v) => void save({ monitor: { confirmCycles: v } })} />
@@ -169,17 +193,8 @@ export function SettingsTab() {
         </>,
       )}
 
-      {section(
-        "Chat",
-        <>
-          <Row label="History sent to the model" hint="User/assistant exchanges kept per request. Small local models have short context windows.">
-            <NumberField key={s.chat.maxTurns} value={s.chat.maxTurns} min={1} max={50} onSave={(v) => void save({ chat: { maxTurns: v } })} />
-          </Row>
-          <Row label="Let the Advisor use tools" hint="Look up status and history, and propose work orders you confirm. Off: answers stream word by word from the dashboard values only — quicker on a slow machine.">
-            <input type="checkbox" className={toggle} checked={s.chat.tools} onChange={(e) => void save({ chat: { tools: e.target.checked } })} />
-          </Row>
-        </>,
-      )}
+      </div>
+      </div>
     </div>
   )
 }

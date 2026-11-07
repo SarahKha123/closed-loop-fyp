@@ -67,7 +67,7 @@ export function WorkOrderQueue({ refreshKey, onChanged }: { refreshKey: number; 
         ))}
       </div>
 
-      <Card>
+      <Card tour="wo-list">
         {error ? (
           <EmptyState icon="alert" title="Couldn't load work orders">
             {error}
