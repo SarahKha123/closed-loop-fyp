@@ -1,15 +1,24 @@
-// One component under the rig drawing: its recent trend, the change since the last cycle, how long it has been in
-// its condition, what is driving it and its work order. The headline probability lives on the drawing above.
+// One component under the rig drawing: the change since the last cycle, how long it has been in its condition, what
+// is driving it and its work order. Its probability is on the drawing and its trend on the chart, so neither repeats here.
 
 import { Link } from "@tanstack/react-router"
+import type { ReactNode } from "react"
 import { ConditionBadge } from "../../components/ui/ConditionBadge"
-import { Sparkline } from "../../components/charts/Sparkline"
 import type { ComponentState } from "../../lib/api"
 import { componentByName } from "../../lib/api"
 import { num, pct, reading } from "../../lib/format"
 import { conditionStyle } from "../../lib/status"
 
-export function ComponentCard({ state, history }: { state: ComponentState; history: (number | null)[] }) {
+function Row({ label, children, title }: { label: string; children: ReactNode; title?: string }) {
+  return (
+    <div className="flex min-w-0 justify-between gap-2" title={title}>
+      <span className="truncate text-ink-faint">{label}</span>
+      <span className="tabular shrink-0 text-ink">{children}</span>
+    </div>
+  )
+}
+
+export function ComponentCard({ state }: { state: ComponentState }) {
   const meta = componentByName(state.component)
   const delta = state.previousFailureProbability == null ? null : state.failureProbability - state.previousFailureProbability
   const driver = state.shap[0]
@@ -17,51 +26,39 @@ export function ComponentCard({ state, history }: { state: ComponentState; histo
     <Link
       to="/components/$component"
       params={{ component: state.key }}
-      className={`group flex min-w-0 flex-col gap-3 rounded-xl border bg-surface p-4 transition-colors hover:border-accent ${
+      className={`flex min-w-0 flex-col gap-2 rounded-xl border bg-surface px-4 py-3 transition-colors hover:border-accent ${
         state.condition === "Optimal" ? "border-line" : conditionStyle[state.condition].border
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: meta?.series }} />
-          <span className="text-lg font-semibold text-ink">{state.component}</span>
-        </div>
-        <ConditionBadge condition={state.condition} />
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: meta?.series }} />
+          <span className="truncate text-lg font-semibold text-ink">{state.component}</span>
+        </span>
+        <ConditionBadge condition={state.condition} size="sm" />
       </div>
 
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="text-ink-muted">Last {history.length} cycles</span>
+      <div className="flex flex-col gap-0.5 text-sm">
         {/* Signed change since the previous cycle; colour says better or worse, the sign says which way. */}
-        {delta != null && Math.abs(delta) >= 0.005 ? (
-          <span className={`tabular font-medium ${delta > 0 ? "text-critical-text" : "text-good-text"}`}>
-            {delta > 0 ? "+" : "−"}
-            {pct(Math.abs(delta))}
-          </span>
-        ) : (
-          <span className="tabular text-ink-faint">±0.0%</span>
-        )}
-      </div>
-
-      <Sparkline values={history} color={meta?.series ?? "var(--accent)"} height={44} />
-
-      <div className="flex flex-col gap-1 border-t border-line pt-2 text-sm">
-        <div className="flex justify-between gap-2">
-          <span className="text-ink-faint">{state.condition} since</span>
-          <span className="tabular text-ink">
-            cycle {num(state.since)}
-            {state.changedFrom && <span className="text-ink-faint"> · was {state.changedFrom}</span>}
-          </span>
-        </div>
+        <Row label="Since last cycle">
+          {delta != null && Math.abs(delta) >= 0.005 ? (
+            <span className={`font-medium ${delta > 0 ? "text-critical-text" : "text-good-text"}`}>
+              {delta > 0 ? "+" : "−"}
+              {pct(Math.abs(delta))}
+            </span>
+          ) : (
+            <span className="text-ink-faint">±0.0%</span>
+          )}
+        </Row>
+        <Row label={`${state.condition} since`}>cycle {num(state.since)}</Row>
         {driver && (
-          <div className="flex justify-between gap-2" title="The sensor feature that pushed the model most toward this condition (SHAP)">
-            <span className="truncate text-ink-faint">{driver.label}</span>
-            <span className="tabular shrink-0 text-ink">{reading(driver.value, driver.unit)}</span>
-          </div>
+          <Row label={driver.label} title="The sensor feature that pushed the model most toward this condition (SHAP)">
+            {reading(driver.value, driver.unit)}
+          </Row>
         )}
-        <div className="flex justify-between gap-2">
-          <span className="text-ink-faint">Work order</span>
+        <Row label="Work order">
           <span className={state.openWorkOrder ? "font-medium text-critical-text" : "text-ink-faint"}>{state.openWorkOrder ?? "None open"}</span>
-        </div>
+        </Row>
       </div>
     </Link>
   )

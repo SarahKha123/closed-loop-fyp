@@ -7,6 +7,7 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 import { Button } from "../../components/ui/Button"
 import { Mark } from "../../components/ui/Icon"
+import { LoopDrawing } from "./LoopDrawing"
 import { useAuth } from "../../context/AuthContext"
 import { api } from "../../lib/api"
 import { input } from "../../lib/ui"
@@ -73,11 +74,13 @@ export function AuthScreen() {
   return (
     <div className="grid min-h-screen w-full bg-canvas text-ink lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       {/* What this is, drawn from the rig itself: the closed hydraulic loop the four monitored components sit on. */}
-      <section className="flex flex-col justify-between gap-10 border-line px-6 py-8 max-lg:border-b lg:border-r lg:px-12 lg:py-12">
+      <section className="flex flex-col gap-10 border-line px-6 py-8 max-lg:border-b lg:border-r lg:px-12 lg:py-12">
         <div className="flex items-center gap-2.5">
           <Mark size={24} />
           <span className="text-lg font-semibold">Closed Loop</span>
         </div>
+        {/* Headline and drawing as one group in the middle, so no empty band opens between them. */}
+        <div className="flex flex-col gap-12 lg:my-auto">
         <div className="max-w-[560px]">
           <h1 className="text-4xl font-semibold tracking-tight">Predictive maintenance for a hydraulic test rig</h1>
           <p className="mt-4 text-lg text-ink-muted">
@@ -85,24 +88,10 @@ export function AuthScreen() {
             Critical prediction becomes a work order.
           </p>
         </div>
-        <svg viewBox="0 0 400 150" className="w-full max-w-[560px] max-lg:hidden" role="img" aria-label="The rig's hydraulic loop: pump, valve, accumulator and cooler">
-          <path d="M20 75 V25 H380 V125 H20 Z M160 25 V80" fill="none" stroke="var(--surface-3)" strokeWidth="8" strokeLinejoin="round" />
-          <path d="M20 75 V25 H380 V125 H20 Z M160 25 V80" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="5 5" strokeLinejoin="round" />
-          {[
-            { x: 90, y: 25, name: "Pump", c: "var(--series-3)" },
-            { x: 240, y: 25, name: "Valve", c: "var(--series-2)" },
-            { x: 160, y: 88, name: "Accumulator", c: "var(--series-4)" },
-            { x: 240, y: 125, name: "Cooler", c: "var(--series-1)" },
-          ].map((n) => (
-            <g key={n.name} transform={`translate(${n.x} ${n.y})`}>
-              <rect x="-44" y="-13" width="88" height="26" rx="4" fill="var(--surface)" stroke="var(--border-strong)" />
-              <rect x="-36" y="-3.5" width="7" height="7" rx="1.5" fill={n.c} />
-              <text x="-24" y="4.5" fontSize="12" fill="var(--ink)" fontFamily="IBM Plex Sans, sans-serif">
-                {n.name}
-              </text>
-            </g>
-          ))}
-        </svg>
+        <div className="max-lg:hidden">
+          <LoopDrawing />
+        </div>
+        </div>
       </section>
 
       <div className="flex items-center justify-center px-4 py-10">
