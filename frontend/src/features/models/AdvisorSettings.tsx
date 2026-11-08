@@ -49,7 +49,7 @@ function NumberField({ value, min, max, step = 1, onSave }: { value: number; min
 }
 
 /** The server-wide switch for work-order emails. Who gets them is each person's own choice (profile menu);
- *  the Gmail sender is SMTP_USER / SMTP_APP_PASSWORD in .env. */
+ *  the sender is SMTP_USER with BREVO_API_KEY or SMTP_APP_PASSWORD in .env. */
 function EmailRow({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boolean) => void }) {
   const { emailSetUp } = useAuth()
   return (
@@ -58,7 +58,7 @@ function EmailRow({ enabled, onToggle }: { enabled: boolean; onToggle: (on: bool
       hint={
         emailSetUp
           ? "Sent to everyone who turned on \u201cEmail me when a work order opens\u201d in their profile menu. Never in study mode."
-          : "Not set up: add SMTP_USER and SMTP_APP_PASSWORD to .env, then restart."
+          : "Not set up: add SMTP_USER and BREVO_API_KEY (or SMTP_APP_PASSWORD) to .env, then restart."
       }
     >
       <input type="checkbox" className={toggle} disabled={!emailSetUp} checked={emailSetUp && enabled} onChange={(e) => onToggle(e.target.checked)} />

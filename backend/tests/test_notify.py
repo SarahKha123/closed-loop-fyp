@@ -133,3 +133,27 @@ def test_api_status_and_test_email(smtp):
         FakeSMTP.fail_login = True
         bad = c.post("/api/admin/email/test")
         assert bad.status_code == 400 and "App Password" in bad.json()["detail"]
+
+
+def test_brevo_when_its_key_is_set(fresh_db, monkeypatch):
+    """With BREVO_API_KEY the email goes over HTTPS (Render's free plan blocks SMTP), Bcc like the SMTP path."""
+    import httpx
+
+    monkeypatch.setenv("SMTP_USER", "closedloop@gmail.com")
+    monkeypatch.setenv("BREVO_API_KEY", "xkeysib-test")
+    assert notify.configured()  # no App Password needed
+    calls = []
+
+    def fake_post(url, json, headers, timeout):
+        calls.append((url, json, headers))
+        return httpx.Response(201 if len(calls) == 1 else 401, json={"message": "Key not found"})
+
+    monkeypatch.setattr(notify.httpx, "post", fake_post)
+    monkeypatch.setattr(notify.smtplib, "SMTP", None)  # SMTP must not be used
+    notify.send_test("a@x.com")
+    url, body, headers = calls[0]
+    assert url == notify.BREVO_URL and headers == {"api-key": "xkeysib-test"}
+    assert body["sender"]["email"] == "closedloop@gmail.com" and body["bcc"] == [{"email": "a@x.com"}]
+    assert body["subject"] == "[Closed Loop] Test email" and "works" in body["textContent"]
+    with pytest.raises(notify.NotifyError, match="Brevo refused the email \\(401\\): Key not found"):
+        notify.send_test("a@x.com")

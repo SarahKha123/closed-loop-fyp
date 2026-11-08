@@ -73,7 +73,8 @@ Push this repository to main (Closed Loop checks runs; wait for it to pass). The
 | `APP_URL` | your Vercel address from step 5, e.g. `https://closed-loop.vercel.app` (you can fill it in after step 5) |
 | `ADMIN_EMAILS` | your Google email: you'll be the admin the first time you sign in with Google |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | same as your local `.env` |
-| `SMTP_USER`, `SMTP_APP_PASSWORD` | same as your local `.env` |
+| `SMTP_USER` | same as your local `.env` (must be a verified sender in Brevo) |
+| `BREVO_API_KEY` | Brevo → SMTP & API → API keys. Render's free plan blocks SMTP, so Gmail's App Password doesn't work there |
 
    `KEY_ENCRYPTION_SECRET` is generated for you. **Never change or delete it**: it encrypts the API
    keys people save, and a new one makes every saved key unreadable. `COOKIE_SECURE=1` is set too.

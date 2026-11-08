@@ -41,5 +41,7 @@ services:
         sync: false
       - key: SMTP_USER
         sync: false
-      - key: SMTP_APP_PASSWORD
+      - key: SMTP_APP_PASSWORD # local only: the free plan blocks outbound SMTP
+        sync: false
+      - key: BREVO_API_KEY # email over HTTPS instead (services/notify.py)
         sync: false

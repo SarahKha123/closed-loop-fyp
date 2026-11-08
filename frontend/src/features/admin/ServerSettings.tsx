@@ -93,6 +93,7 @@ export function EmailView() {
         <>Use a personal Gmail. School and work accounts usually can't make App Passwords.</>,
         <>Turn on {external("https://myaccount.google.com/signinoptions/twosv", "2-Step Verification")}, then create an {external("https://myaccount.google.com/apppasswords", "App Password")}.</>,
         <>Put both in <code>.env</code> on the server (the password without spaces) and restart.</>,
+        <>On Render's free plan SMTP is blocked: verify the Gmail as a sender in {external("https://app.brevo.com/senders/list", "Brevo")}, then set <code>BREVO_API_KEY</code> instead of the App Password.</>,
       ]}
     >
       <div className={`${card} flex flex-col gap-4 p-4`}>
@@ -100,7 +101,7 @@ export function EmailView() {
           on={configured}
           onText={<>Sending from <span className="font-medium">{sender}</span>.</>}
           offText="Not set up: no email goes out. Approvals still work; you tell people yourself."
-          keys={["SMTP_USER", "SMTP_APP_PASSWORD"]}
+          keys={["SMTP_USER", "BREVO_API_KEY"]}
         />
         {note && (
           <p role="status" className={`text-sm ${note.ok ? "text-good-text" : "text-critical-text"}`}>

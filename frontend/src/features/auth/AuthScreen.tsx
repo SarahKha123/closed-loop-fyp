@@ -165,6 +165,40 @@ export function AuthScreen() {
   )
 }
 
+/** Pings /api/health through Vercel, for debugging a stuck sign-in: a 502 means Render has no running instance,
+ *  a slow "up" means it just woke from the free plan's spin-down (up to about a minute). */
+function ServerCheck() {
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function check() {
+    setBusy(true)
+    setStatus(null)
+    const start = performance.now()
+    const secs = () => ((performance.now() - start) / 1000).toFixed(1)
+    try {
+      const res = await fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(90_000) })
+      setStatus(res.ok ? { ok: true, text: `Server is up (${secs()} s)` } : { ok: false, text: `Server answered ${res.status} after ${secs()} s` })
+    } catch {
+      setStatus({ ok: false, text: `No answer after ${secs()} s: the server is down or still waking up` })
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+      <button type="button" onClick={() => void check()} disabled={busy} className="font-medium text-ink-muted hover:text-ink hover:underline disabled:opacity-60">
+        {busy ? "Checking server… (can take a minute)" : "Check server status"}
+      </button>
+      {status && (
+        <span role="status" className={status.ok ? "text-good-text" : "text-critical-text"}>
+          {status.text}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** The sign-in screens' frame: what this is on the left (drawn from the rig), the form or status on the right. */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -191,7 +225,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       </section>
 
       <div className="flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-[380px]">{children}</div>
+        <div className="w-full max-w-[380px]">
+          {children}
+          <ServerCheck />
+        </div>
       </div>
     </div>
   )

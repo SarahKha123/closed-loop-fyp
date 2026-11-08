@@ -43,7 +43,7 @@ def fresh_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def no_local_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """The developer's .env must not change what tests see, or reach anything real: no admin list,
     no real database, no Gmail sender (a test would send real email) and no Google client."""
-    for key in ("ADMIN_EMAILS", "DATABASE_URL", "SMTP_USER", "SMTP_APP_PASSWORD", "GOOGLE_CLIENT_ID",
+    for key in ("ADMIN_EMAILS", "DATABASE_URL", "SMTP_USER", "SMTP_APP_PASSWORD", "BREVO_API_KEY", "GOOGLE_CLIENT_ID",
                 "GOOGLE_CLIENT_SECRET", "APP_URL"):
         monkeypatch.delenv(key, raising=False)
 
