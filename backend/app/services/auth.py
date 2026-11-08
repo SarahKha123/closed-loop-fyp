@@ -35,7 +35,6 @@ import hashlib
 import hmac
 import os
 import secrets
-import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -114,7 +113,7 @@ def add_user(username: str, display_name: str, password: str, email: str,
     email = clean_email(email)
     try:
         return repo.insert_user(username, display_name, hash_password(password), email, role=role, status=status)
-    except sqlite3.IntegrityError as exc:
+    except repo.db.IntegrityError as exc:
         taken = "username" if repo.user_with_hash(username) else "email"
         raise AuthError(f"That {taken} is already taken") from exc
 

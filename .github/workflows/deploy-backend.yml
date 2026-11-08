@@ -1,0 +1,101 @@
+# Deploys the backend (backend/) to Render, only when the repository owner starts it by hand:
+# Actions → "Deploy backend (Render)" → Run workflow (branch: main). Pushes never deploy (Render's
+# auto-deploy is off, render.yaml).
+#
+# Gates, in order:
+#   1. "Closed Loop checks" passed for this exact commit.
+#   2. Supabase is reachable and has no pending or edited migration (the server refuses to start on an
+#      out-of-date schema, so this catches it before Render does). Run "Database (Supabase)" → migrate first.
+#   3. The production environment's approval (if you set one), then Render's deploy hook for this commit.
+#
+# Why nobody else can deploy: the jobs run only if the owner both started the run and (for a re-run)
+# clicked re-run, and only on main; the secrets live in the "production" GitHub Environment.
+name: Deploy backend (Render)
+
+on:
+  workflow_dispatch:
+
+run-name: Deploy backend for ${{ github.sha }}
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-checks:
+    name: Verify Closed Loop checks
+    runs-on: ubuntu-latest
+    if: github.actor == github.repository_owner && github.triggering_actor == github.repository_owner && github.ref == 'refs/heads/main'
+    steps:
+      - name: Require successful checks for this commit
+        run: |
+          conclusion=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow checks.yml \
+            --commit "$GITHUB_SHA" \
+            --status completed \
+            --limit 1 \
+            --json conclusion \
+            --jq '.[0].conclusion // empty')
+          if [ "$conclusion" != "success" ]; then
+            echo "Closed Loop checks has not passed for commit $GITHUB_SHA (result: ${conclusion:-not found})." >&2
+            echo "Push the commit to main, wait for Closed Loop checks to finish, then run this workflow again." >&2
+            exit 1
+          fi
+          echo "Closed Loop checks passed for commit $GITHUB_SHA."
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  verify-database:
+    name: Verify the database is up to date
+    runs-on: ubuntu-latest
+    if: github.actor == github.repository_owner && github.triggering_actor == github.repository_owner && github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - run: pip install "psycopg[binary,pool]"
+      - id: check
+        run: python -m app.services.migrate --check # fails on an edited migration
+      - name: Require no pending migrations
+        run: |
+          if [ "${{ steps.check.outputs.pending }}" != "0" ]; then
+            echo "${{ steps.check.outputs.pending }} migration(s) are pending: run Database (Supabase) with action=migrate first." >&2
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy to Render
+    needs: [verify-checks, verify-database]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Render deploy for this commit
+        run: |
+          case "$RENDER_DEPLOY_HOOK_URL" in
+            https://api.render.com/deploy/*) ;;
+            *)
+              echo "RENDER_DEPLOY_HOOK_URL must be the Render deploy-hook URL from the service Settings page." >&2
+              echo "It should start with https://api.render.com/deploy/." >&2
+              exit 1
+              ;;
+          esac
+          separator='?'
+          case "$RENDER_DEPLOY_HOOK_URL" in
+            *\?*) separator='&' ;;
+          esac
+          curl --fail-with-body --silent --show-error --request POST \
+            "${RENDER_DEPLOY_HOOK_URL}${separator}ref=${GITHUB_SHA}"
+          echo "Render is building commit $GITHUB_SHA: follow it in the Render dashboard → Events." >> "$GITHUB_STEP_SUMMARY"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}

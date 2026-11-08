@@ -11,6 +11,8 @@ httpx
 psutil
 # Encrypts each user's cloud API keys at rest (services/cloud.py)
 cryptography
+# Postgres (Supabase) when DATABASE_URL is set; SQLite otherwise (services/db.py)
+psycopg[binary,pool]
 
 # ML: the live predictor (scoring + SHAP) and the training pipeline in ml/.
 # xgboost-cpu, not xgboost: the default wheel is CUDA-built and fails on

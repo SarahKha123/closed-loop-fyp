@@ -1,0 +1,67 @@
+# The Supabase database: checks it, and applies pending Postgres migrations.
+#   push to main that adds or edits a file in backend/app/migrations/postgres/ (or the runner)
+#                      → check, then migrate
+#   manual "check"     → reachable? what is pending? changes nothing
+#   manual "migrate"   → check, then apply what is pending
+# Any other push doesn't run this at all. An already-applied migration that was edited fails the
+# check (its checksum no longer matches): put the change in a new file instead.
+#
+# Why nobody else can run it: the job runs only when the owner both started the run and (for a re-run)
+# clicked re-run, and only on main; DATABASE_URL lives in the "production" GitHub Environment, which
+# only main may use. Setup: docs/DEPLOY.md.
+name: Database (Supabase)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/app/migrations/postgres/**
+      - backend/app/services/migrate.py
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        options: [check, migrate]
+        default: check
+
+concurrency:
+  group: database
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+run-name: Database ${{ github.event_name == 'push' && 'migrate' || inputs.action || 'check' }} for ${{ github.sha }}
+
+jobs:
+  database:
+    name: ${{ (github.event_name == 'push' || inputs.action == 'migrate') && 'Check and migrate' || 'Check' }} database
+    runs-on: ubuntu-latest
+    if: github.actor == github.repository_owner && github.triggering_actor == github.repository_owner && github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - run: pip install "psycopg[binary,pool]" # all the runner needs
+      - name: Secrets present?
+        run: |
+          # Without a postgres:// DATABASE_URL there is nothing to check; fail rather than pass on nothing.
+          case "$DATABASE_URL" in postgres://*|postgresql://*) ;; *) echo "DATABASE_URL is missing or isn't a postgres:// address (GitHub → Settings → Environments → production)." >&2; exit 1 ;; esac
+      - name: Is the database reachable, and what's pending?
+        id: check
+        run: python -m app.services.migrate --check
+      - name: Apply pending migrations
+        if: steps.check.outputs.pending != '0' && (github.event_name == 'push' || inputs.action == 'migrate')
+        run: python -m app.services.migrate
+      - name: Summary
+        if: always()
+        run: echo "Pending before this run - ${PENDING:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          PENDING: ${{ steps.check.outputs.pending }}

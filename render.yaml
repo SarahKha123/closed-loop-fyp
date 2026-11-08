@@ -1,0 +1,36 @@
+# Render Blueprint for the backend (docs/DEPLOY.md → Render). New → Blueprint → this repository.
+# Deploys only through .github/workflows/deploy-backend.yml (its deploy hook); auto-deploy is off.
+# The dashboard is on Vercel, which forwards /api here (frontend/vercel.json): if Render gives the
+# service another address than closed-loop-api.onrender.com, put that address in vercel.json.
+services:
+  - type: web
+    name: closed-loop-api
+    runtime: python
+    plan: free # 512 MB; the scoring models fit, but watch Metrics → Memory after the first replay
+    rootDir: backend
+    # The trained models aren't committed (only their manifest): train them here, on the installed
+    # library versions (requirements are unpinned on purpose). About 1.5 minutes.
+    buildCommand: pip install -r requirements.txt && python -m ml.train
+    # --proxy-headers: the client's IP comes from X-Forwarded-For (Vercel → Render), for the sign-in audit log.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: DATABASE_URL # Supabase → Connect → Session pooler (Render has no IPv6 for the direct one)
+        sync: false
+      - key: KEY_ENCRYPTION_SECRET # encrypts users' API keys; never change it once set
+        generateValue: true
+      - key: APP_URL # the Vercel address, e.g. https://closed-loop.vercel.app
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_APP_PASSWORD
+        sync: false

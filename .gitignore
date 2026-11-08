@@ -52,3 +52,6 @@ backend/ml/models/*.joblib
 
 # Google OAuth client downloads (hold the client secret)
 client_secret_*.json
+
+# Vercel CLI link (vercel pull / vercel link)
+.vercel/

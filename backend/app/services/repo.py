@@ -2,13 +2,15 @@
 
 Functions take and return plain dicts with camelCase keys (what the API sends),
 and do the JSON (de)serialisation of the JSON columns, so callers never touch
-SQLite rows or column names.
+database rows or column names. The SQL runs on SQLite and Postgres alike (services/db.py): no
+`lastrowid` (INSERT … RETURNING), no COLLATE NOCASE (LOWER()), quoted camelCase aliases (Postgres
+lower-cases unquoted names), and `IS [NOT] DISTINCT FROM` for NULL-safe comparison.
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -37,10 +39,10 @@ def insert_reading(
         conn.execute("DELETE FROM tbl_SensorReading WHERE CycleNumber = ?", (cycle,))
         cur = conn.execute(
             "INSERT INTO tbl_SensorReading (CycleNumber, Timestamp, Features, SensorMeans, StableFlag)"
-            " VALUES (?, ?, ?, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?) RETURNING ReadingID",
             (cycle, _now(), json.dumps(features), json.dumps(sensor_means), stable),
         )
-        return int(cur.lastrowid)
+        return int(cur.fetchone()[0])
 
 
 def reading(cycle: int) -> dict[str, Any] | None:
@@ -93,14 +95,14 @@ def insert_predictions(reading_id: int, predictions: list[dict[str, Any]]) -> li
             cur = conn.execute(
                 "INSERT INTO tbl_Prediction (ReadingID, EquipmentID, PredictedCondition, ClassProbabilities,"
                 " FailureProbability, ConfidenceBand, TopContributingFeature, ShapTopFeatures, ModelVersion,"
-                " PredictedAt, TrueCondition) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " PredictedAt, TrueCondition) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING PredictionID",
                 (
                     reading_id, p["equipmentId"], p["condition"], json.dumps(p["classProbabilities"]),
                     p["failureProbability"], p.get("confidence"), p.get("topFeature"),
                     json.dumps(p.get("shap") or []), p["modelVersion"], _now(), p.get("trueCondition"),
                 ),
             )
-            ids.append(int(cur.lastrowid))
+            ids.append(int(cur.fetchone()[0]))
     return ids
 
 
@@ -112,7 +114,7 @@ JOIN tbl_Equipment e ON e.EquipmentID = p.EquipmentID
 """
 
 
-def _prediction(row: sqlite3.Row) -> dict[str, Any]:
+def _prediction(row: Any) -> dict[str, Any]:
     return {
         "predictionId": row["PredictionID"],
         "readingId": row["ReadingID"],
@@ -166,7 +168,7 @@ def trend(last_n: int = 200) -> list[dict[str, Any]]:
         rows = conn.execute(
             """
             SELECT r.CycleNumber AS cycle, e.ComponentType AS component,
-                   p.FailureProbability AS failureProbability, p.PredictedCondition AS condition
+                   p.FailureProbability AS "failureProbability", p.PredictedCondition AS condition
             FROM tbl_Prediction p
             JOIN tbl_SensorReading r ON r.ReadingID = p.ReadingID
             JOIN tbl_Equipment e ON e.EquipmentID = p.EquipmentID
@@ -205,15 +207,15 @@ def condition_changes(limit: int = 30) -> list[dict[str, Any]]:
     with db.read() as conn:
         rows = conn.execute(
             """
-            SELECT cycle, component, prev AS fromCondition, cond AS toCondition, failureProbability
+            SELECT cycle, component, prev AS "fromCondition", cond AS "toCondition", "failureProbability"
             FROM (
               SELECT r.CycleNumber AS cycle, e.ComponentType AS component, p.PredictedCondition AS cond,
-                     p.FailureProbability AS failureProbability,
+                     p.FailureProbability AS "failureProbability",
                      LAG(p.PredictedCondition) OVER (PARTITION BY p.EquipmentID ORDER BY r.CycleNumber) AS prev
               FROM tbl_Prediction p
               JOIN tbl_SensorReading r ON r.ReadingID = p.ReadingID
               JOIN tbl_Equipment e ON e.EquipmentID = p.EquipmentID
-            )
+            ) AS changes
             WHERE prev IS NOT NULL AND prev != cond
             ORDER BY cycle DESC, component
             LIMIT ?
@@ -241,7 +243,7 @@ def mark_alert_raised(prediction_id: int) -> None:
 # ── work orders ──────────────────────────────────────────────────────────────
 
 
-def _work_order(row: sqlite3.Row) -> dict[str, Any]:
+def _work_order(row: Any) -> dict[str, Any]:
     return {
         "id": row["WorkOrderID"],
         "equipmentId": row["EquipmentID"],
@@ -364,7 +366,7 @@ def list_work_orders(status: str | None = None) -> list[dict[str, Any]]:
 # ── work-order outcomes (the closed loop's evidence) ─────────────────────────
 
 
-def _outcome(row: sqlite3.Row) -> dict[str, Any]:
+def _outcome(row: Any) -> dict[str, Any]:
     return {
         "id": row["OutcomeID"],
         "workOrderId": row["WorkOrderID"],
@@ -437,14 +439,14 @@ def insert_insight(
         cur = conn.execute(
             "INSERT INTO tbl_Insight (CreatedAt, CycleNumber, TriggerType, TriggerRef, Model, Mode, PromptVersion,"
             " Snapshot, Text, Grounded, ValidationDetail, Attempts, LatencyMs, FirstTokenMs)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING InsightID",
             (
                 _now(), cycle, trigger_type, trigger_ref, model, mode, prompt_version, json.dumps(snapshot), text,
                 None if grounded is None else int(grounded), json.dumps(validation) if validation else None,
                 attempts, latency_ms, first_token_ms,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.fetchone()[0])
 
 
 def list_insights(limit: int = 50, *, include_unverified: bool = True) -> list[dict[str, Any]]:
@@ -466,7 +468,7 @@ def insight(insight_id: int, *, snapshot: bool = False) -> dict[str, Any] | None
     return out
 
 
-def _insight(r: sqlite3.Row) -> dict[str, Any]:
+def _insight(r: Any) -> dict[str, Any]:
     return {
         "id": r["InsightID"],
         "createdAt": r["CreatedAt"],
@@ -491,17 +493,17 @@ STUDY_FIELDS = ("LogID", "ParticipantID", "Condition", "TaskSet", "TaskID", "Sta
                 "DurationMs", "Answer", "Correct", "ChatTurns", "InsightsShown")
 
 
-def _study_row(r: sqlite3.Row) -> dict[str, Any]:
+def _study_row(r: Any) -> dict[str, Any]:
     return {(k[0].lower() + k[1:]).replace("ID", "Id"): r[k] for k in STUDY_FIELDS}  # LogID → logId
 
 
 def start_study_task(participant: str, condition: str, task_set: str, task_id: str) -> dict[str, Any]:
     with db.write() as conn:
-        cur = conn.execute(
-            "INSERT INTO tbl_StudyLog (ParticipantID, Condition, TaskSet, TaskID, StartedAt) VALUES (?, ?, ?, ?, ?)",
+        row = conn.execute(
+            "INSERT INTO tbl_StudyLog (ParticipantID, Condition, TaskSet, TaskID, StartedAt) VALUES (?, ?, ?, ?, ?)"
+            " RETURNING *",
             (participant, condition, task_set, task_id, datetime.now(timezone.utc).isoformat(timespec="milliseconds")),
-        )
-        row = conn.execute("SELECT * FROM tbl_StudyLog WHERE LogID = ?", (cur.lastrowid,)).fetchone()
+        ).fetchone()
     return _study_row(row)
 
 
@@ -523,7 +525,8 @@ def end_study_task(log_id: int, answer: str, correct: int | None) -> dict[str, A
         if row is None:
             return None
         chat, shown = conn.execute(
-            "SELECT COALESCE(SUM(TriggerType = 'chat'), 0), COALESCE(SUM(TriggerType != 'chat'), 0) FROM tbl_Insight"
+            "SELECT COUNT(*) FILTER (WHERE TriggerType = 'chat'), COUNT(*) FILTER (WHERE TriggerType != 'chat')"
+            " FROM tbl_Insight"
         ).fetchone()
         duration = round((ended - datetime.fromisoformat(row["StartedAt"])).total_seconds() * 1000)
         conn.execute(
@@ -538,7 +541,7 @@ def end_study_task(log_id: int, answer: str, correct: int | None) -> dict[str, A
 def study_log(participant: str | None = None) -> list[dict[str, Any]]:
     with db.read() as conn:
         rows = conn.execute(
-            "SELECT * FROM tbl_StudyLog WHERE ? IS NULL OR ParticipantID = ? ORDER BY LogID", (participant, participant)
+            "SELECT * FROM tbl_StudyLog WHERE CAST(? AS TEXT) IS NULL OR ParticipantID = ? ORDER BY LogID", (participant, participant)
         ).fetchall()
     return [_study_row(r) for r in rows]
 
@@ -549,7 +552,7 @@ def study_log(participant: str | None = None) -> list[dict[str, Any]]:
 Client = tuple[str | None, str | None]  # (IP, User-Agent) of the request, for the audit log
 
 
-def _user_row(row: sqlite3.Row) -> dict[str, Any]:
+def _user_row(row: Any) -> dict[str, Any]:
     return {
         "id": row["UserID"], "username": row["Username"], "displayName": row["DisplayName"],
         "email": row["Email"], "avatarUrl": row["AvatarURL"],
@@ -565,18 +568,32 @@ class AccountError(ValueError):
         self.reason = reason
 
 
-def _first_admin_or_pending(conn: sqlite3.Connection) -> tuple[str, str, int]:
-    """(role, status, notify) for a new sign-up: the admin if there is no active one, else a pending engineer.
+def admin_emails() -> set[str]:
+    """ADMIN_EMAILS in .env, comma-separated: whoever signs in with Google as one of these is an admin."""
+    return {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
-    Called inside the inserting transaction, so two people signing up at once can't both become admin.
+
+def _new_account_rule(conn: Any, verified_email: str | None = None) -> tuple[str, str, int]:
+    """(role, status, notify) for a new sign-up.
+
+    - A Google-verified email listed in ADMIN_EMAILS: an active admin.
+    - ADMIN_EMAILS set: everyone else waits as a pending engineer (a stranger can't claim admin by being first).
+    - ADMIN_EMAILS empty: the first sign-up is the admin while there is no active one, else pending.
+    A password sign-up's email is unverified, so it never matches the list. Called inside the inserting
+    transaction, so two people signing up at once can't both become admin.
     """
+    listed = admin_emails()
+    if verified_email and verified_email.lower() in listed:
+        return "admin", "active", 1
+    if listed:
+        return "engineer", "pending", 0
     has_admin = conn.execute("SELECT 1 FROM tbl_User WHERE Role = 'admin' AND Status = 'active'").fetchone()
     return ("engineer", "pending", 0) if has_admin else ("admin", "active", 1)
 
 
 def user_with_hash(username: str) -> tuple[dict[str, Any], str] | None:
     with db.read() as conn:
-        row = conn.execute("SELECT * FROM tbl_User WHERE Username = ?", (username,)).fetchone()
+        row = conn.execute("SELECT * FROM tbl_User WHERE LOWER(Username) = LOWER(?)", (username,)).fetchone()
     return (_user_row(row), row["PasswordHash"]) if row else None
 
 
@@ -587,34 +604,33 @@ def user_count() -> int:
 
 def insert_user(username: str, display_name: str, password_hash: str, email: str | None = None,
                 *, role: str | None = None, status: str | None = None) -> dict[str, Any]:
-    """A new password account. Without role/status, the sign-up rule decides (first admin, else pending).
+    """A new password account. Without role/status, the sign-up rule decides (_new_account_rule).
 
-    Raises sqlite3.IntegrityError for a taken username or email.
+    Raises db.IntegrityError for a taken username or email.
     """
     with db.write() as conn:
-        auto_role, auto_status, notify = _first_admin_or_pending(conn)
+        auto_role, auto_status, notify = _new_account_rule(conn)
         role, status = role or auto_role, status or auto_status
-        cur = conn.execute(
+        row = conn.execute(
             "INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, Email, Role, Status, NotifyWorkOrders)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
             (username, display_name, password_hash, _now(), email, role, status, int(role == "admin")),
-        )
-        row = conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (cur.lastrowid,)).fetchone()
+        ).fetchone()
     return _user_row(row)
 
 
 def set_password(username: str, password_hash: str) -> bool:
     with db.write() as conn:
-        cur = conn.execute("UPDATE tbl_User SET PasswordHash = ? WHERE Username = ?", (password_hash, username))
+        cur = conn.execute("UPDATE tbl_User SET PasswordHash = ? WHERE LOWER(Username) = LOWER(?)", (password_hash, username))
         if cur.rowcount:
             # A new password signs out every session of that user.
             conn.execute(
-                "DELETE FROM tbl_Session WHERE UserID = (SELECT UserID FROM tbl_User WHERE Username = ?)", (username,)
+                "DELETE FROM tbl_Session WHERE UserID = (SELECT UserID FROM tbl_User WHERE LOWER(Username) = LOWER(?))", (username,)
             )
     return bool(cur.rowcount)
 
 
-def _log(conn: sqlite3.Connection, event: str, client: Client, *, user_id: int | None = None,
+def _log(conn: Any, event: str, client: Client, *, user_id: int | None = None,
          email: str | None = None, reason: str | None = None, actor_id: int | None = None) -> None:
     conn.execute(
         "INSERT INTO tbl_AuthEvent (Event, UserID, ActorID, Email, Reason, IP, UserAgent, CreatedAt)"
@@ -623,7 +639,7 @@ def _log(conn: sqlite3.Connection, event: str, client: Client, *, user_id: int |
     )
 
 
-def _open_session(conn: sqlite3.Connection, user: dict[str, Any], token_hash: str, ttl: timedelta,
+def _open_session(conn: Any, user: dict[str, Any], token_hash: str, ttl: timedelta,
                   client: Client, events: tuple[str, ...]) -> None:
     now = datetime.now(timezone.utc)
     conn.execute("DELETE FROM tbl_Session WHERE ExpiresAt < ?", (_now(),))  # cheap housekeeping
@@ -652,7 +668,7 @@ def google_sign_in(sub: str, email: str, name: str, picture: str | None,
     """
     with db.write() as conn:
         row = conn.execute("SELECT UserID, Status FROM tbl_User WHERE GoogleSub = ?", (sub,)).fetchone()
-        taken = conn.execute("SELECT 1 FROM tbl_User WHERE Email = ? COLLATE NOCASE AND GoogleSub IS NOT ?",
+        taken = conn.execute("SELECT 1 FROM tbl_User WHERE LOWER(Email) = LOWER(?) AND GoogleSub IS DISTINCT FROM ?",
                              (email, sub)).fetchone()
         if taken:
             # Never link accounts by email: that is how account takeovers happen.
@@ -663,18 +679,24 @@ def google_sign_in(sub: str, email: str, name: str, picture: str | None,
             user_id, events = row["UserID"], ("login",)
             conn.execute("UPDATE tbl_User SET Email = ?, DisplayName = ?, AvatarURL = ? WHERE UserID = ?",
                          (email, name, picture, user_id))
+            if email.lower() in admin_emails():  # listed in .env: an admin on every sign-in, even if demoted here
+                cur = conn.execute("UPDATE tbl_User SET Role = 'admin', Status = 'active' WHERE UserID = ?"
+                                   " AND (Role, Status) != ('admin', 'active')", (user_id,))
+                if cur.rowcount:
+                    _log(conn, "role", client, user_id=user_id, email=email, reason="ADMIN_EMAILS")
         else:
             events = ("signup", "login")
-            role, status, notify = _first_admin_or_pending(conn)
-            insert = ("INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, GoogleSub, Email, AvatarURL,"
-                      " Role, Status, NotifyWorkOrders) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)")
-            try:
-                user_id = conn.execute(insert, (email, name, _now(), sub, email, picture, role, status, notify)).lastrowid
-            except sqlite3.IntegrityError:
+            role, status, notify = _new_account_rule(conn, email)
+            username = email
+            if conn.execute("SELECT 1 FROM tbl_User WHERE LOWER(Username) = LOWER(?)", (email,)).fetchone():
                 # ponytail: a password account already uses this email as its username; suffix rather than merge
                 # (merging would need proof both belong to the same person). Add account linking if that matters.
-                user_id = conn.execute(insert, (f"{email}#{sub[-6:]}", name, _now(), sub, email, picture,
-                                                role, status, notify)).lastrowid
+                username = f"{email}#{sub[-6:]}"
+            user_id = conn.execute(
+                "INSERT INTO tbl_User (Username, DisplayName, PasswordHash, CreatedAt, GoogleSub, Email, AvatarURL,"
+                " Role, Status, NotifyWorkOrders) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?) RETURNING UserID",
+                (username, name, _now(), sub, email, picture, role, status, notify),
+            ).fetchone()[0]
         user = _user_row(conn.execute("SELECT * FROM tbl_User WHERE UserID = ?", (user_id,)).fetchone())
         _open_session(conn, user, token_hash, ttl, client, events)
     return user, "signup" in events
@@ -716,7 +738,7 @@ def failed_logins_since(ip: str | None, since: str) -> int:
     """Failed sign-ins from one IP since an ISO time (the rate limit in services/auth.py)."""
     with db.read() as conn:
         return int(conn.execute(
-            "SELECT COUNT(*) FROM tbl_AuthEvent WHERE Event = 'login_failed' AND IP IS ? AND CreatedAt >= ?", (ip, since),
+            "SELECT COUNT(*) FROM tbl_AuthEvent WHERE Event = 'login_failed' AND IP IS NOT DISTINCT FROM ? AND CreatedAt >= ?", (ip, since),
         ).fetchone()[0])
 
 
@@ -727,7 +749,7 @@ def users() -> list[dict[str, Any]]:
     """Every account for the Users page: pending first, then by name."""
     with db.read() as conn:
         rows = conn.execute(
-            "SELECT * FROM tbl_User ORDER BY Status <> 'pending', DisplayName COLLATE NOCASE"
+            "SELECT * FROM tbl_User ORDER BY Status <> 'pending', LOWER(DisplayName)"
         ).fetchall()
     return [{**_user_row(r), "google": r["GoogleSub"] is not None, "createdAt": r["CreatedAt"],
              "lastLoginAt": r["LastLoginAt"]} for r in rows]
@@ -788,12 +810,12 @@ def change_account(user_id: int, actor: dict[str, Any], client: Client, *,
 def make_admin(username: str) -> bool:
     """The CLI's way back in: this account becomes an active admin."""
     with db.write() as conn:
-        cur = conn.execute("UPDATE tbl_User SET Role = 'admin', Status = 'active' WHERE Username = ?", (username,))
+        cur = conn.execute("UPDATE tbl_User SET Role = 'admin', Status = 'active' WHERE LOWER(Username) = LOWER(?)", (username,))
     return bool(cur.rowcount)
 
 
 def update_profile(user_id: int, *, email: str | None = None, notify_work_orders: bool | None = None) -> dict[str, Any]:
-    """A user's own settings. Raises sqlite3.IntegrityError if the email belongs to another account."""
+    """A user's own settings. Raises db.IntegrityError if the email belongs to another account."""
     with db.write() as conn:
         if email is not None:
             conn.execute("UPDATE tbl_User SET Email = ? WHERE UserID = ?", (email or None, user_id))
@@ -805,7 +827,7 @@ def update_profile(user_id: int, *, email: str | None = None, notify_work_orders
 
 def emails(*, admins: bool = False, work_orders: bool = False) -> list[str]:
     """Addresses of active accounts: the admins, or everyone who asked for work-order emails."""
-    where = "Role = 'admin'" if admins else "NotifyWorkOrders = 1" if work_orders else "1"
+    where = "Role = 'admin'" if admins else "NotifyWorkOrders = 1" if work_orders else "1 = 1"
     with db.read() as conn:
         rows = conn.execute(
             f"SELECT Email FROM tbl_User WHERE Status = 'active' AND Email IS NOT NULL AND {where}"  # noqa: S608 — fixed
@@ -827,7 +849,7 @@ def save_user_cloud(user_id: int, provider: str, fields: dict[str, str | None]) 
     """Upsert the given fields (api_key_enc, model, base_url); fields not given keep their value."""
     cols = {"api_key_enc": "ApiKeyEnc", "model": "Model", "base_url": "BaseURL"}
     with db.write() as conn:
-        conn.execute("INSERT OR IGNORE INTO tbl_UserCloud (UserID, Provider, UpdatedAt) VALUES (?, ?, ?)",
+        conn.execute("INSERT INTO tbl_UserCloud (UserID, Provider, UpdatedAt) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
                      (user_id, provider, _now()))
         for field, value in fields.items():
             conn.execute(f"UPDATE tbl_UserCloud SET {cols[field]} = ?, UpdatedAt = ? WHERE UserID = ? AND Provider = ?",  # noqa: S608 — fixed names

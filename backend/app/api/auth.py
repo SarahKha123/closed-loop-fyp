@@ -17,7 +17,6 @@ Dependencies the other routers use (main.py):
 
 from __future__ import annotations
 
-import sqlite3
 from typing import Any
 
 from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Request, Response
@@ -76,7 +75,7 @@ def update_me(
                                             notify_work_orders=notify_work_orders)}
     except auth.AuthError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except sqlite3.IntegrityError as exc:
+    except repo.db.IntegrityError as exc:
         raise HTTPException(status_code=400, detail="That email belongs to another account") from exc
 
 

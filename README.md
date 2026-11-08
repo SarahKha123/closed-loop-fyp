@@ -44,7 +44,7 @@ Everything runs directly on your machine — no Docker.
 ./closed-loop.sh start    # http://localhost:8000 — then add a key on the AI model page
 ```
 
-Then create an account (the first one becomes the admin), and on **AI model** add your own key for one
+Then create an account (the first one becomes the admin, or set `ADMIN_EMAILS` in `.env` to choose who), and on **AI model** add your own key for one
 provider, test it and press *Use*. Press play in the top bar: the live insights
 run on the key of whoever presses Play.
 
@@ -62,24 +62,12 @@ Ctrl-C stops everything the command started. Something not working? See
 
 ### Deploying
 
-Any small host that runs Python works. Set these in the host's secrets:
+The frontend goes to **Vercel**, the backend to **Render** and the database to **Supabase**
+(Postgres), each deployed on its own by a GitHub Actions workflow you start by hand, after the
+checks pass. Database migrations apply themselves when a migration file changes. Step by step:
+**[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
-```bash
-# Encrypts each user's saved key. Long and random; keep it, or saved keys become unreadable
-KEY_ENCRYPTION_SECRET=…
-COOKIE_SECURE=true             # served over HTTPS
-APP_URL=https://your-host…
-```
-
-Then sign up first: the first account becomes the **admin**. Everyone who signs
-up after you waits until you approve them on the **Admin** page. Google sign-in
-(`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) and the Gmail sender (`SMTP_USER` /
-`SMTP_APP_PASSWORD`) stay in `.env`; the Admin page shows whether each is set.
-Each person signs in and adds **their own** API key on the
-AI model page for their chat: it is stored encrypted, linked to their account,
-and never sent back to a browser. Every API route needs a signed-in session.
-If the host wipes its disk on redeploy, put `config/` on a persistent volume
-(`CLOSED_LOOP_CONFIG_DIR`), or accounts and saved keys go with it.
+Locally nothing changes: without `DATABASE_URL` the backend keeps using SQLite (`config/closed_loop.db`).
 
 ## Repository layout
 

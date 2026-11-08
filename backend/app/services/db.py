@@ -1,4 +1,9 @@
-"""The shared data layer: one SQLite database, the hub every module reads and writes.
+"""The shared data layer: one database, the hub every module reads and writes.
+
+SQLite by default (config/closed_loop.db: local runs and tests). With DATABASE_URL set to a
+postgres:// address (Supabase in production) it is Postgres instead; repo.py's SQL is written
+to run on both, and Postgres connections are wrapped to look like sqlite3's (`?` placeholders,
+rows readable by column name in any case, or by position).
 
 The tables are the FYP1 interim report's four data contracts (Tables 3.1–3.3),
 plus `tbl_Insight` for the AI layer (docs/FYP_NEW_SCOPE.md §3.4),
@@ -21,26 +26,43 @@ through one lock, because SQLite allows a single writer.
 
 All SQL that *uses* these tables lives in `repo.py`.
 
-Schema changes: `SCHEMA` below is the v3 baseline. Each later version is a file
-in `app/migrations/` (`NNNN_<name>.sql`, one transaction that ends by setting
-`PRAGMA user_version`), applied in order to any database below that number,
-fresh ones included, so a new and an upgraded database end up identical.
+Schema changes, one file per database (the SQL differs):
+- SQLite: `SCHEMA` below is the v3 baseline. Each later version is a file in
+  `app/migrations/sqlite/` (`NNNN_<name>.sql`, one transaction that ends by setting
+  `PRAGMA user_version`), applied here at start-up to any database below that number.
+- Postgres: `app/migrations/postgres/`, applied by `python -m app.services.migrate`
+  (the Database workflow) and tracked with checksums in schema_migrations. The server
+  never changes the Postgres schema; it refuses to start while a migration is pending.
 """
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
+from typing import Any
+
+import psycopg
 
 from . import paths
 
 # 2: Google sign-in, hashed + expiring sessions, tbl_AuthEvent; 3: per-user cloud keys (see _migrate);
 # 4: roles and account approval (migrations/0004_accounts_and_roles.sql)
 SCHEMA_VERSION = 4
-MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
+MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "sqlite"
+
+# A unique or foreign-key constraint refused the write, on either database.
+IntegrityError = (sqlite3.IntegrityError, psycopg.errors.IntegrityError)
+
+
+def database_url() -> str | None:
+    """DATABASE_URL when it is a Postgres address, else None (SQLite)."""
+    url = os.environ.get("DATABASE_URL", "").strip()
+    return url if url.startswith(("postgres://", "postgresql://")) else None
 
 # component key (as in ml.labels.COMPONENTS) → seeded tbl_Equipment row.
 # Criticality is an assumption for the demo rig: the pump and valve sit on the
@@ -233,6 +255,81 @@ CREATE TABLE IF NOT EXISTS tbl_UserModel (
 _write_lock = threading.Lock()
 
 
+# ── Postgres, made to look like sqlite3 for repo.py ─────────────────────────
+
+
+class Row:
+    """A result row like sqlite3.Row: row["Name"] (any case, since Postgres folds unquoted names to
+    lower case), row[0], unpacking, and dict(row) with the names as the query wrote them."""
+
+    __slots__ = ("_names", "_index", "_values")
+
+    def __init__(self, names: list[str], index: dict[str, int], values: Sequence[Any]) -> None:
+        self._names, self._index, self._values = names, index, values
+
+    def __getitem__(self, key: int | str) -> Any:
+        return self._values[key] if isinstance(key, int) else self._values[self._index[key.lower()]]
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def keys(self) -> list[str]:
+        return self._names
+
+
+def _row_factory(cursor: Any) -> Any:
+    names = [c.name for c in cursor.description or ()]
+    index = {n.lower(): i for i, n in enumerate(names)}
+    return lambda values: Row(names, index, values)
+
+
+@lru_cache(maxsize=256)
+def _pg_sql(sql: str) -> str:
+    """sqlite3's `?` placeholders → psycopg's `%s` (a literal % doubled first)."""
+    return sql.replace("%", "%%").replace("?", "%s")
+
+
+class _PgConnection:
+    """The slice of sqlite3.Connection that repo.py uses."""
+
+    def __init__(self, conn: psycopg.Connection) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: Sequence[Any] = ()) -> psycopg.Cursor:
+        # Without parameters the SQL goes as written, and may hold several statements (a migration file).
+        return self._conn.execute(_pg_sql(sql), params) if params else self._conn.execute(sql)  # type: ignore[arg-type]
+
+    def executemany(self, sql: str, params: Sequence[Sequence[Any]]) -> None:
+        with self._conn.cursor() as cur:
+            cur.executemany(_pg_sql(sql), params)
+
+
+@lru_cache(maxsize=4)
+def _pool(url: str) -> Any:
+    from psycopg_pool import ConnectionPool
+
+    def configure(conn: psycopg.Connection) -> None:
+        conn.row_factory = _row_factory
+
+    # prepare_threshold=None: no server-side prepared statements, so Supabase's transaction pooler works too.
+    # ponytail: 5 connections and one writer at a time (the lock below), plenty for one Render instance.
+    return ConnectionPool(url, min_size=1, max_size=5, open=True, configure=configure,
+                          kwargs={"prepare_threshold": None, "connect_timeout": 10})
+
+
+@contextmanager
+def _pg() -> Iterator[_PgConnection]:
+    """One transaction: committed on success, rolled back on error."""
+    with _pool(database_url()).connection() as conn:  # type: ignore[arg-type]
+        yield _PgConnection(conn)
+
+
+# ── the interface repo.py uses ──────────────────────────────────────────────
+
+
 def _open() -> sqlite3.Connection:
     paths.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(paths.DB_PATH, timeout=10, check_same_thread=False)
@@ -242,7 +339,11 @@ def _open() -> sqlite3.Connection:
 
 
 @contextmanager
-def read() -> Iterator[sqlite3.Connection]:
+def read() -> Iterator[Any]:
+    if database_url():
+        with _pg() as conn:
+            yield conn
+        return
     conn = _open()
     try:
         yield conn
@@ -251,9 +352,16 @@ def read() -> Iterator[sqlite3.Connection]:
 
 
 @contextmanager
-def write() -> Iterator[sqlite3.Connection]:
-    """A connection inside one transaction: committed on success, rolled back on error."""
+def write() -> Iterator[Any]:
+    """A connection inside one transaction: committed on success, rolled back on error.
+
+    Writes go one at a time on both databases, so a check-then-write (the first admin, the next
+    work-order number) can't race another request."""
     with _write_lock:
+        if database_url():
+            with _pg() as conn:
+                yield conn
+            return
         conn = _open()
         try:
             with conn:  # commit / rollback
@@ -263,7 +371,23 @@ def write() -> Iterator[sqlite3.Connection]:
 
 
 def init_db() -> None:
-    """Create the tables if missing, seed the equipment, and turn on WAL. Safe to call every start."""
+    """Create or upgrade the SQLite schema and seed the equipment; on Postgres, only check that every
+    migration has been applied (the Database workflow applies them). Safe to call every start."""
+    if database_url():
+        from . import migrate
+
+        if not os.environ.get("KEY_ENCRYPTION_SECRET", "").strip():
+            # Without it the key that encrypts users' API keys lives in config/secret.key, on a disk that a
+            # hosted server (Render) wipes on every deploy: every saved key would become unreadable.
+            raise RuntimeError("KEY_ENCRYPTION_SECRET must be set when DATABASE_URL is: see docs/DEPLOY.md")
+        with _pg() as conn:
+            pending, edited = migrate.status(conn)
+        if pending or edited:
+            raise RuntimeError(
+                f"the Postgres schema isn't up to date (pending: {[p.name for p in pending]}, edited after"
+                f" running: {edited}). Run `python -m app.services.migrate` from backend/."
+            )
+        return
     with _write_lock:
         conn = _open()
         try:
@@ -271,8 +395,8 @@ def init_db() -> None:
             conn.executescript(SCHEMA)
             _migrate(conn)
             conn.executemany(
-                "INSERT OR IGNORE INTO tbl_Equipment (EquipmentID, ComponentType, CircuitLocation, CriticalityLevel)"
-                " VALUES (:EquipmentID, :ComponentType, :CircuitLocation, :CriticalityLevel)",
+                "INSERT INTO tbl_Equipment (EquipmentID, ComponentType, CircuitLocation, CriticalityLevel)"
+                " VALUES (:EquipmentID, :ComponentType, :CircuitLocation, :CriticalityLevel) ON CONFLICT DO NOTHING",
                 list(EQUIPMENT.values()),
             )
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
@@ -309,7 +433,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
 
 def migration_files() -> list[Path]:
-    """app/migrations/NNNN_*.sql, in order."""
+    """app/migrations/sqlite/NNNN_*.sql, in order."""
     return sorted(MIGRATIONS.glob("[0-9][0-9][0-9][0-9]_*.sql"))
 
 

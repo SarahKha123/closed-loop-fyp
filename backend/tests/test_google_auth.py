@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services import auth, db, google_auth, repo
+from conftest import sqlite_only
 
 CLIENT_ID = "test-client.apps.googleusercontent.com"
 
@@ -82,7 +83,7 @@ def test_sign_up_then_sign_in(google, fresh_db):
     assert (user["role"], user["status"]) == ("admin", "active")  # nobody else yet: the first admin
 
     cookie = c.cookies[auth.COOKIE]
-    with sqlite3.connect(fresh_db) as conn:
+    with db.read() as conn:
         [(stored,)] = conn.execute("SELECT Token FROM tbl_Session").fetchall()
     assert stored != cookie and stored == auth.sha256(cookie)  # only the hash is stored
 
@@ -151,7 +152,7 @@ def test_password_sign_in_is_audited_and_sessions_expire(fresh_db, monkeypatch):
         c.post("/api/auth/login", json={"username": "demo", "password": "nope"})
         c.post("/api/auth/login", json={"username": "demo", "password": "demo"})
         assert _events() == ["login_failed:password", "login"]
-        with sqlite3.connect(fresh_db) as conn:
+        with db.write() as conn:
             conn.execute("UPDATE tbl_Session SET ExpiresAt = '2000-01-01T00:00:00+00:00'")
         assert c.get("/api/auth/me").json()["user"] is None
 
@@ -162,6 +163,7 @@ def test_google_account_has_no_password(google):
     assert auth.login("sarah@gmail.com", "") is None
 
 
+@sqlite_only
 def test_migrates_a_v1_database(tmp_path, monkeypatch):
     from app.services import paths
     monkeypatch.setattr(paths, "DB_PATH", tmp_path / "old.db")
@@ -182,3 +184,19 @@ def test_migrates_a_v1_database(tmp_path, monkeypatch):
         assert conn.execute("SELECT COUNT(*) FROM tbl_User").fetchone()[0] == 1  # accounts kept
         assert conn.execute("SELECT Role, Status FROM tbl_User").fetchone() == ("admin", "active")  # v4
         assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
+
+
+def test_admin_emails_make_the_listed_google_account_admin(google, monkeypatch):
+    c, fake = google
+    monkeypatch.setenv("ADMIN_EMAILS", "Boss@x.com, sarah@gmail.com")
+    # The list is set, so a password sign-up isn't the first admin, even with a listed (unverified) email.
+    assert auth.add_user("early", "Early", "pw1234", "boss@x.com")["status"] == "pending"
+    _sign_in(c, fake)
+    sarah = c.get("/api/auth/me").json()["user"]
+    assert (sarah["role"], sarah["status"]) == ("admin", "active")
+    # Demoted in the dashboard: listed in .env, so the next Google sign-in makes her admin again.
+    auth.add_user("ali", "Ali", "pw1234", "ali@x.com", role="admin", status="active")
+    repo.change_account(sarah["id"], {"id": 2}, (None, None), role="engineer")
+    _sign_in(c, fake)
+    assert c.get("/api/auth/me").json()["user"]["role"] == "admin"
+    assert "role:ADMIN_EMAILS" in _events()

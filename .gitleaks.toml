@@ -1,0 +1,8 @@
+# Secret scan settings (checks.yml → Secret scan). Gitleaks' default rules, minus the tests:
+# they use made-up keys ("gsk-server-key-9999") to prove real ones never leak.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "made-up keys in tests"
+paths = ['''^backend/tests/''']

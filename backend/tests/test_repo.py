@@ -40,9 +40,10 @@ def test_schema_and_seed(fresh_db):
         "tbl_SensorReading": 0, "tbl_Prediction": 0, "tbl_WorkOrder": 0, "tbl_Insight": 0, "tbl_StudyLog": 0,
         "tbl_WorkOrderOutcome": 0,
     }
-    with sqlite3.connect(fresh_db) as conn:
-        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
+    if not db.database_url():
+        with sqlite3.connect(fresh_db) as conn:
+            assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+            assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
     db.init_db()  # idempotent
     assert repo.counts()["tbl_Equipment"] == 4
 
@@ -104,12 +105,12 @@ def test_work_orders(fresh_db):
 
 def test_constraints_reject_bad_rows(fresh_db):
     rid = _reading(1)
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(db.IntegrityError):
         repo.insert_predictions(rid, [{
             "equipmentId": "COOLER-1", "condition": "Broken", "classProbabilities": {},
             "failureProbability": 0.5, "modelVersion": "test",
         }])
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(db.IntegrityError):
         repo.create_work_order("NOPE-1", priority="High", created_by="user")
 
 

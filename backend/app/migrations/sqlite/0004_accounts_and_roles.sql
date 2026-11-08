@@ -1,6 +1,6 @@
 -- Schema v4: account approval and roles, managed from the dashboard (docs/ARCHITECTURE.md: Accounts).
 --
--- Applied once by db.init_db() to any database below user_version 4, fresh ones included
+-- SQLite only (Postgres has migrations/postgres/). Applied once by db.init_db() to any database below user_version 4, fresh ones included
 -- (db.SCHEMA is the v3 baseline; this file brings it up to date). One transaction: on any
 -- error nothing changes and the server refuses to start with the reason.
 

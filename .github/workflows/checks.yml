@@ -1,0 +1,78 @@
+# Runs on every push to main and every pull request: backend tests on SQLite and on Postgres, frontend
+# types, lint, build and bundle size, and a secret scan. Both deploy workflows require this to have
+# passed for the commit they deploy.
+name: Closed Loop checks
+
+on:
+  push:
+    branches: [main] # other branches are checked through their pull request, so nothing runs twice
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (${{ matrix.db == 'postgres' && 'Postgres' || 'SQLite' }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:17 # Supabase runs Postgres 15–17; the tests drop and recreate its public schema
+        env: { POSTGRES_USER: closedloop, POSTGRES_PASSWORD: closedloop, POSTGRES_DB: closed_loop_test }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      # The trained models aren't committed (only their manifest): train them, as Render's build does,
+      # so the predictor, monitor and study tests run instead of skipping.
+      - run: python -m ml.train
+      - run: python -m pytest -q
+        env:
+          TEST_DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgresql://closedloop:closedloop@localhost:5432/closed_loop_test' || '' }}
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with: { version: 12.9.1 }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec oxlint src
+      - run: pnpm build # tsc -b, then vite build
+      - name: First load stays under 300 KB gzipped
+        run: |
+          size=$(cat dist/assets/index-*.js dist/assets/index-*.css | gzip -c | wc -c)
+          echo "initial bundle: $size bytes gzipped"
+          test "$size" -le 307200
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v3 # .gitleaks.toml: default rules, made-up test keys allowed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
