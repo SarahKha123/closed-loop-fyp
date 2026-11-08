@@ -30,6 +30,9 @@ _NUMBER = re.compile(
     r"(?<![\w.\-])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?:\s*(" + "|".join(re.escape(u) for u in UNITS) + r"))?(?![\w])"
 )
 _SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+# Models often write typographic hyphens/dashes (gpt-oss writes "WO‑0002" with U+2011): read them as "-",
+# or a real work order ID is split into an unsupported number "0002".
+_DASHES = str.maketrans({c: "-" for c in "‐‑‒–—−"})
 
 
 def _numbers(text: str) -> list[tuple[str, float, int, str | None]]:
@@ -62,6 +65,7 @@ def _snapshot_values(node: Any, nums: list[float], ids: set[str]) -> None:
 
 def validate(text: str, snapshot: dict[str, Any]) -> dict[str, Any]:
     """{"grounded": bool, "checked": [{"claim", "ok"}], "mismatches": [claim, …]}."""
+    text = text.translate(_DASHES)
     nums: list[float] = []
     ids: set[str] = set()
     _snapshot_values(snapshot, nums, ids)

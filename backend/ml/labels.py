@@ -75,3 +75,16 @@ def check_counts(labels: pd.DataFrame) -> None:
         got = tuple(int((labels[comp] == k).sum()) for k in range(3))
         if got != expected:
             raise AssertionError(f"{comp}: class counts {got} != FYP1 Table 4.1 {expected}")
+
+
+def condition_blocks(path: Path = SUMMARY_CSV) -> pd.Series:
+    """Group id per cycle: runs of consecutive cycles with the same four graded conditions (194 blocks, ~11 cycles each).
+
+    The rig was held at one condition combination for a run of cycles, so neighbouring cycles are near-duplicates.
+    Grouped cross-validation keeps each run on one side of the split, so a fold can't be scored on cycles whose
+    neighbours it trained on (the leakage random k-fold allows on this dataset).
+    """
+    profile = load_profile(path)[list(COMPONENTS)]
+    changed = (profile != profile.shift()).any(axis=1)
+    return changed.cumsum().rename("block")
+

@@ -19,7 +19,7 @@ from imblearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold, StratifiedGroupKFold
 from sklearn.preprocessing import StandardScaler, label_binarize
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
@@ -59,6 +59,15 @@ def make_pipeline(name: str) -> Pipeline:
 
 def cv_splitter() -> RepeatedStratifiedKFold:
     return RepeatedStratifiedKFold(n_splits=N_SPLITS, n_repeats=N_REPEATS, random_state=SEED)
+
+
+def grouped_splits(X: Any, y: np.ndarray, groups: Any) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Stratified 5-fold over whole condition blocks (labels.condition_blocks), repeated 3 times with reshuffled blocks."""
+    return [
+        split
+        for r in range(N_REPEATS)
+        for split in StratifiedGroupKFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED + r).split(X, y, groups)
+    ]
 
 
 def macro_pr_auc(estimator: Any, X: Any, y: np.ndarray) -> float:

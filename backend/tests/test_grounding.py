@@ -57,3 +57,10 @@ def test_unknown_work_order_fails_and_list_numbering_is_ignored():
 
 def test_sensor_codes_and_small_counts_are_ignored():
     assert validate("Check PS2 and TS1; the top 3 drivers point to Pressure 2.", SNAP)["checked"] == []
+
+
+def test_typographic_hyphen_in_work_order_id_is_read_as_the_id():
+    # gpt-oss writes "WO‑0003" with a non-breaking hyphen (U+2011): it is the real ID, not an unsupported "0003"
+    r = validate(GOOD.replace("WO-0003", "WO‑0003"), SNAP)
+    assert r["grounded"], r["mismatches"]
+    assert validate("Open WO–0009.", SNAP)["mismatches"] == ["WO-0009"]
