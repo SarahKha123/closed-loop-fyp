@@ -6,6 +6,7 @@ services:
   - type: web
     name: closed-loop-api
     runtime: python
+    region: singapore # next to Supabase (ap-southeast-1); can't be changed after creation
     plan: free # 512 MB; the scoring models fit, but watch Metrics → Memory after the first replay
     rootDir: backend
     # The trained models aren't committed (only their manifest): train them here, on the installed
@@ -16,6 +17,14 @@ services:
     healthCheckPath: /api/health
     autoDeployTrigger: "off"
     envVars:
+      - key: PYTHON_VERSION # what CI tests on
+        value: "3.12"
+      - key: OMP_NUM_THREADS # the free plan has a fraction of one CPU
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
       - key: COOKIE_SECURE
         value: "1"
       - key: DATABASE_URL # Supabase → Connect → Session pooler (Render has no IPv6 for the direct one)
