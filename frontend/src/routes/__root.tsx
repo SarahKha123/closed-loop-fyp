@@ -14,7 +14,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext"
 import { ChatProvider, useChat } from "../context/ChatContext"
 import { LiveProvider, useLive } from "../context/LiveContext"
 import { ModelsProvider } from "../context/ModelsContext"
-import { AuthScreen } from "../features/auth/AuthScreen"
+import { AuthScreen, ServerWait } from "../features/auth/AuthScreen"
 import { PendingScreen } from "../features/auth/PendingScreen"
 import { useTheme } from "../lib/theme"
 
@@ -34,7 +34,7 @@ function RootLayout() {
 function Gate() {
   const { user } = useAuth()
   const theme = useTheme() // here, not in Shell, so the sign-in page has the saved theme too
-  if (user === undefined) return <div className="h-screen bg-canvas" /> // still asking the backend
+  if (user === undefined) return <ServerWait /> // still asking the backend (it may be waking up)
   if (user === null) return <AuthScreen />
   if (user.status !== "active") return <PendingScreen user={user} />
   return (

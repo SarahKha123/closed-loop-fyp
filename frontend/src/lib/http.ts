@@ -8,8 +8,12 @@
 const REQUEST_TIMEOUT_MS = 15000
 const UNREACHABLE = "could not reach the backend"
 
-/** 502/504 come from the dev proxy when the backend isn't running: say that, not "HTTP 502". */
-const statusText = (status: number) => (status === 502 || status === 504 ? UNREACHABLE : `HTTP ${status}`)
+/** 502/503/504: a proxy (Vite locally, Vercel live) answered because the backend didn't. */
+const isGateway = (status: number) => status === 502 || status === 503 || status === 504
+const statusText = (status: number) => (isGateway(status) ? UNREACHABLE : `HTTP ${status}`)
+
+/** The backend never answered (down, asleep on Render's free plan, or too slow), as opposed to answering with an error. */
+export class UnreachableError extends Error {}
 
 /** Fired when the backend says the session is gone (401), so AuthContext shows the sign-in page. */
 export const SIGNED_OUT_EVENT = "closed-loop:signed-out"
@@ -30,7 +34,7 @@ export async function request<T>(path: string, init?: RequestOptions): Promise<T
       headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     })
   } catch (err) {
-    throw new Error(
+    throw new UnreachableError(
       err instanceof Error && err.name === "AbortError"
         ? "the backend did not respond in time"
         : UNREACHABLE,
@@ -48,7 +52,7 @@ export async function request<T>(path: string, init?: RequestOptions): Promise<T
     } catch {
       /* non-JSON error body — the status is the message */
     }
-    throw new Error(detail)
+    throw isGateway(res.status) ? new UnreachableError(detail) : new Error(detail)
   }
 
   try {

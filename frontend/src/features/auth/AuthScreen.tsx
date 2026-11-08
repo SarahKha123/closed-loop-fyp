@@ -3,7 +3,7 @@
 // signed in; a new account then waits for an admin's approval (PendingScreen), unless it is the first.
 // A failed Google sign-in comes back as /?authError=<reason> (api/auth.py).
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { FormEvent, ReactNode } from "react"
 import { Button } from "../../components/ui/Button"
 import { Mark } from "../../components/ui/Icon"
@@ -199,8 +199,48 @@ function ServerCheck() {
   )
 }
 
+/** Shown by the root while the first /api/auth/me hasn't answered: blank for the first second (a normal load
+ *  never flashes it), then "waking the server" with a seconds counter, or "not responding" once AuthContext gives up. */
+export function ServerWait() {
+  const { serverDown, retry } = useAuth()
+  const [start, setStart] = useState(() => Date.now())
+  const [now, setNow] = useState(start)
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+  const secs = Math.round((now - start) / 1000)
+  if (secs < 1 && !serverDown) return <div className="h-screen bg-canvas" />
+
+  return (
+    <AuthLayout serverCheck={false}>
+      <div role="status" aria-live="polite">
+        <h2 className="text-2xl font-semibold">{serverDown ? "The server isn't responding" : "Waking the server…"}</h2>
+        <p className="mt-2 text-base text-ink-muted">
+          {serverDown
+            ? "It didn't answer for three minutes, so it's probably down rather than asleep. Try again, or check the host's dashboard."
+            : `The free plan puts the server to sleep when nobody uses it; waking it can take up to a minute. Waiting ${secs} s.`}
+        </p>
+        {serverDown && (
+          <Button
+            variant="primary"
+            className="mt-6 w-full justify-center"
+            onClick={() => {
+              setStart(Date.now())
+              setNow(Date.now())
+              retry()
+            }}
+          >
+            Try again
+          </Button>
+        )}
+      </div>
+    </AuthLayout>
+  )
+}
+
 /** The sign-in screens' frame: what this is on the left (drawn from the rig), the form or status on the right. */
-export function AuthLayout({ children }: { children: ReactNode }) {
+export function AuthLayout({ children, serverCheck = true }: { children: ReactNode; serverCheck?: boolean }) {
   return (
     <div className="grid min-h-screen w-full bg-canvas text-ink lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       {/* What this is, drawn from the rig itself: the closed hydraulic loop the four monitored components sit on. */}
@@ -227,7 +267,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <div className="flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-[380px]">
           {children}
-          <ServerCheck />
+          {serverCheck && <ServerCheck />}
         </div>
       </div>
     </div>
