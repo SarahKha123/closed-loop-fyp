@@ -25,6 +25,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -45,6 +46,19 @@ RESULTS = ROOT / "eval" / "results"
 FIELDS = ["model", "mode", "scenario", "category", "validator", "repeat", "promptVersion", "attempts",
           "firstGrounded", "grounded", "checked", "matched", "mismatches", "coversComponent", "coversCondition",
           "firstTokenMs", "totalMs", "text", "error", "at"]
+
+
+def write_waiting(target: advisor.Target, snap: dict, *, check: bool, tries: int = 8) -> dict:
+    """insights.write, waiting out a provider's rate limit (free tiers). Latency is timed per call, so waits don't count."""
+    for attempt in range(tries):
+        try:
+            return insights.write(target, snap, check=check)
+        except advisor.ReplyError as exc:
+            if "rate limit" not in str(exc).lower() or attempt == tries - 1:
+                raise
+            wait = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", str(exc))
+            time.sleep(int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1 if wait else 15)
+    raise AssertionError("unreachable")
 
 
 def target_for(spec: str, user_id: int) -> advisor.Target:
@@ -145,7 +159,7 @@ def main() -> None:
                                "validator": v, "repeat": repeat, "promptVersion": prompts.INSIGHT_VERSION,
                                "error": "", "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
                         try:
-                            w = insights.write(target, sc["snapshot"], check=v == "on")
+                            w = write_waiting(target, sc["snapshot"], check=v == "on")
                         except advisor.ReplyError as exc:
                             row["error"] = str(exc)[:300]
                         else:

@@ -3,6 +3,9 @@
     ./closed-loop.sh start                      # in another terminal
     backend/.venv/bin/python eval/system_perf.py --yes [--speed 0.2] [--cycles 2205] [--insights off]
 
+Signs in as an admin: prompts for username and password, or set CLOSED_LOOP_SESSION to
+the browser's closed_loop_session cookie (for Google sign-in accounts).
+
 Resets the replay (THIS EMPTIES THE DATABASE — hence --yes), plays --cycles
 cycles from cycle 1 at --speed seconds per cycle, and listens on /api/stream
 like a browser does. Per cycle it records, at the client:
@@ -20,6 +23,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import getpass
+import os
 import json
 import statistics
 import sys
@@ -42,6 +47,18 @@ def server_process(url: str) -> psutil.Process | None:
     return None
 
 
+def sign_in(api: httpx.Client) -> None:
+    """The API needs a signed-in admin: CLOSED_LOOP_SESSION (the browser's closed_loop_session cookie) or a password prompt."""
+    if cookie := os.environ.get("CLOSED_LOOP_SESSION"):
+        api.cookies.set("closed_loop_session", cookie)
+    else:
+        r = api.post("/api/auth/login", json={"username": input("username: "), "password": getpass.getpass("password: ")})
+        if r.status_code != 200:
+            sys.exit(f"sign-in failed: {r.json().get('detail', r.status_code)}")
+    if api.get("/api/settings").status_code != 200:
+        sys.exit("signed in, but this account can't change settings — use an admin account")
+
+
 def p90(xs: list[float]) -> float:
     return statistics.quantiles(xs, n=10)[-1] if len(xs) >= 2 else (xs[0] if xs else float("nan"))
 
@@ -58,6 +75,7 @@ def main() -> None:
         sys.exit("this resets the replay and empties the database — re-run with --yes")
 
     api = httpx.Client(base_url=args.url, timeout=30)
+    sign_in(api)
     try:
         api.get("/api/health").raise_for_status()
     except httpx.HTTPError as exc:
@@ -77,7 +95,7 @@ def main() -> None:
     done = threading.Event()
 
     def listen() -> None:
-        with httpx.stream("GET", f"{args.url}/api/stream", timeout=httpx.Timeout(10, read=None)) as r:
+        with api.stream("GET", "/api/stream", timeout=httpx.Timeout(10, read=None)) as r:
             for line in r.iter_lines():
                 if not line.startswith("data:"):
                     continue
