@@ -1,1 +1,3 @@
 pytest
+# eval/sim_users.py (simulation study C1); then: playwright install chromium
+playwright

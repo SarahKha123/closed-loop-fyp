@@ -1,0 +1,9 @@
+{
+  "study": {
+    "enabled": true,
+    "condition": "dashboard_only"
+  },
+  "insights": {
+    "enabled": false
+  }
+}

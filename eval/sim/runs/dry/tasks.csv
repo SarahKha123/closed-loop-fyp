@@ -1,0 +1,3 @@
+persona,type,condition,taskSet,taskId,level,seed,steps,advisorMessages,routes,gaveUp,answer,insightsShown,chatTurns,wallMs,logId,error,at
+S01,novice,dashboard_only,A,A1,lookup,1001,1,0,/,False,"The components in Critical condition right now are the Cooler, Valve, and Pump. The Accumulator is Optimal.",0,0,5658,22,,2026-11-11T15:06:37+00:00
+S01,novice,dashboard_only,A,A2,lookup,1001,1,0,/,False,"The valve's current failure probability is 98.3% (Degraded), and it has been in this Degraded condition since cycle 232.",0,0,21197,23,,2026-11-11T15:06:44+00:00
