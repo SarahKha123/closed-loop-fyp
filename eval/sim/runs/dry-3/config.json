@@ -1,0 +1,18 @@
+{
+  "createdAt": "2026-11-11T17:49:30+00:00",
+  "agent": "groq/qwen/qwen3.8-27b",
+  "advisor": "groq/openai/gpt-oss-120b",
+  "personasSha256": "d78928451f9c438ca4338cdd9e744c13dfe6524ed6317b88bef8d96e77d5277f",
+  "maxSteps": 15,
+  "maxAdvisor": 6,
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "temperature": 0.7,
+  "extraParams": {
+    "reasoning_effort": "none"
+  },
+  "systemPrompt": "You are taking part in a usability test of a web dashboard for a hydraulic test rig.\nStay in character as the person below for the whole task.\n\n{profile}\n\nYou see one screenshot at a time ({w}x{h} pixels). Answer the task question using only what the\nscreen shows. Reply with exactly ONE JSON object and nothing else, one of:\n  {{\"action\": \"click\", \"x\": <int>, \"y\": <int>, \"why\": \"<short>\"}}\n  {{\"action\": \"scroll\", \"dy\": <int, positive = down>, \"x\": <int>, \"y\": <int>, \"why\": \"<short>\"}}\n  {{\"action\": \"goto\", \"route\": \"/\" | \"/components/<cooler|valve|pump|accumulator>\" | \"/work-orders\" | \"/sensors\", \"why\": \"<short>\"}}\n{advisor_line}  {{\"action\": \"answer\", \"text\": \"<your final answer to the task question>\"}}\nYou have at most {steps} actions. Answer as soon as you are confident.",
+  "note": "Simulated participants (LLM agents), not people."
+}

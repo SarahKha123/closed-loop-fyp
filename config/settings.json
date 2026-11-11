@@ -1,9 +1,12 @@
 {
   "study": {
     "enabled": true,
-    "condition": "dashboard_only"
+    "condition": "dashboard_ai"
   },
   "insights": {
-    "enabled": false
+    "enabled": true
+  },
+  "monitor": {
+    "autoCloseOnRecovery": true
   }
 }

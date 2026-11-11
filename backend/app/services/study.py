@@ -50,10 +50,15 @@ def plan(participant: int) -> dict[str, Any]:
 
 
 def set_condition(condition: str) -> dict[str, Any]:
-    """Switch the condition: the Advisor's visibility and the insight engine together."""
+    """Switch the condition: the Advisor's visibility and the insight engine together.
+
+    Auto-close is pinned on: the history tasks (A3, B3) ask why WO-0001 closed, and their
+    reference answers are "closed automatically … because the valve recovered".
+    """
     if condition not in CONDITIONS:
         raise StudyError(f"condition must be one of {', '.join(CONDITIONS)}")
-    out = settings.update({"study": {"condition": condition}, "insights": {"enabled": condition == "dashboard_ai"}})
+    out = settings.update({"study": {"condition": condition}, "insights": {"enabled": condition == "dashboard_ai"},
+                           "monitor": {"autoCloseOnRecovery": True}})
     events.publish({"type": "settings", "settings": out})
     return out
 

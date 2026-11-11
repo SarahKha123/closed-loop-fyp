@@ -92,12 +92,19 @@ def ask_model(cfg: dict, system: str, history: list[str], question: str, png: by
             {"type": "image_url", "image_url": {"url": img}},
         ]},
     ]
-    for attempt in range(8):  # rate limits (429): wait as the provider says, else back off
+    for attempt in range(40):  # rate limits (429): wait as the provider says, else back off
         r = httpx.post(f"{cfg['base_url']}/chat/completions", headers=cloud._headers(cfg["provider"], cfg["api_key"]),
-                       json={"model": cfg["model"], "messages": messages, "temperature": 0.7, "seed": seed},
+                       json={"model": cfg["model"], "messages": messages, "temperature": 0.7, "seed": seed, **cfg.get("extra", {})},
                        timeout=httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0))
         if r.status_code != 429:
             break
+        told = re.search(r"try again in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s", r.text)
+        if told:  # the provider's own wait, incl. daily caps (Groq: "try again in 10m10.8s")
+            h, m, sec = told.groups()
+            wait = int(h or 0) * 3600 + int(m or 0) * 60 + float(sec) + 2
+            print(f"    rate limit: waiting {wait / 60:.1f} min", flush=True)
+            time.sleep(min(wait, 3 * 3600))
+            continue
         try:
             wait = float(r.headers.get("retry-after", ""))
         except ValueError:
@@ -200,6 +207,8 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--personas", default="", help="comma list of persona ids (default: all)")
     ap.add_argument("--headed", action="store_true")
+    ap.add_argument("--no-reasoning", action="store_true",
+                    help='send reasoning_effort "none" (Groq Qwen 3): ~20k → ~3k tokens per step on free-tier daily caps')
     args = ap.parse_args()
 
     from playwright.sync_api import sync_playwright
@@ -212,6 +221,8 @@ def main() -> None:
     if provider not in cloud.PROVIDERS:
         sys.exit(f"unknown provider {provider!r}")
     cfg = cloud.config(user_id, provider, model or None)
+    if args.no_reasoning:
+        cfg["extra"] = {"reasoning_effort": "none"}
     advisor_label = advisor.choose(user_id).label
     if cfg["model"].lower() in advisor_label.lower():
         sys.exit(f"agent {cfg['model']} is the Advisor's model ({advisor_label}); pick a different one (rule 5)")
@@ -230,6 +241,7 @@ def main() -> None:
             "agent": f"{provider}/{cfg['model']}", "advisor": advisor_label,
             "personasSha256": hashlib.sha256(PERSONAS.read_bytes()).hexdigest(),
             "maxSteps": MAX_STEPS, "maxAdvisor": MAX_ADVISOR, "viewport": VIEWPORT, "temperature": 0.7,
+            "extraParams": cfg.get("extra", {}),
             "systemPrompt": SYSTEM, "note": "Simulated participants (LLM agents), not people.",
         }, indent=2))
     table = out / "tasks.csv"
