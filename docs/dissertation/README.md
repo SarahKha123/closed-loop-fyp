@@ -6,7 +6,7 @@
 - `research_table_a.md`: the verified hydraulic-dataset benchmarks behind Tables 2.1 and 4.4.
 
 Search for `[TO FILL]` to find everything that still needs your input or results that don't exist yet
-(the semester and date, the acknowledgements, the RQ2 small-model run, the usefulness ratings, the user study,
+(the semester and date, the acknowledgements, the RQ2 small-model run, the usefulness ratings, the user study with real participants,
 Part D and the Advisor screenshot).
 
 ## To Word (for the UTP format)

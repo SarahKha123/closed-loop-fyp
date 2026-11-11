@@ -1,0 +1,161 @@
+item,persona,taskId,condition
+79f95ad1-c8e6-5885-97f1-77b323bc3f9f,Ahmad Faizal bin Hassan,A1,dashboard_only
+6cd1715a-f0da-5eb0-b10a-e1d200e284e9,Arun Prakash a/l Selvam,B2,dashboard_ai
+66b09219-c3e3-513d-b8f7-a0d877391926,Syafiq Hakim bin Yusof,B4,dashboard_ai
+f89a2004-6727-518c-99b5-85ff75f8c5c7,Syafiq Hakim bin Yusof,A2,dashboard_only
+8d6e1f49-f831-5b19-8b85-52be4d4450ea,Wong Xin Yi,B3,dashboard_only
+60f6f3cf-81c7-574a-850a-ab03800174cf,Muhammad Aiman bin Rahman,B3,dashboard_ai
+8d3f552e-ae9d-5bbc-85f8-61111ac40518,Aina Sofea binti Mahmud,B3,dashboard_only
+837a0664-31b2-5844-882c-2b0c93dad6b4,Ahmad Faizal bin Hassan,B1,dashboard_ai
+0c42d7c5-0bca-59a8-b87b-f0c8ae6ec532,Syafiq Hakim bin Yusof,B1,dashboard_ai
+9c2a8333-d2c9-5bc4-acc8-5396a25660f5,Muhammad Aiman bin Rahman,A1,dashboard_only
+ca5ad4d2-625c-5ae2-b0c4-6815766f7d15,Lee Jia Hao,B3,dashboard_ai
+5772c6eb-67f3-5bc0-9419-7aa3de5633a9,Rajesh Kumar a/l Muthu,A4,dashboard_only
+793b3d0e-ed75-5db7-8117-8dfd4eb61858,Farah Nadia binti Karim,A1,dashboard_ai
+3ac8341a-f586-5b17-88c9-08e26631c42b,Syafiq Hakim bin Yusof,A4,dashboard_only
+d3d17770-190c-56e5-9952-eb1c77cee11d,Tan Mei Ling,A1,dashboard_ai
+b779c530-9084-5c2a-80f1-6d5a71b8a826,Aina Sofea binti Mahmud,A4,dashboard_ai
+8d24a8e2-8b5d-51e5-9721-99fc2133f474,Syafiq Hakim bin Yusof,A1,dashboard_only
+1c09774e-24e0-5ec4-b115-ec388f72c1c7,Rajesh Kumar a/l Muthu,A2,dashboard_only
+5725971f-7e65-5a39-92bf-3b50c1e37991,Siti Hajar binti Ismail,A4,dashboard_ai
+6917a855-5ed1-51f9-bd11-92a117d4350d,Haziq Firdaus bin Roslan,A1,dashboard_only
+8fad620f-e483-5461-af75-1eef936afcf5,Tan Mei Ling,B3,dashboard_only
+535fb41d-4e65-58c3-948b-9e4fd4b54fc1,Muhammad Danish bin Ibrahim,A1,dashboard_only
+33d60e2b-174a-55d2-a8df-944ee3e1bbe8,Muhammad Haris bin Azman,B4,dashboard_ai
+b1fd21e2-c1c8-53dd-9538-2ec80aca0865,Muhammad Danish bin Ibrahim,B2,dashboard_ai
+e4fe95a9-ada4-5a88-bcce-e70b8996c93b,Lee Jia Hao,B1,dashboard_ai
+67d88f34-5f4c-57ff-bb01-1a5af42e9927,Muhammad Danish bin Ibrahim,A4,dashboard_only
+eeba7824-5fd7-504d-90c3-d06a11fd1d4d,Kavitha a/p Subramaniam,B4,dashboard_only
+ed3546fe-a66a-5357-a00d-431026bf4fcc,Rajesh Kumar a/l Muthu,A3,dashboard_only
+06d6266b-9eb8-5d12-b45d-cd9c376c96ef,Muhammad Haris bin Azman,B3,dashboard_ai
+4843364a-4e7c-5e81-8d90-d1a00c14714e,Tan Mei Ling,A3,dashboard_ai
+4c7675fd-17af-536b-9d7c-b0b3fcf10c65,Muhammad Aiman bin Rahman,A3,dashboard_only
+14e6115c-0cd6-5cd1-9f41-aaf965b638df,Lee Jia Hao,B4,dashboard_ai
+a753ab92-509b-55fd-9c66-1cd08ba7df8e,Muhammad Danish bin Ibrahim,A2,dashboard_only
+206a29e0-2e1e-5a09-a0f4-73941fde07c3,Siti Hajar binti Ismail,A2,dashboard_ai
+27781979-9d67-5e98-9519-7100ffb56ee4,Rajesh Kumar a/l Muthu,B2,dashboard_ai
+ca4c76ab-3168-570a-8bfe-3c0954f7b943,Lim Wei Jian,A1,dashboard_only
+6127cea8-1eb5-5ad3-be20-cdb28d227387,Syafiq Hakim bin Yusof,A3,dashboard_only
+176fb2a6-58ed-5910-8857-957800efa0c2,Priya Devi a/p Ramesh,A1,dashboard_ai
+38e597d1-fb97-5cfd-b57e-5603c27abe4d,Haziq Firdaus bin Roslan,A3,dashboard_only
+f139b43e-795c-5157-9411-e16c14dcb4e7,Tan Mei Ling,B1,dashboard_only
+4bc9cca9-fbcf-5290-a52b-7b80cc1dc162,Wong Xin Yi,B2,dashboard_only
+6e0385a0-5b89-5503-939b-ba2e42d896b9,Priya Devi a/p Ramesh,B2,dashboard_only
+ecf4a266-1ee6-599b-9595-6d24598c5b35,Rajesh Kumar a/l Muthu,A1,dashboard_only
+3b144e56-62ab-5033-8a4d-3d46354f1b37,Lim Wei Jian,B2,dashboard_ai
+dea61225-d1b8-501c-87b3-86081d380bc0,Siti Hajar binti Ismail,B2,dashboard_only
+07f4b898-150b-5288-8abb-8249e21bd100,Muhammad Aiman bin Rahman,A2,dashboard_only
+f5d13ee4-5488-50c7-8fa4-f4227e532920,Muhammad Haris bin Azman,A3,dashboard_only
+3fdebc03-ecff-5f61-934f-175d58effba5,Puteri Amira binti Zulkifli,B1,dashboard_only
+9afdb608-22b3-579d-a43b-287c91f71cf0,Rajesh Kumar a/l Muthu,B1,dashboard_ai
+1e805cf2-52fa-5b7a-9253-c255b92b6499,Nurul Izzah binti Hamid,B2,dashboard_only
+26e04d1d-d9b4-5636-a40e-6941c7bec82f,Farah Nadia binti Karim,A4,dashboard_ai
+fcb000ee-d2f6-5d18-b6cb-ac6efc85552e,Siti Hajar binti Ismail,B1,dashboard_only
+19e8ab2a-ee65-59e5-a508-b7a1a897383d,Haziq Firdaus bin Roslan,B2,dashboard_ai
+a7b57f59-cc0f-5249-aa3f-a621f43e68ea,Lim Wei Jian,B1,dashboard_ai
+82461952-16cc-5fcc-8f92-5b9415b8571d,Nurul Izzah binti Hamid,A2,dashboard_ai
+86ea70b1-5200-552b-b021-73ebfd17e1ae,Aina Sofea binti Mahmud,B1,dashboard_only
+ac38dd64-183c-563a-899c-b3a568b0f278,Kavitha a/p Subramaniam,B3,dashboard_only
+d472cb4f-ecda-58e4-b454-8d27d32102be,Lee Jia Hao,A2,dashboard_only
+910daff4-c412-5394-8c98-cc52215393dd,Muhammad Aiman bin Rahman,A4,dashboard_only
+92d149f2-9bb3-541c-826d-0547169b5145,Muhammad Aiman bin Rahman,B1,dashboard_ai
+da63dcaf-6419-54fe-babd-fb989e4c3c67,Nurul Izzah binti Hamid,A3,dashboard_ai
+227806c8-8821-589f-bcf4-fe30117ba25c,Priya Devi a/p Ramesh,A4,dashboard_ai
+637cbf6c-1848-5a08-811d-ef053a8c7f48,Priya Devi a/p Ramesh,B4,dashboard_only
+d2bb25ad-28ee-53b2-9a80-10cd485289e5,Arun Prakash a/l Selvam,A4,dashboard_only
+5c0faef1-9c7e-5512-bc62-b426481c5480,Arun Prakash a/l Selvam,B1,dashboard_ai
+50dc74b8-1753-55b5-a57b-b30c54461e21,Muhammad Haris bin Azman,A2,dashboard_only
+4d11ddd8-72d6-567b-928b-184e09c345bb,Lee Jia Hao,A3,dashboard_only
+a4bef076-7ed6-5527-b481-e9c14d8b2f8c,Wong Xin Yi,A2,dashboard_ai
+fc39b7f5-06c1-50a3-a5ca-d76677d8340e,Nurul Izzah binti Hamid,B1,dashboard_only
+5738f106-90ab-553c-8f17-2238b5af9a7f,Lim Wei Jian,A4,dashboard_only
+d6b2b73e-21e4-5784-a2bc-3a02d59b8783,Arun Prakash a/l Selvam,B4,dashboard_ai
+a7e4cbbf-db50-566a-9139-b6af2cbe2296,Priya Devi a/p Ramesh,B1,dashboard_only
+2a4f9635-9509-526e-a8df-c927f479c714,Farah Nadia binti Karim,B4,dashboard_only
+46032099-654b-5a3a-848b-ddd59d6f2ba7,Muhammad Aiman bin Rahman,B2,dashboard_ai
+a9edffac-d8a4-599d-a537-9f2d59fe50d9,Kavitha a/p Subramaniam,B1,dashboard_only
+5e923842-6304-51bc-a098-68bd38784870,Puteri Amira binti Zulkifli,B3,dashboard_only
+83ce3445-0324-5782-92db-8d6e45a1e84e,Ahmad Faizal bin Hassan,A4,dashboard_only
+0d6050a1-4f79-50c1-9a47-f14bc8a25ab8,Lim Wei Jian,B3,dashboard_ai
+9a495dac-aceb-5836-bd10-95a55609f1d8,Ahmad Faizal bin Hassan,B2,dashboard_ai
+c896464e-c3b3-5241-a347-dbd7d287fbbf,Syafiq Hakim bin Yusof,B2,dashboard_ai
+ed5f288e-fe71-5323-8a79-c5607aebe7b0,Haziq Firdaus bin Roslan,A2,dashboard_only
+3dfde7c7-9989-5ca8-9375-de52c5b33c7e,Kavitha a/p Subramaniam,A1,dashboard_ai
+6c750ab9-7e91-5dff-b515-df74a73d897b,Muhammad Haris bin Azman,A4,dashboard_only
+a4baa4b6-1527-54da-9440-ee0130fb89c1,Aina Sofea binti Mahmud,B2,dashboard_only
+75376401-3bea-5d54-8a82-eebb2cbbbd4e,Arun Prakash a/l Selvam,A1,dashboard_only
+ad376631-02dc-566b-a855-d2a1ef92992d,Farah Nadia binti Karim,A3,dashboard_ai
+39eed6be-68b0-5f83-aade-dc237e139f48,Nurul Izzah binti Hamid,A4,dashboard_ai
+8fc83afe-25aa-5d6b-9dbc-2e3189a0abf2,Wong Xin Yi,A3,dashboard_ai
+037663ed-fd38-562d-a0f1-86576671eef0,Haziq Firdaus bin Roslan,A4,dashboard_only
+52f5fe5f-7976-5042-98c5-4a72e9c6c29c,Lee Jia Hao,A1,dashboard_only
+203a43fa-5bf2-5753-a16c-4c71b89a3d1b,Rajesh Kumar a/l Muthu,B3,dashboard_ai
+b43ad7d9-4d0a-5e44-8a74-fac3ee2c207c,Nur Aisyah binti Abdullah,A3,dashboard_ai
+ab5c8611-2265-5ab5-b882-bca64bb4ce88,Tan Mei Ling,B4,dashboard_only
+f2dc026a-6da0-5929-b467-2e83d1722032,Tan Mei Ling,A2,dashboard_ai
+a74afafe-43f4-5443-8a77-04e810abe52d,Priya Devi a/p Ramesh,A2,dashboard_ai
+a1d04df3-1af8-5192-a08b-dac83deef3bb,Kavitha a/p Subramaniam,A3,dashboard_ai
+02cdf435-1153-5723-8704-83e34b932061,Farah Nadia binti Karim,B3,dashboard_only
+df2d6422-f22a-5640-8aba-a4d786acb211,Nurul Izzah binti Hamid,B3,dashboard_only
+6479bae8-8573-5b46-b795-9bd396a33fd1,Puteri Amira binti Zulkifli,A3,dashboard_ai
+d33b928f-27ad-578b-a970-ace60ae4a339,Rajesh Kumar a/l Muthu,B4,dashboard_ai
+47f54ce2-38ec-5136-b868-b188574a2ed1,Puteri Amira binti Zulkifli,A4,dashboard_ai
+faf22943-7356-5c1a-b9f2-826bd058ce1c,Nurul Izzah binti Hamid,A1,dashboard_ai
+4d52c3cb-5d8f-5f67-b78a-c0d82619396b,Lee Jia Hao,A4,dashboard_only
+17c18a19-581b-5c8f-9214-049145f3a8e1,Muhammad Haris bin Azman,B1,dashboard_ai
+3f61176e-23b4-5eda-91cc-1ffba3c378dc,Haziq Firdaus bin Roslan,B1,dashboard_ai
+d6822d8d-4f0a-52df-a299-26de73e993e8,Priya Devi a/p Ramesh,A3,dashboard_ai
+27d01c47-5916-514d-bef6-0af24cceaee1,Puteri Amira binti Zulkifli,B4,dashboard_only
+3d25f40c-7143-5344-ad52-1d46e909b1cd,Siti Hajar binti Ismail,A3,dashboard_ai
+ee5fc382-8a11-548d-abeb-b37c830f9586,Aina Sofea binti Mahmud,B4,dashboard_only
+3fb7c9af-c1d8-502d-b694-9c293e877491,Muhammad Aiman bin Rahman,B4,dashboard_ai
+67ac6ed8-7ca1-5ea3-9b5a-e5260a328fe6,Aina Sofea binti Mahmud,A1,dashboard_ai
+69865193-8734-549a-8f59-1cbc9cfc5a6b,Nur Aisyah binti Abdullah,A1,dashboard_ai
+96fcdb56-4246-5214-8c42-5337273c80c3,Tan Mei Ling,A4,dashboard_ai
+66a716e6-7963-569f-b654-50c9f254efa7,Haziq Firdaus bin Roslan,B3,dashboard_ai
+cdc15362-44ec-541e-8499-7f2931d1b638,Arun Prakash a/l Selvam,B3,dashboard_ai
+86248487-dde2-53fe-81d8-978a0ed6fb2d,Nurul Izzah binti Hamid,B4,dashboard_only
+aacb328a-a48b-544c-8b80-b2d6362dbc21,Farah Nadia binti Karim,A2,dashboard_ai
+b9fde46b-7dae-520d-9d19-53efe02fcfd9,Lim Wei Jian,A2,dashboard_only
+131fdb4e-51d0-5de0-bdca-fc9e8a73bab7,Priya Devi a/p Ramesh,B3,dashboard_only
+81e506f7-3dd4-58c3-b686-e861103da0b6,Arun Prakash a/l Selvam,A3,dashboard_only
+e2c90a29-bfd4-5f0a-bfa3-f3f21924612d,Nur Aisyah binti Abdullah,B2,dashboard_only
+a6600757-7260-5a3f-a13a-36ea8d550f21,Kavitha a/p Subramaniam,B2,dashboard_only
+82846a56-5590-56e4-b113-0d333fd196b8,Lim Wei Jian,B4,dashboard_ai
+e5db508c-08a1-5ac4-a7de-3cbac4a4679d,Wong Xin Yi,A1,dashboard_ai
+e17b806c-4bcb-56d0-aa31-40de28d78ff9,Haziq Firdaus bin Roslan,B4,dashboard_ai
+e97cdeba-5e88-5d99-a755-238bb039ca92,Muhammad Danish bin Ibrahim,B4,dashboard_ai
+2369a06d-cc1d-56a8-a300-39c27a62ed6a,Aina Sofea binti Mahmud,A2,dashboard_ai
+f9c6ce9f-c142-51b4-93c8-f41ae7850ffd,Siti Hajar binti Ismail,B3,dashboard_only
+5dbd3aef-6adc-5318-bbae-62d09e4ba26a,Muhammad Danish bin Ibrahim,B1,dashboard_ai
+f477789f-25ac-50fa-a149-4735e25294a5,Muhammad Haris bin Azman,A1,dashboard_only
+f70ac338-9003-595e-8836-3e9c7f91942c,Aina Sofea binti Mahmud,A3,dashboard_ai
+ff24e8ca-3715-5aa4-aae9-2d8d683e2eca,Muhammad Danish bin Ibrahim,A3,dashboard_only
+aac01d2c-758b-58df-a4fa-53d3323f0a16,Nur Aisyah binti Abdullah,A4,dashboard_ai
+46e1cb51-3011-5c86-b39b-53f9ed13a7d1,Puteri Amira binti Zulkifli,A1,dashboard_ai
+0d209cb7-1458-55a9-a44b-2a7f8117040b,Farah Nadia binti Karim,B1,dashboard_only
+05454aa8-9e33-521d-9446-98e54ea4b75e,Farah Nadia binti Karim,B2,dashboard_only
+e3244c09-0744-5b1c-b179-22a210b73b29,Kavitha a/p Subramaniam,A4,dashboard_ai
+899630fd-1de6-5fb9-9ba0-b2b924d6029f,Puteri Amira binti Zulkifli,A2,dashboard_ai
+a63c2199-887e-5ffe-9c5f-a39e1d8a753d,Siti Hajar binti Ismail,B4,dashboard_only
+8236d735-fee6-5c3f-ab50-1afceb0337c4,Nur Aisyah binti Abdullah,B4,dashboard_only
+8fa1e2d1-f50a-504a-b9ae-d1043575d06a,Wong Xin Yi,B1,dashboard_only
+437e7aa4-6704-5c12-a319-f758b237ff17,Ahmad Faizal bin Hassan,B4,dashboard_ai
+a5350967-24de-55e4-a949-0b6ebe84d41e,Puteri Amira binti Zulkifli,B2,dashboard_only
+44fc347f-2fc9-5317-937b-e957021ead03,Ahmad Faizal bin Hassan,A2,dashboard_only
+2a86c038-4e46-5482-96d7-46b086cf774b,Wong Xin Yi,A4,dashboard_ai
+a6867517-93e0-5f16-8fbc-289706c294aa,Wong Xin Yi,B4,dashboard_only
+13823091-6798-5485-840e-88cc24cf5286,Ahmad Faizal bin Hassan,B3,dashboard_ai
+416d2ac7-178a-5767-b4a2-f28f156131d2,Nur Aisyah binti Abdullah,A2,dashboard_ai
+07717baa-d989-565f-a336-64ea76b9c88c,Syafiq Hakim bin Yusof,B3,dashboard_ai
+c1422029-a648-5393-8ce3-8f936827663b,Arun Prakash a/l Selvam,A2,dashboard_only
+b55d6fbf-c6ee-5c8a-8498-0dad79745a5f,Nur Aisyah binti Abdullah,B3,dashboard_only
+f293a700-a229-5e15-ac7b-1c68a02adf3d,Muhammad Haris bin Azman,B2,dashboard_ai
+2abdf946-e776-501e-94ac-4d99988799dc,Tan Mei Ling,B2,dashboard_only
+b2ac603d-0625-5833-9519-912495684082,Siti Hajar binti Ismail,A1,dashboard_ai
+f67d3121-25c8-506e-b85e-d633d55fbf78,Kavitha a/p Subramaniam,A2,dashboard_ai
+43288028-3dd7-5d48-ba45-0ca5e694fed1,Ahmad Faizal bin Hassan,A3,dashboard_only
+3dc0a615-4372-5dc8-92db-1637214e090f,Nur Aisyah binti Abdullah,B1,dashboard_only
+49f4b733-4b9a-5a91-903f-a6c3e0caa42e,Lee Jia Hao,B2,dashboard_ai
+78db7223-4ee9-5089-b3bf-7c6f3e221469,Muhammad Danish bin Ibrahim,B3,dashboard_ai
+23c85ef8-9084-58cf-a5aa-afbd6acf6f87,Lim Wei Jian,A3,dashboard_only

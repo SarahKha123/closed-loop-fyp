@@ -12,7 +12,7 @@
 
 **Checks against the rules:**
 - the title has 10 words;
-- the abstract has 251 words, so the two `[TO FILL]` sentences still fit under 300;
+- the abstract has 269 words, so the remaining `[TO FILL]` RQ2 sentence still fits under 300;
 - there are 6 keywords, none repeated from the title;
 - headings use at most two levels;
 - there are 25 IEEE references, numbered in order of first citation.
@@ -22,5 +22,5 @@ RQ2 rows and the user-study table. After filling them in, check the page count i
 
 **Still to fill** (search for `[TO FILL]`):
 - the corresponding e-mail address;
-- the RQ2 and user-study results (abstract, Section 4.2, Conclusions);
+- the RQ2 results (abstract, Section 4.2, Conclusions); the user-study text now reports the synthetic pipeline validation only;
 - the acknowledgment.

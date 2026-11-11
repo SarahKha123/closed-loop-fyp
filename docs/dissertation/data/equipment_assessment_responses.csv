@@ -1,0 +1,161 @@
+persona,type,condition,taskSet,taskId,level,seed,steps,advisorMessages,routes,gaveUp,answer,insightsShown,chatTurns,wallMs,logId,error,at,correct
+Muhammad Aiman bin Rahman,novice,dashboard_only,A,A1,lookup,20261111,6,0,,False,"Not sure, the cards were all red/orange so maybe all of them?",0,0,66038,,,2026-11-03T16:20:00+08:00,0
+Muhammad Aiman bin Rahman,novice,dashboard_only,A,A2,lookup,20261111,2,0,,False,"96.7%, Degraded since 1445",0,0,72589,,,2026-11-03T10:02:00+08:00,0
+Muhammad Aiman bin Rahman,novice,dashboard_only,A,A3,history,20261111,14,0,,False,"WO-0001 on the valve, auto-closed at cycle 1148 because the valve went back to Optimal",0,0,100378,,,2026-11-03T14:07:00+08:00,1
+Muhammad Aiman bin Rahman,novice,dashboard_only,A,A4,diagnosis,20261111,4,0,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,0,0,44820,,,2026-11-03T12:46:00+08:00,1
+Muhammad Aiman bin Rahman,novice,dashboard_ai,B,B1,lookup,20261111,11,6,,False,pump + valve critical,3,0,53856,,,2026-11-03T14:27:00+08:00,1
+Muhammad Aiman bin Rahman,novice,dashboard_ai,B,B2,lookup,20261111,5,6,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",4,3,212894,,,2026-11-03T16:43:00+08:00,1
+Muhammad Aiman bin Rahman,novice,dashboard_ai,B,B3,history,20261111,4,1,,False,"A valve work order closed, valve got better",2,3,117980,,,2026-11-03T11:30:00+08:00,1
+Muhammad Aiman bin Rahman,novice,dashboard_ai,B,B4,diagnosis,20261111,4,5,,False,"Cooler efficiency dropped, check the cooler",4,2,34104,,,2026-11-03T11:38:00+08:00,0
+Nur Aisyah binti Abdullah,experienced,dashboard_ai,A,A1,lookup,20261111,2,2,,False,"3 components critical - cooler, valve, pump",1,3,124650,,,2026-11-03T10:21:00+08:00,1
+Nur Aisyah binti Abdullah,experienced,dashboard_ai,A,A2,lookup,20261111,11,1,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),4,1,141740,,,2026-11-03T14:31:00+08:00,1
+Nur Aisyah binti Abdullah,experienced,dashboard_ai,A,A3,history,20261111,11,1,,False,"WO-0002 for the pump, closed by the technician",1,1,115733,,,2026-11-03T16:56:00+08:00,0
+Nur Aisyah binti Abdullah,experienced,dashboard_ai,A,A4,diagnosis,20261111,10,1,,False,"It improved to Degraded but efficiency still low, check the cooler",4,1,225329,,,2026-11-03T13:07:00+08:00,0
+Nur Aisyah binti Abdullah,experienced,dashboard_only,B,B1,lookup,20261111,8,0,,False,Pump and valve. Cooler and accumulator are only Degraded,0,0,137038,,,2026-11-03T09:04:00+08:00,1
+Nur Aisyah binti Abdullah,experienced,dashboard_only,B,B2,lookup,20261111,13,0,,False,about 97 % - degraded since 1445,0,0,162279,,,2026-11-03T09:07:00+08:00,1
+Nur Aisyah binti Abdullah,experienced,dashboard_only,B,B3,history,20261111,14,0,,False,"A valve work order closed, valve got better",0,0,96812,,,2026-11-03T10:51:00+08:00,0
+Nur Aisyah binti Abdullah,experienced,dashboard_only,B,B4,diagnosis,20261111,8,0,,False,"Pump went Critical → Degraded at cycle 1982. Volume flow 1 is about 6.5 l/min, below normal, so check for internal leakage / reduced delivery",0,0,69812,,,2026-11-03T13:04:00+08:00,1
+Ahmad Faizal bin Hassan,engineer,dashboard_only,A,A1,lookup,20261111,15,0,,False,"3 components critical - cooler, valve, pump",0,0,72625,,,2026-11-03T15:34:00+08:00,1
+Ahmad Faizal bin Hassan,engineer,dashboard_only,A,A2,lookup,20261111,5,0,,False,98% but I couldn't find the cycle,0,0,95060,,,2026-11-03T10:27:00+08:00,0
+Ahmad Faizal bin Hassan,engineer,dashboard_only,A,A3,history,20261111,10,0,,False,"WO-0002 for the pump, closed by the technician",0,0,180348,,,2026-11-03T15:51:00+08:00,0
+Ahmad Faizal bin Hassan,engineer,dashboard_only,A,A4,diagnosis,20261111,14,0,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,0,0,87649,,,2026-11-03T12:13:00+08:00,1
+Ahmad Faizal bin Hassan,engineer,dashboard_ai,B,B1,lookup,20261111,6,4,,False,Cooler and accumulator,1,1,226942,,,2026-11-03T12:51:00+08:00,0
+Ahmad Faizal bin Hassan,engineer,dashboard_ai,B,B2,lookup,20261111,12,0,,False,about 97 % - degraded since 1445,3,1,173149,,,2026-11-03T16:56:00+08:00,1
+Ahmad Faizal bin Hassan,engineer,dashboard_ai,B,B3,history,20261111,7,6,,False,"Valve WO-0001, auto closed at 1322 - recovered",3,2,90297,,,2026-11-03T09:38:00+08:00,1
+Ahmad Faizal bin Hassan,engineer,dashboard_ai,B,B4,diagnosis,20261111,11,6,,False,The AI said something about flow but I'm not sure what to check,2,4,83687,,,2026-11-03T10:45:00+08:00,0
+Siti Hajar binti Ismail,sceptic,dashboard_ai,A,A1,lookup,20261111,4,4,,False,"3 components critical - cooler, valve, pump",2,4,89553,,,2026-11-04T14:09:00+08:00,1
+Siti Hajar binti Ismail,sceptic,dashboard_ai,A,A2,lookup,20261111,10,4,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),3,1,158931,,,2026-11-04T11:28:00+08:00,1
+Siti Hajar binti Ismail,sceptic,dashboard_ai,A,A3,history,20261111,11,5,,False,"Valve work order WO-0001 closed at 1148, valve recovered",4,4,30719,,,2026-11-04T13:41:00+08:00,1
+Siti Hajar binti Ismail,sceptic,dashboard_ai,A,A4,diagnosis,20261111,5,4,,False,"Cooler went Critical → Degraded around cycle 733. Cooling efficiency is about 28 %, still low, so check the cooler/heat exchanger",3,0,109740,,,2026-11-04T09:36:00+08:00,1
+Siti Hajar binti Ismail,sceptic,dashboard_only,B,B1,lookup,20261111,9,0,,False,Pump and valve. Cooler and accumulator are only Degraded,0,0,128806,,,2026-11-04T11:11:00+08:00,1
+Siti Hajar binti Ismail,sceptic,dashboard_only,B,B2,lookup,20261111,15,0,,False,98.3% since cycle 232,0,0,152335,,,2026-11-04T12:11:00+08:00,0
+Siti Hajar binti Ismail,sceptic,dashboard_only,B,B3,history,20261111,4,0,,False,"Valve WO-0001, auto closed at 1322 - recovered",0,0,94465,,,2026-11-04T10:35:00+08:00,1
+Siti Hajar binti Ismail,sceptic,dashboard_only,B,B4,diagnosis,20261111,7,0,,False,"Pump went Critical → Degraded at cycle 1982. Volume flow 1 is about 6.5 l/min, below normal, so check for internal leakage / reduced delivery",0,0,232816,,,2026-11-04T09:43:00+08:00,1
+Muhammad Danish bin Ibrahim,novice,dashboard_only,A,A1,lookup,20261111,15,0,,False,"Not sure, the cards were all red/orange so maybe all of them?",0,0,78666,,,2026-11-04T14:22:00+08:00,0
+Muhammad Danish bin Ibrahim,novice,dashboard_only,A,A2,lookup,20261111,13,0,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),0,0,226400,,,2026-11-04T09:44:00+08:00,1
+Muhammad Danish bin Ibrahim,novice,dashboard_only,A,A3,history,20261111,12,0,,False,"WO-0002 for the pump, closed by the technician",0,0,140365,,,2026-11-04T13:55:00+08:00,0
+Muhammad Danish bin Ibrahim,novice,dashboard_only,A,A4,diagnosis,20261111,1,0,,False,"It improved to Degraded but efficiency still low, check the cooler",0,0,48745,,,2026-11-04T14:13:00+08:00,0
+Muhammad Danish bin Ibrahim,novice,dashboard_ai,B,B1,lookup,20261111,6,1,,False,pump + valve critical,3,4,71485,,,2026-11-04T14:42:00+08:00,1
+Muhammad Danish bin Ibrahim,novice,dashboard_ai,B,B2,lookup,20261111,8,6,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",4,2,207738,,,2026-11-04T16:16:00+08:00,1
+Muhammad Danish bin Ibrahim,novice,dashboard_ai,B,B3,history,20261111,9,4,,False,"A valve work order closed, valve got better",2,2,98782,,,2026-11-04T10:34:00+08:00,0
+Muhammad Danish bin Ibrahim,novice,dashboard_ai,B,B4,diagnosis,20261111,3,3,,False,"Pump went Critical → Degraded at cycle 1982. Volume flow 1 is about 6.5 l/min, below normal, so check for internal leakage / reduced delivery",4,4,144650,,,2026-11-04T14:26:00+08:00,1
+Nurul Izzah binti Hamid,experienced,dashboard_ai,A,A1,lookup,20261111,4,2,,False,Pump and valve are critical I think,3,4,205835,,,2026-11-04T14:25:00+08:00,0
+Nurul Izzah binti Hamid,experienced,dashboard_ai,A,A2,lookup,20261111,7,4,,False,"96.7%, Degraded since 1445",2,4,154183,,,2026-11-04T09:28:00+08:00,0
+Nurul Izzah binti Hamid,experienced,dashboard_ai,A,A3,history,20261111,10,4,,False,"The valve work order was closed because it recovered, didn't see the cycle",1,1,93200,,,2026-11-04T14:37:00+08:00,0
+Nurul Izzah binti Hamid,experienced,dashboard_ai,A,A4,diagnosis,20261111,15,0,,False,"No idea why it changed, maybe sensor noise?",1,3,143471,,,2026-11-04T11:31:00+08:00,0
+Nurul Izzah binti Hamid,experienced,dashboard_only,B,B1,lookup,20261111,8,0,,False,pump + valve critical,0,0,210997,,,2026-11-04T12:36:00+08:00,1
+Nurul Izzah binti Hamid,experienced,dashboard_only,B,B2,lookup,20261111,10,0,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",0,0,160123,,,2026-11-04T13:40:00+08:00,1
+Nurul Izzah binti Hamid,experienced,dashboard_only,B,B3,history,20261111,10,0,,False,Pump work order closed because it was repaired,0,0,230903,,,2026-11-04T16:02:00+08:00,0
+Nurul Izzah binti Hamid,experienced,dashboard_only,B,B4,diagnosis,20261111,14,0,,False,"Flow is below normal, check the pump",0,0,150473,,,2026-11-04T15:53:00+08:00,0
+Syafiq Hakim bin Yusof,engineer,dashboard_only,A,A1,lookup,20261111,14,0,,False,"Only the valve is critical, the rest are degraded",0,0,111956,,,2026-11-04T11:57:00+08:00,0
+Syafiq Hakim bin Yusof,engineer,dashboard_only,A,A2,lookup,20261111,8,0,,False,98% but I couldn't find the cycle,0,0,39684,,,2026-11-04T16:15:00+08:00,0
+Syafiq Hakim bin Yusof,engineer,dashboard_only,A,A3,history,20261111,14,0,,False,"WO-0002 for the pump, closed by the technician",0,0,159878,,,2026-11-04T10:39:00+08:00,0
+Syafiq Hakim bin Yusof,engineer,dashboard_only,A,A4,diagnosis,20261111,3,0,,False,The pump pressure dropped so check the pump,0,0,191495,,,2026-11-04T11:21:00+08:00,0
+Syafiq Hakim bin Yusof,engineer,dashboard_ai,B,B1,lookup,20261111,2,5,,False,Pump and valve. Cooler and accumulator are only Degraded,1,4,135515,,,2026-11-04T15:00:00+08:00,1
+Syafiq Hakim bin Yusof,engineer,dashboard_ai,B,B2,lookup,20261111,14,4,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",3,0,153219,,,2026-11-04T14:54:00+08:00,1
+Syafiq Hakim bin Yusof,engineer,dashboard_ai,B,B3,history,20261111,4,4,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",4,1,40776,,,2026-11-04T15:18:00+08:00,1
+Syafiq Hakim bin Yusof,engineer,dashboard_ai,B,B4,diagnosis,20261111,9,5,,False,"It got a bit better but still degraded, check pump",4,2,42327,,,2026-11-04T11:24:00+08:00,0
+Puteri Amira binti Zulkifli,sceptic,dashboard_ai,A,A1,lookup,20261111,15,6,,True,,3,4,199768,,,2026-11-05T12:24:00+08:00,0
+Puteri Amira binti Zulkifli,sceptic,dashboard_ai,A,A2,lookup,20261111,5,5,,False,"96.7%, Degraded since 1445",3,1,202910,,,2026-11-05T15:12:00+08:00,0
+Puteri Amira binti Zulkifli,sceptic,dashboard_ai,A,A3,history,20261111,7,3,,False,"WO-0002 for the pump, closed by the technician",4,0,57156,,,2026-11-05T10:37:00+08:00,0
+Puteri Amira binti Zulkifli,sceptic,dashboard_ai,A,A4,diagnosis,20261111,15,1,,True,,4,2,215842,,,2026-11-05T16:07:00+08:00,0
+Puteri Amira binti Zulkifli,sceptic,dashboard_only,B,B1,lookup,20261111,1,0,,False,pump + valve critical,0,0,156046,,,2026-11-05T15:09:00+08:00,1
+Puteri Amira binti Zulkifli,sceptic,dashboard_only,B,B2,lookup,20261111,14,0,,False,about 97 % - degraded since 1445,0,0,29222,,,2026-11-05T12:06:00+08:00,1
+Puteri Amira binti Zulkifli,sceptic,dashboard_only,B,B3,history,20261111,15,0,,True,,0,0,36766,,,2026-11-05T16:17:00+08:00,0
+Puteri Amira binti Zulkifli,sceptic,dashboard_only,B,B4,diagnosis,20261111,11,0,,False,"It got a bit better but still degraded, check pump",0,0,174566,,,2026-11-05T09:57:00+08:00,0
+Haziq Firdaus bin Roslan,novice,dashboard_only,A,A1,lookup,20261111,1,0,,False,"Only the valve is critical, the rest are degraded",0,0,188092,,,2026-11-05T13:52:00+08:00,0
+Haziq Firdaus bin Roslan,novice,dashboard_only,A,A2,lookup,20261111,9,0,,False,"very high, maybe 90-something %? don't know the cycle",0,0,153230,,,2026-11-05T12:55:00+08:00,0
+Haziq Firdaus bin Roslan,novice,dashboard_only,A,A3,history,20261111,15,0,,True,,0,0,228879,,,2026-11-05T10:10:00+08:00,0
+Haziq Firdaus bin Roslan,novice,dashboard_only,A,A4,diagnosis,20261111,7,0,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,0,0,106411,,,2026-11-05T13:45:00+08:00,1
+Haziq Firdaus bin Roslan,novice,dashboard_ai,B,B1,lookup,20261111,13,0,,False,"Hard to tell from the dashboard, maybe the pump",3,0,122192,,,2026-11-05T14:32:00+08:00,0
+Haziq Firdaus bin Roslan,novice,dashboard_ai,B,B2,lookup,20261111,1,0,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",3,4,226836,,,2026-11-05T10:06:00+08:00,1
+Haziq Firdaus bin Roslan,novice,dashboard_ai,B,B3,history,20261111,7,3,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",4,2,121484,,,2026-11-05T13:41:00+08:00,1
+Haziq Firdaus bin Roslan,novice,dashboard_ai,B,B4,diagnosis,20261111,7,0,,False,"It got a bit better but still degraded, check pump",2,1,129278,,,2026-11-05T13:08:00+08:00,0
+Aina Sofea binti Mahmud,experienced,dashboard_ai,A,A1,lookup,20261111,7,0,,False,"Not sure, the cards were all red/orange so maybe all of them?",4,2,211515,,,2026-11-05T11:15:00+08:00,0
+Aina Sofea binti Mahmud,experienced,dashboard_ai,A,A2,lookup,20261111,9,2,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),1,4,200006,,,2026-11-05T15:11:00+08:00,1
+Aina Sofea binti Mahmud,experienced,dashboard_ai,A,A3,history,20261111,6,4,,False,"Valve work order WO-0001 closed at 1148, valve recovered",1,3,57639,,,2026-11-05T12:05:00+08:00,1
+Aina Sofea binti Mahmud,experienced,dashboard_ai,A,A4,diagnosis,20261111,11,6,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,2,4,46031,,,2026-11-05T09:46:00+08:00,1
+Aina Sofea binti Mahmud,experienced,dashboard_only,B,B1,lookup,20261111,6,0,,False,"Hard to tell from the dashboard, maybe the pump",0,0,201471,,,2026-11-05T16:14:00+08:00,0
+Aina Sofea binti Mahmud,experienced,dashboard_only,B,B2,lookup,20261111,3,0,,False,about 97 % - degraded since 1445,0,0,239337,,,2026-11-05T09:02:00+08:00,1
+Aina Sofea binti Mahmud,experienced,dashboard_only,B,B3,history,20261111,13,0,,False,"Valve WO-0001, auto closed at 1322 - recovered",0,0,182727,,,2026-11-05T14:45:00+08:00,1
+Aina Sofea binti Mahmud,experienced,dashboard_only,B,B4,diagnosis,20261111,14,0,,False,Flow rate is low (~6.5 l/min). Check the pump for leaks,0,0,203841,,,2026-11-05T09:09:00+08:00,1
+Lim Wei Jian,engineer,dashboard_only,A,A1,lookup,20261111,1,0,,False,"Cooler, pump and valve are Critical. Accumulator looks fine (Optimal).",0,0,25372,,,2026-11-05T14:12:00+08:00,1
+Lim Wei Jian,engineer,dashboard_only,A,A2,lookup,20261111,9,0,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),0,0,138391,,,2026-11-05T12:12:00+08:00,1
+Lim Wei Jian,engineer,dashboard_only,A,A3,history,20261111,15,0,,True,,0,0,41523,,,2026-11-05T13:56:00+08:00,0
+Lim Wei Jian,engineer,dashboard_only,A,A4,diagnosis,20261111,4,0,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,0,0,103180,,,2026-11-05T12:00:00+08:00,1
+Lim Wei Jian,engineer,dashboard_ai,B,B1,lookup,20261111,5,2,,False,Cooler and accumulator,1,2,109255,,,2026-11-05T16:00:00+08:00,0
+Lim Wei Jian,engineer,dashboard_ai,B,B2,lookup,20261111,4,2,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",1,4,217383,,,2026-11-05T09:35:00+08:00,1
+Lim Wei Jian,engineer,dashboard_ai,B,B3,history,20261111,2,3,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",2,1,28647,,,2026-11-05T10:43:00+08:00,1
+Lim Wei Jian,engineer,dashboard_ai,B,B4,diagnosis,20261111,6,2,,False,Flow rate is low (~6.5 l/min). Check the pump for leaks,3,4,217332,,,2026-11-05T13:50:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_ai,A,A1,lookup,20261111,2,5,,False,"Cooler, pump and valve are Critical. Accumulator looks fine (Optimal).",4,3,93847,,,2026-11-06T12:55:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_ai,A,A2,lookup,20261111,4,0,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),3,0,52337,,,2026-11-06T11:11:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_ai,A,A3,history,20261111,15,5,,False,"Valve work order WO-0001 closed at 1148, valve recovered",3,0,186456,,,2026-11-06T13:15:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_ai,A,A4,diagnosis,20261111,6,6,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,3,3,61516,,,2026-11-06T10:59:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_only,B,B1,lookup,20261111,1,0,,False,Pump and valve. Cooler and accumulator are only Degraded,0,0,78606,,,2026-11-06T09:32:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_only,B,B2,lookup,20261111,9,0,,False,about 97 % - degraded since 1445,0,0,37412,,,2026-11-06T11:25:00+08:00,1
+Tan Mei Ling,sceptic,dashboard_only,B,B3,history,20261111,15,0,,True,,0,0,59923,,,2026-11-06T13:13:00+08:00,0
+Tan Mei Ling,sceptic,dashboard_only,B,B4,diagnosis,20261111,1,0,,False,Flow rate is low (~6.5 l/min). Check the pump for leaks,0,0,76996,,,2026-11-06T11:17:00+08:00,1
+Lee Jia Hao,novice,dashboard_only,A,A1,lookup,20261111,7,0,,False,Pump and valve are critical I think,0,0,162178,,,2026-11-06T15:46:00+08:00,1
+Lee Jia Hao,novice,dashboard_only,A,A2,lookup,20261111,5,0,,False,"98.3%, it's been Degraded since cycle 232",0,0,75518,,,2026-11-06T15:15:00+08:00,1
+Lee Jia Hao,novice,dashboard_only,A,A3,history,20261111,15,0,,False,"WO-0002 for the pump, closed by the technician",0,0,87472,,,2026-11-06T14:51:00+08:00,0
+Lee Jia Hao,novice,dashboard_only,A,A4,diagnosis,20261111,8,0,,False,"Something with temperature, check the cooler fan",0,0,239520,,,2026-11-06T12:19:00+08:00,0
+Lee Jia Hao,novice,dashboard_ai,B,B1,lookup,20261111,9,5,,False,pump + valve critical,1,2,54722,,,2026-11-06T16:53:00+08:00,1
+Lee Jia Hao,novice,dashboard_ai,B,B2,lookup,20261111,6,3,,False,98.3% since cycle 232,1,1,158218,,,2026-11-06T09:30:00+08:00,0
+Lee Jia Hao,novice,dashboard_ai,B,B3,history,20261111,12,3,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",4,1,91336,,,2026-11-06T16:21:00+08:00,1
+Lee Jia Hao,novice,dashboard_ai,B,B4,diagnosis,20261111,10,6,,False,"Flow is below normal, check the pump",4,3,198640,,,2026-11-06T15:21:00+08:00,0
+Wong Xin Yi,experienced,dashboard_ai,A,A1,lookup,20261111,1,3,,False,"Only the valve is critical, the rest are degraded",4,0,225333,,,2026-11-06T11:29:00+08:00,0
+Wong Xin Yi,experienced,dashboard_ai,A,A2,lookup,20261111,15,6,,False,"98.3%, it's been Degraded since cycle 232",1,0,124031,,,2026-11-06T14:12:00+08:00,1
+Wong Xin Yi,experienced,dashboard_ai,A,A3,history,20261111,10,3,,False,"WO-0001 on the valve, auto-closed at cycle 1148 because the valve went back to Optimal",4,3,128483,,,2026-11-06T15:37:00+08:00,1
+Wong Xin Yi,experienced,dashboard_ai,A,A4,diagnosis,20261111,15,0,,True,,2,3,237956,,,2026-11-06T09:53:00+08:00,0
+Wong Xin Yi,experienced,dashboard_only,B,B1,lookup,20261111,8,0,,False,"Pump, valve and cooler",0,0,94634,,,2026-11-06T10:54:00+08:00,1
+Wong Xin Yi,experienced,dashboard_only,B,B2,lookup,20261111,7,0,,False,97% but not sure since when,0,0,68687,,,2026-11-06T16:09:00+08:00,1
+Wong Xin Yi,experienced,dashboard_only,B,B3,history,20261111,4,0,,False,"A valve work order closed, valve got better",0,0,159210,,,2026-11-06T09:02:00+08:00,0
+Wong Xin Yi,experienced,dashboard_only,B,B4,diagnosis,20261111,12,0,,False,"Flow is below normal, check the pump",0,0,76062,,,2026-11-06T16:04:00+08:00,0
+Rajesh Kumar a/l Muthu,engineer,dashboard_only,A,A1,lookup,20261111,14,0,,False,"3 components critical - cooler, valve, pump",0,0,217455,,,2026-11-06T10:02:00+08:00,1
+Rajesh Kumar a/l Muthu,engineer,dashboard_only,A,A2,lookup,20261111,9,0,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),0,0,158676,,,2026-11-06T15:36:00+08:00,1
+Rajesh Kumar a/l Muthu,engineer,dashboard_only,A,A3,history,20261111,8,0,,False,"Valve work order WO-0001 closed at 1148, valve recovered",0,0,225442,,,2026-11-06T15:38:00+08:00,1
+Rajesh Kumar a/l Muthu,engineer,dashboard_only,A,A4,diagnosis,20261111,2,0,,False,"Something with temperature, check the cooler fan",0,0,41108,,,2026-11-06T13:12:00+08:00,0
+Rajesh Kumar a/l Muthu,engineer,dashboard_ai,B,B1,lookup,20261111,7,0,,False,Pump and valve. Cooler and accumulator are only Degraded,1,4,182871,,,2026-11-06T14:31:00+08:00,1
+Rajesh Kumar a/l Muthu,engineer,dashboard_ai,B,B2,lookup,20261111,10,0,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",2,2,235141,,,2026-11-06T10:38:00+08:00,1
+Rajesh Kumar a/l Muthu,engineer,dashboard_ai,B,B3,history,20261111,3,5,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",1,2,231228,,,2026-11-06T15:44:00+08:00,1
+Rajesh Kumar a/l Muthu,engineer,dashboard_ai,B,B4,diagnosis,20261111,14,3,,False,Flow rate is low (~6.5 l/min). Check the pump for leaks,3,4,68118,,,2026-11-06T14:07:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_ai,A,A1,lookup,20261111,12,4,,False,Pump and valve are critical I think,4,3,150691,,,2026-11-07T15:52:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_ai,A,A2,lookup,20261111,3,3,,False,"98.3%, it's been Degraded since cycle 232",1,4,153810,,,2026-11-07T11:58:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_ai,A,A3,history,20261111,11,3,,False,"The valve work order was closed because it recovered, didn't see the cycle",3,2,125822,,,2026-11-07T10:14:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_ai,A,A4,diagnosis,20261111,4,6,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,2,4,85581,,,2026-11-07T10:47:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_only,B,B1,lookup,20261111,4,0,,False,Pump and valve. Cooler and accumulator are only Degraded,0,0,215302,,,2026-11-07T12:52:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_only,B,B2,lookup,20261111,13,0,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",0,0,201759,,,2026-11-07T16:57:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_only,B,B3,history,20261111,4,0,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",0,0,47132,,,2026-11-07T15:54:00+08:00,1
+Priya Devi a/p Ramesh,sceptic,dashboard_only,B,B4,diagnosis,20261111,15,0,,False,Flow rate is low (~6.5 l/min). Check the pump for leaks,0,0,231013,,,2026-11-07T11:49:00+08:00,1
+Arun Prakash a/l Selvam,novice,dashboard_only,A,A1,lookup,20261111,13,0,,False,"3 components critical - cooler, valve, pump",0,0,64143,,,2026-11-07T10:47:00+08:00,1
+Arun Prakash a/l Selvam,novice,dashboard_only,A,A2,lookup,20261111,13,0,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),0,0,212217,,,2026-11-07T16:00:00+08:00,1
+Arun Prakash a/l Selvam,novice,dashboard_only,A,A3,history,20261111,12,0,,False,"WO-0002 for the pump, closed by the technician",0,0,43278,,,2026-11-07T09:08:00+08:00,0
+Arun Prakash a/l Selvam,novice,dashboard_only,A,A4,diagnosis,20261111,10,0,,False,"Cooler went Critical → Degraded around cycle 733. Cooling efficiency is about 28 %, still low, so check the cooler/heat exchanger",0,0,160847,,,2026-11-07T14:01:00+08:00,1
+Arun Prakash a/l Selvam,novice,dashboard_ai,B,B1,lookup,20261111,15,2,,False,Pump and valve. Cooler and accumulator are only Degraded,1,1,160849,,,2026-11-07T13:57:00+08:00,1
+Arun Prakash a/l Selvam,novice,dashboard_ai,B,B2,lookup,20261111,6,6,,False,97% but not sure since when,1,2,84228,,,2026-11-07T11:16:00+08:00,1
+Arun Prakash a/l Selvam,novice,dashboard_ai,B,B3,history,20261111,12,5,,False,"A valve work order closed, valve got better",3,3,73576,,,2026-11-07T09:02:00+08:00,0
+Arun Prakash a/l Selvam,novice,dashboard_ai,B,B4,diagnosis,20261111,12,6,,False,"Pump went Critical → Degraded at cycle 1982. Volume flow 1 is about 6.5 l/min, below normal, so check for internal leakage / reduced delivery",2,2,118724,,,2026-11-07T09:17:00+08:00,1
+Kavitha a/p Subramaniam,experienced,dashboard_ai,A,A1,lookup,20261111,15,5,,True,,3,1,112138,,,2026-11-07T15:12:00+08:00,0
+Kavitha a/p Subramaniam,experienced,dashboard_ai,A,A2,lookup,20261111,14,3,,False,98% but I couldn't find the cycle,3,1,199176,,,2026-11-07T14:58:00+08:00,0
+Kavitha a/p Subramaniam,experienced,dashboard_ai,A,A3,history,20261111,6,4,,False,"WO-0002 for the pump, closed by the technician",3,3,166265,,,2026-11-07T11:13:00+08:00,0
+Kavitha a/p Subramaniam,experienced,dashboard_ai,A,A4,diagnosis,20261111,8,0,,False,Driven by cooling efficiency (~28%). Team should inspect the heat exchanger and cooling performance,2,4,210611,,,2026-11-07T16:25:00+08:00,1
+Kavitha a/p Subramaniam,experienced,dashboard_only,B,B1,lookup,20261111,15,0,,True,,0,0,151486,,,2026-11-07T14:08:00+08:00,0
+Kavitha a/p Subramaniam,experienced,dashboard_only,B,B2,lookup,20261111,2,0,,False,"96.7%, Degraded since cycle 1445 (improved from Critical)",0,0,139055,,,2026-11-07T16:14:00+08:00,1
+Kavitha a/p Subramaniam,experienced,dashboard_only,B,B3,history,20261111,5,0,,False,Pump work order closed because it was repaired,0,0,46234,,,2026-11-07T14:31:00+08:00,0
+Kavitha a/p Subramaniam,experienced,dashboard_only,B,B4,diagnosis,20261111,13,0,,False,"It got a bit better but still degraded, check pump",0,0,101951,,,2026-11-07T16:00:00+08:00,0
+Muhammad Haris bin Azman,engineer,dashboard_only,A,A1,lookup,20261111,9,0,,False,Pump and valve are critical I think,0,0,45078,,,2026-11-07T14:20:00+08:00,0
+Muhammad Haris bin Azman,engineer,dashboard_only,A,A2,lookup,20261111,6,0,,False,"96.7%, Degraded since 1445",0,0,225690,,,2026-11-07T14:51:00+08:00,0
+Muhammad Haris bin Azman,engineer,dashboard_only,A,A3,history,20261111,13,0,,False,"WO-0001 on the valve, auto-closed at cycle 1148 because the valve went back to Optimal",0,0,87210,,,2026-11-07T09:51:00+08:00,1
+Muhammad Haris bin Azman,engineer,dashboard_only,A,A4,diagnosis,20261111,7,0,,False,"It improved to Degraded but efficiency still low, check the cooler",0,0,237393,,,2026-11-07T10:13:00+08:00,0
+Muhammad Haris bin Azman,engineer,dashboard_ai,B,B1,lookup,20261111,5,5,,False,Pump and valve. Cooler and accumulator are only Degraded,4,0,58287,,,2026-11-07T16:07:00+08:00,1
+Muhammad Haris bin Azman,engineer,dashboard_ai,B,B2,lookup,20261111,15,5,,True,,3,3,165686,,,2026-11-07T15:48:00+08:00,0
+Muhammad Haris bin Azman,engineer,dashboard_ai,B,B3,history,20261111,14,2,,False,"WO-0001 for the valve, closed automatically at cycle 1322 since the valve recovered to Optimal",3,4,237064,,,2026-11-07T12:45:00+08:00,1
+Muhammad Haris bin Azman,engineer,dashboard_ai,B,B4,diagnosis,20261111,14,1,,False,"Pump went Critical → Degraded at cycle 1982. Volume flow 1 is about 6.5 l/min, below normal, so check for internal leakage / reduced delivery",2,4,147422,,,2026-11-07T11:54:00+08:00,1
+Farah Nadia binti Karim,sceptic,dashboard_ai,A,A1,lookup,20261111,7,4,,False,"Only the valve is critical, the rest are degraded",3,2,177262,,,2026-11-08T16:59:00+08:00,0
+Farah Nadia binti Karim,sceptic,dashboard_ai,A,A2,lookup,20261111,10,1,,False,Around 98 % failure prob. Degraded from cycle 232 (was Critical before),4,1,138196,,,2026-11-08T15:25:00+08:00,1
+Farah Nadia binti Karim,sceptic,dashboard_ai,A,A3,history,20261111,15,6,,True,,1,0,211947,,,2026-11-08T09:35:00+08:00,0
+Farah Nadia binti Karim,sceptic,dashboard_ai,A,A4,diagnosis,20261111,3,3,,False,"Something with temperature, check the cooler fan",2,1,236839,,,2026-11-08T15:56:00+08:00,0
+Farah Nadia binti Karim,sceptic,dashboard_only,B,B1,lookup,20261111,3,0,,False,pump + valve critical,0,0,112617,,,2026-11-08T14:52:00+08:00,1
+Farah Nadia binti Karim,sceptic,dashboard_only,B,B2,lookup,20261111,8,0,,False,98.3% since cycle 232,0,0,151574,,,2026-11-08T11:24:00+08:00,0
+Farah Nadia binti Karim,sceptic,dashboard_only,B,B3,history,20261111,8,0,,False,"Valve WO-0001, auto closed at 1322 - recovered",0,0,30696,,,2026-11-08T12:22:00+08:00,1
+Farah Nadia binti Karim,sceptic,dashboard_only,B,B4,diagnosis,20261111,1,0,,False,"Flow is below normal, check the pump",0,0,61284,,,2026-11-08T14:40:00+08:00,0

@@ -66,13 +66,13 @@ SARAH KHALILAH BINTI MOHD FAUZI
 
 ## ABSTRACT
 
-Predictive maintenance promises earlier and cheaper intervention, but in practice two gaps remain: dashboards leave maintenance staff to interpret charts and probabilities themselves, and failure-prediction models are rarely connected to the explanation and action that should follow. Large language models (LLMs) can explain data in plain language, yet they are known to state values that are not in the data, which is unacceptable when they describe the condition of equipment. This project designed, built and evaluated Closed Loop, a web-based predictive maintenance system in which machine-learning prediction, a live dashboard, LLM-generated insights and maintenance work orders operate on one shared data layer. The UCI Condition Monitoring of Hydraulic Systems dataset (2,205 load cycles, 17 sensors, four components) is replayed as a live stream; every cycle is scored by four trained classifiers with SHAP explanations, a Critical prediction opens a work order automatically, and a cloud LLM, reached through an OpenAI-compatible interface, explains each change. Every number, work-order identifier and condition in an LLM reply is checked against a structured snapshot of the dashboard; a failed check triggers one rewrite, and a reply that still fails is labelled Unverified. The project followed CRISP-DM. Random Forest and XGBoost models reached a macro-F1 of 0.984–0.999 under repeated stratified cross-validation, against 0.419–0.555 for a rule-based baseline (p < 10⁻²³). A block-aware cross-validation, added because the dataset is recorded in long runs of near-identical cycles, showed that random folds overstate performance for the valve (0.768) and accumulator (0.830), while the cooler (0.996) and pump (0.986) generalise. On 50 frozen scenarios, gpt-oss-120b, given the snapshot, stated an unsupported value in 1 of 68 insights without the check and in none with it, at a median of 2.7 s per insight. The evaluation also exposed a parsing defect in the check, which had made an earlier reported reduction from 42.6 % to 25.0 % largely an artefact; the defect was fixed and the stored insights were re-scored. [TO FILL: one sentence each on the small-versus-large model comparison (RQ2) and the user study (RQ1).] The work shows that a validated, grounded LLM layer can be embedded in a predictive maintenance loop, and that its errors can be measured and shown to the user rather than hidden.
+Predictive maintenance promises earlier and cheaper intervention, but in practice two gaps remain: dashboards leave maintenance staff to interpret charts and probabilities themselves, and failure-prediction models are rarely connected to the explanation and action that should follow. Large language models (LLMs) can explain data in plain language, yet they are known to state values that are not in the data, which is unacceptable when they describe the condition of equipment. This project designed, built and evaluated Closed Loop, a web-based predictive maintenance system in which machine-learning prediction, a live dashboard, LLM-generated insights and maintenance work orders operate on one shared data layer. The UCI Condition Monitoring of Hydraulic Systems dataset (2,205 load cycles, 17 sensors, four components) is replayed as a live stream; every cycle is scored by four trained classifiers with SHAP explanations, a Critical prediction opens a work order automatically, and a cloud LLM, reached through an OpenAI-compatible interface, explains each change. Every number, work-order identifier and condition in an LLM reply is checked against a structured snapshot of the dashboard; a failed check triggers one rewrite, and a reply that still fails is labelled Unverified. The project followed CRISP-DM. Random Forest and XGBoost models reached a macro-F1 of 0.984–0.999 under repeated stratified cross-validation, against 0.419–0.555 for a rule-based baseline (p < 10⁻²³). A block-aware cross-validation, added because the dataset is recorded in long runs of near-identical cycles, showed that random folds overstate performance for the valve (0.768) and accumulator (0.830), while the cooler (0.996) and pump (0.986) generalise. On 50 frozen scenarios, gpt-oss-120b, given the snapshot, stated an unsupported value in 1 of 68 insights without the check and in none with it, at a median of 2.7 s per insight. The evaluation also exposed a parsing defect in the check, which had made an earlier reported reduction from 42.6 % to 25.0 % largely an artefact; the defect was fixed and the stored insights were re-scored. [TO FILL: one sentence on the small-versus-large model comparison (RQ2).] For RQ1, a counterbalanced within-subjects user study was designed and built into the system, and its scoring and statistical pipeline was validated end to end on a synthetic data set of 160 randomly generated task attempts (20 synthetic profiles); because these data contain no real participants, RQ1 remains open and the study itself is future work. The work shows that a validated, grounded LLM layer can be embedded in a predictive maintenance loop, and that its errors can be measured and shown to the user rather than hidden.
 
 \newpage
 
 ## ACKNOWLEDGEMENTS
 
-[TO FILL — personal text, one page or less. Suggested points: the supervisor, AP Ts Dr Mohd Anuaruddin bin Ahmadon, for guidance through the change of platform between FYP1 and FYP2; the FYP coordinator and examiners; the participants of the user study and the two raters of the insight-usefulness study; family and friends.]
+[TO FILL — personal text, one page or less. Suggested points: the supervisor, AP Ts Dr Mohd Anuaruddin bin Ahmadon, for guidance through the change of platform between FYP1 and FYP2; the FYP coordinator and examiners; the two raters of the insight-usefulness study; family and friends.]
 
 \newpage
 
@@ -117,8 +117,8 @@ Table 4.4 This project compared with published results
 Table 4.5 Part B: insight quality per validator setting
 Table 4.6 Part B: hallucination rate by scenario category
 Table 4.7 Part B: small versus large model comparison
-Table 4.8 Part C: task accuracy and completion time
-Table 4.9 Part C: SUS and NASA-TLX
+Table 4.8 Part C: pipeline validation on synthetic data (not participant results)
+Table 4.9 Part C: measures and their status
 Table 4.10 Part D: system performance
 Table 4.11 Progress against objectives
 
@@ -150,6 +150,7 @@ Table 4.11 Progress against objectives
 | Condition block | A run of consecutive cycles recorded at the same combination of the four component conditions |
 | Grounded | An LLM reply whose every checked value appears in the snapshot it was given |
 | Snapshot | The structured (JSON) description of the dashboard state given to the LLM |
+| Synthetic data | Data generated at random by a script, containing no responses from real people or agents; used here only to validate the user-study analysis pipeline |
 
 \newpage
 
@@ -199,7 +200,7 @@ Table 1.1 maps the objectives to the research questions and to the deliverables 
 |---|---|---|---|
 | O1 Predict | — | Feature pipeline; model ladder evaluated against the baseline; SHAP for the cooler | Models rebuilt in the project repository; SHAP for all four components; block-aware validation |
 | O2 Build | — | Architecture and data contracts designed (Power Platform) | Web system built: replay, live scoring, dashboard, work-order automation, insight engine with grounding check, Advisor chat with tools |
-| O3 Evaluate | RQ1, RQ2, RQ3 | Part A executed; Parts B and C designed | Part B (AI quality, validator effect, model size) and Part C (user study) executed; Part D (system performance) |
+| O3 Evaluate | RQ1, RQ2, RQ3 | Part A executed; Parts B and C designed | Part B (AI quality, validator effect, model size) executed; Part C (user study) built, with its analysis pipeline validated on synthetic data; Part D (system performance) |
 
 ## 1.4 SCOPE OF STUDY
 
@@ -212,10 +213,11 @@ The project boundary was set so that the work is feasible within the two semeste
 - A web application comprising the dashboard, AI insight feed, Advisor chat and work orders, with user accounts and administrator approval.
 - Cloud language models reached through OpenAI-compatible APIs; the provider and model are chosen by configuration.
 - Grounding validation of every AI-generated insight and chat answer.
-- Evaluation Parts A to D as defined in Section 3.8.
+- Evaluation Parts A to D as defined in Section 3.8. For Part C, the scope of FYP2 is the study protocol, its implementation in the system and the validation of its analysis pipeline on synthetic data.
 
 **Out of scope:**
 
+- Running the Part C user study with human participants, which could not be completed within the FYP2 timeline; it is future work, and its protocol is ready.
 - Live connection to physical plant sensors; the replay stands in for them.
 - Equipment beyond the four components, and datasets other than the one named above.
 - Training or fine-tuning language models; models are used as provided.
@@ -549,7 +551,7 @@ Table 3.6 summarises the four evaluation parts.
 |---|---|---|---|---|
 | A. Predictive performance | Do the models beat the baseline, and do they generalise beyond the condition blocks? (O1) | 2,205 cycles | Macro-F1, macro PR-AUC, confusion matrices, SHAP | Random and block-aware 15-fold CV; paired t-test, Cohen's d |
 | B. AI insight quality | How faithful, complete, fast and useful are the insights; what does the check add; how small can the model be? (RQ2, RQ3) | 50 frozen scenarios, each run with the check on and off, 3 repeats per model | Grounding accuracy, hallucination rate, coverage, latency, usefulness (two raters) | Per model and setting; weighted Cohen's kappa |
-| C. User study | Do grounded insights improve task performance and reduce workload? (RQ1) | About 20 participants, within-subjects | Task accuracy, completion time, SUS, NASA-TLX | Paired t-test or Wilcoxon signed-rank; effect sizes |
+| C. User study | Do grounded insights improve task performance and reduce workload? (RQ1) | Protocol: about 20 participants, within-subjects. FYP2: 160 synthetic attempts (20 synthetic profiles × 8 tasks) to validate the analysis | Task accuracy, effort (steps), completion time, SUS, NASA-TLX | Exact McNemar on paired attempts; Wilcoxon signed-rank with effect size r; Cohen's kappa between two scorers |
 | D. System performance | Is the live loop fast and stable? (O2) | Full 2,205-cycle replay | Scoring latency, memory over time, insight latency | Median, 90th percentile, trend |
 
 ### 3.8.1 Part B: AI Insight Quality
@@ -569,7 +571,13 @@ For RQ2, at least one small model (for example, Llama 3.1 8B) and one large mode
 
 ### 3.8.2 Part C: User Study
 
-The study uses a within-subjects design with two conditions: the dashboard only (the Advisor panel is not rendered and insights are off) and the dashboard with AI (insights and chat, with the panel pinned open). Each participant completes two parallel task sets, A and B, of four tasks each, one set per condition. The tasks range from simple lookup ("Which components are in Critical condition right now?") through history to diagnosis ("The cooler's condition changed. Why, and what should the maintenance team check?"), mirroring the complexity levels of Figliè et al. [14]. The order of conditions and task sets is counterbalanced across participants in four rotating orders. Each task resets the replay to a fixed starting cycle and steps it to a fixed end cycle, so every participant sees the same history. The researcher console (Figure 4.8) starts and stops the timer and records the answer and its correctness. After each condition, participants complete the SUS and the raw NASA-TLX. Appendix B lists the tasks and reference answers. Ethics approval is required before recruitment.
+The study uses a within-subjects design with two conditions: the dashboard only (the Advisor panel is not rendered and insights are off) and the dashboard with AI (insights and chat, with the panel pinned open). Each participant completes two parallel task sets, A and B, of four tasks each, one set per condition. The tasks range from simple lookup ("Which components are in Critical condition right now?") through history to diagnosis ("The cooler's condition changed. Why, and what should the maintenance team check?"), mirroring the complexity levels of Figliè et al. [14]. The order of conditions and task sets is counterbalanced across participants in four rotating orders. Each task resets the replay to a fixed starting cycle and steps it to a fixed end cycle, so every participant sees the same history. The researcher console (Figure 4.9) starts and stops the timer and records the answer and its correctness. After each condition, participants complete the SUS and the raw NASA-TLX. Appendix B lists the tasks and reference answers. Ethics approval is required before recruitment.
+
+**Scoring.** Answers are scored against the reference answers on a fixed rubric. Lookup tasks (1 and 2) are scored 1 or 0: every component or value must be right, and a probability may differ by one percentage point. The history task (3) is scored 1 only if the work-order identifier, the component and the reason are all right. The diagnosis task (4) is scored 0–2 (2 = correct change, correct driver and a sensible check; 1 = partly right; 0 = wrong) and counts as correct only at 2. An empty answer or a task abandoned at the step limit scores 0. The scoring sheet is shuffled and contains neither the participant nor the condition, so that two scorers can score blind. Their agreement on correct versus incorrect is reported as Cohen's kappa [54] and interpreted with McHugh's thresholds [56]. Disagreements are resolved by discussion.
+
+**Analysis.** Each participant attempts task k (1–4) once in each condition, as A_k in one and B_k in the other, so the outcomes form paired attempts. Accuracy is compared with an exact McNemar test on these pairs. Effort (interaction steps) is compared with a Wilcoxon signed-rank test on the mean per participant, with effect size r. SUS and NASA-TLX are compared with a Wilcoxon signed-rank test. All of this is implemented in `eval/analyse_study.py`, which produces the tables of Section 4.5 directly from the exported log.
+
+**Validation of the pipeline on synthetic data.** The study could not be run with participants within the FYP2 timeline. So that the analysis is not used for the first time on real data, the whole pipeline (log format, blind scoring sheet, two-scorer agreement, the paired tests and the report) was run on a synthetic data set generated by `eval/synthetic_study.py`. The generator creates 20 synthetic profiles. Each completes Set A in one condition and Set B in the other, in alternating order, giving 160 task attempts. For each attempt, an answer is drawn at random from a hand-written bank of good, partly right, wrong and unsure answers to that task. The same bank and the same weights are used in both conditions, so **the true difference between the conditions is zero by construction**. Step counts, Advisor messages, times and a 7 % chance of giving up are also drawn at random. Two synthetic scorer files are generated, the second copying the first in about 80 % of items and otherwise applying a stricter rule. The synthetic data contain no responses from any person or agent. They test whether the pipeline runs correctly and whether it wrongly reports an effect where none exists; they say nothing about RQ1. The data set is stored with the project (`docs/dissertation/data/`) and can be regenerated from a fixed seed (20261111).
 
 ### 3.8.3 Part D: System Performance
 
@@ -593,14 +601,14 @@ Table 3.7 lists the technical milestones used to track FYP2.
 | M8 | Grounding check | Complete |
 | M9 | Advisor chat with tools | Complete |
 | M10 | Evaluation harness (Parts B and D) | Built; runs in progress |
-| M11 | Study mode (Part C) | Built; study to run |
+| M11 | Study mode (Part C) | Built; analysis validated on synthetic data; study with participants to run |
 | M12 | Hardening, accounts, deployment | Complete [TO FILL: confirm] |
 
 \newpage
 
 # CHAPTER 4: RESULTS AND DISCUSSION
 
-This chapter presents the results of the four evaluation parts defined in Section 3.8 and discusses them against the objectives and the literature. Part A (Section 4.2) is complete. The system itself (Section 4.3) is built and deployed. Part B (Section 4.4) has a complete run for one large model and is awaiting the small-model run. Parts C and D (Sections 4.5 and 4.6) have their procedures ready but have not yet been run; their tables are marked [TO FILL].
+This chapter presents the results of the four evaluation parts defined in Section 3.8 and discusses them against the objectives and the literature. Part A (Section 4.2) is complete. The system itself (Section 4.3) is built and deployed. Part B (Section 4.4) has a complete run for one large model and is awaiting the small-model run. For Part C (Section 4.5), the user study is built into the system, and its analysis pipeline has been validated on synthetic data. The study has not been run with participants, so Section 4.5 reports a check of the method, not results for RQ1. Part D (Section 4.6) has its procedure ready, and its table is marked [TO FILL].
 
 ## 4.1 DATA PREPARATION RESULTS
 
@@ -817,33 +825,53 @@ Two observations qualify this.
 
 ## 4.5 PART C: USER STUDY (RQ1)
 
-[TO FILL — this section is written once the study has run. The procedure is fixed (Section 3.8.2), so only the numbers and their discussion remain.]
+The user study has not been run with participants, so **this section contains no results for RQ1**. It reports instead the validation of the study's analysis pipeline on the synthetic data set described in Section 3.8.2: 160 randomly generated task attempts from 20 synthetic profiles, in which the true difference between the conditions is zero by construction. Every number in Table 4.8 describes the output of a random generator, not the behaviour of people or of the system's users.
 
-<div align="center">Table 4.8: Part C: task accuracy and completion time per condition [TO FILL]</div>
+### 4.5.1 Pipeline Validation on Synthetic Data
 
-| Task level | Accuracy, dashboard only | Accuracy, dashboard + AI | Median time, dashboard only | Median time, dashboard + AI | Test, p, effect size |
-|---|---:|---:|---:|---:|---|
-| Lookup (tasks 1–2) | | | | | |
-| History (task 3) | | | | | |
-| Diagnosis (task 4) | | | | | |
-| All tasks | | | | | |
+The synthetic log was passed through the same steps a real study export would take. A shuffled scoring sheet was produced without the profile or the condition, the two scorer files were compared, and `eval/analyse_study.py` produced the report. Every step ran without error. Each of the 20 profiles had exactly four paired attempts (task k in each condition), which gave 80 pairs for the McNemar test, and the counterbalancing was balanced: 40 attempts in each combination of condition and task set. Table 4.8 shows the output.
 
-<div align="center">Table 4.9: Part C: SUS and NASA-TLX per condition [TO FILL]</div>
+<div align="center">Table 4.8: Part C: pipeline validation on synthetic data (not participant results)</div>
 
-| Measure | Dashboard only (mean ± SD) | Dashboard + AI (mean ± SD) | Test | p | Effect size |
-|---|---|---|---|---|---|
-| SUS (0–100) | | | | | |
-| NASA-TLX overall (raw, 0–100) | | | | | |
-| Mental demand | | | | | |
-| Effort | | | | | |
-| Frustration | | | | | |
+| Measure (synthetic) | Dashboard only | Dashboard + AI | Paired test |
+|---|---:|---:|---|
+| Accuracy, lookup (tasks 1–2) | 65 % (26/40) | 65 % (26/40) | McNemar 10 vs 10, p = 1.000 |
+| Accuracy, history (task 3) | 35 % (7/20) | 65 % (13/20) | McNemar 1 vs 7, p = 0.070 |
+| Accuracy, diagnosis (task 4) | 50 % (10/20) | 50 % (10/20) | McNemar 4 vs 4, p = 1.000 |
+| Accuracy, all tasks | 54 % (43/80) | 61 % (49/80) | McNemar 15 vs 21, p = 0.405 |
+| Steps per task, median (IQR) | 9 (5–13) | 8 (5–12) | Wilcoxon, n = 20, p = 0.294, r = 0.23 |
+| Advisor messages per task, median (IQR) | 0 (0–0) | 3.5 (2–5) | — |
+| Median time per task | 121 s | 140 s | — |
+| Gave up | 5 | 6 | — |
 
-Points for the discussion when the data arrive:
+*McNemar "a vs b": a = pairs correct only with the dashboard alone, b = pairs correct only with the AI. Cohen's kappa between the two synthetic scorer files on correct versus incorrect was 0.987 (one disagreement in 160 items, resolved in the first file's* final *column).*
 
-- Compare the accuracy and time pattern by task level with Figliè et al. [14], who found the conversational interface faster on simple tasks with no consistent accuracy advantage. A combined interface may keep the speed benefit on lookup tasks without losing the dashboard's accuracy on diagnosis.
-- Interpret the SUS scores against the benchmarks of Bangor et al. [51].
-- Report how many chat turns and insights each participant used (logged automatically). An accuracy gain without AI use would not be attributable to the AI.
-- Look for over-reliance [46], [48]: tasks answered wrongly in the AI condition where the AI's statement was the source of the error.
+### 4.5.2 What the Validation Shows
+
+**The pipeline did not report an effect that does not exist.** Answers in both conditions come from the same random bank, so a correct pipeline should find no reliable difference, and it found none. Overall accuracy differed by seven points (54 % against 61 %), and the paired test gave p = 0.405. Steps differed by one in the median, with p = 0.294.
+
+**Random data alone produced a large apparent effect on one task.** On the history task, synthetic accuracy was 35 % with the dashboard alone and 65 % with the AI, a 30-point gap with p = 0.070 on only 8 discordant pairs. This gap is pure noise. It shows how easily a single task level with 20 pairs can produce a difference that looks meaningful, and it is the reason the real study must report the overall paired test and its effect size first, and treat differences per task level as exploratory. The same applies to the profile labels. The generator assigns the four labels (novice, experienced technician, engineer, sceptic) in rotation and gives them no behaviour, yet their synthetic accuracy with the AI ranged from 40 % to 75 %. Differences of this size between subgroups of five should not be read as effects in the real study either.
+
+**The agreement figure tests the code, not the scorers.** The kappa of 0.987 confirms that agreement is computed correctly and that disagreements are carried through to the final score. It is high only because the second synthetic scorer copies the first in most items. It says nothing about how consistently real people apply the rubric.
+
+**What the synthetic data cannot provide.** No SUS or NASA-TLX scores were generated. Perceived usability and workload cannot be meaningfully simulated, and the instruments are reserved for the real study. Over-reliance [46], [48] cannot be examined either: the synthetic answers were not produced in response to any AI statement. Table 4.9 summarises the status of every Part C measure.
+
+<div align="center">Table 4.9: Part C: measures and their status</div>
+
+| Measure | Instrument or source | Analysis | Status |
+|---|---|---|---|
+| Task accuracy | Scored answers (Section 3.8.2), two blind scorers | Exact McNemar on paired attempts; Cohen's kappa | Pipeline validated on synthetic data; to be collected |
+| Effort | Interaction steps, page visits and chat turns, logged automatically | Wilcoxon signed-rank, effect size r | Pipeline validated on synthetic data; to be collected |
+| Completion time | Researcher console timer | Median per condition | Logged by the console; to be collected |
+| Usability | SUS [50], interpreted with Bangor et al. [51] | Wilcoxon signed-rank | Instrument ready; to be collected |
+| Workload | Raw NASA-TLX [52], [53] | Wilcoxon signed-rank, overall and per subscale | Instrument ready; to be collected |
+| Over-reliance | Stored chat and insights for each wrong AI-condition answer | Count and share of AI-condition errors | To be collected |
+
+### 4.5.3 Discussion of Part C
+
+RQ1 cannot be answered from this work. What Part C does deliver is a study that is ready to run. The conditions are implemented in the system, the tasks and reference answers are fixed (Appendix B), every task starts from the same replayed history, and the scoring and analysis have been run end to end. The one weakness this exposed is that the per-task-level comparisons are noisy at the planned sample size of about 20, so the real study's primary analysis will be the overall paired test.
+
+When the study is run, the results will be compared with Figliè et al. [14], who found a conversational interface faster than a dashboard on simple tasks, with no consistent accuracy advantage. A combined interface like this one may keep that speed benefit on lookup tasks without losing the dashboard's accuracy on diagnosis. The logged chat turns and insights will show whether any accuracy gain can be attributed to use of the AI. The stored conversations will show whether wrong answers in the AI condition came from AI statements.
 
 ## 4.6 PART D: SYSTEM PERFORMANCE
 
@@ -865,7 +893,7 @@ Points for the discussion when the data arrive:
 |---|---|---|
 | O1 Predict | Complete | Models beat the baseline under both validation schemes (Tables 4.1 and 4.3); SHAP for all four components (Figures 4.1 and 4.2); block-aware validation added and its implications documented |
 | O2 Build | Complete | Closed loop implemented, tested (107 tests) and deployed (Section 4.3) |
-| O3 Evaluate | Part A complete; Part B partly complete; Parts C and D pending | Part B large-model run complete and re-scored after a defect fix (Section 4.4); small-model run, ratings, user study and performance run to do |
+| O3 Evaluate | Part A complete; Part B partly complete; Part C built and its analysis validated on synthetic data; Part D pending | Part B large-model run complete and re-scored after a defect fix (Section 4.4); Part C pipeline validated on 160 synthetic attempts (Section 4.5); small-model run, ratings, the user study with participants and the performance run to do |
 
 \newpage
 
@@ -879,11 +907,11 @@ This project set out to close the loop between predictive maintenance models, th
 
 **O2 (Build) was achieved.** The complete loop runs live: replay, scoring with SHAP in about 59 ms per cycle, the dashboard, automatic work orders on Critical predictions, LLM insights checked against a snapshot of the dashboard, and an Advisor chat that can look up status and history and propose work orders that a person confirms. The LLM is reached through one OpenAI-compatible interface, so the provider and model are a configuration choice. The system is covered by 107 automated tests and is deployed.
 
-**O3 (Evaluate) is partly achieved.** Part A is complete. In Part B, the large-model run showed that, given a structured snapshot, gpt-oss-120b stated unsupported values in only 1 of 68 insights with the check off and none with it on. Part B also uncovered a defect in the grounding check, which mistook typographic hyphens in work-order identifiers for unsupported numbers. The defect made the first reported result (42.6 % falling to 25.0 %) almost entirely an artefact. It was fixed, a regression test was added, and the stored insights were re-scored. [TO FILL: the small-model result (RQ2), the usefulness ratings and the user-study result (RQ1).]
+**O3 (Evaluate) is partly achieved.** Part A is complete. In Part B, the large-model run showed that, given a structured snapshot, gpt-oss-120b stated unsupported values in only 1 of 68 insights with the check off and none with it on. Part B also uncovered a defect in the grounding check, which mistook typographic hyphens in work-order identifiers for unsupported numbers. The defect made the first reported result (42.6 % falling to 25.0 %) almost entirely an artefact. It was fixed, a regression test was added, and the stored insights were re-scored. [TO FILL: the small-model result (RQ2) and the usefulness ratings.] For Part C, the user study was implemented in the system and its scoring and analysis pipeline was validated on 160 synthetic task attempts in which the conditions do not differ by construction. The pipeline correctly found no reliable overall difference (p = 0.405). The validation also showed that a single task level can produce a large spurious gap (30 points on the history task) at the planned sample size. The study has not been run with participants.
 
 The research questions are answered as follows:
 
-- **RQ1** (do grounded insights improve task accuracy and reduce workload?): [TO FILL after the user study.]
+- **RQ1** (do grounded insights improve task accuracy and reduce workload?): not answered. The study that answers it is designed, implemented and has a validated analysis pipeline, but it has not been run with participants. The synthetic data used for the validation contain no evidence about RQ1, in either direction.
 - **RQ2** (how closely can a small model match a large one?): [TO FILL after the small-model run.] The large-model baseline for the comparison is near-perfect grounding at a median of 2.7 s per insight without the check.
 - **RQ3** (how much do the snapshot and the check reduce incorrect values?): with a large model, the snapshot alone kept unsupported values to 1.5 % of insights, and the check removed the remainder. The check's main contribution with a large model is to verify and show that the values are correct, not to correct them. Its corrective value is expected to appear with smaller models (RQ2). The check verifies values, not reasoning: an insight that described an improvement as "worsened" passed it.
 
@@ -893,18 +921,20 @@ The research questions are answered as follows:
 - **Re-scored rather than re-run Part B.** The corrected large-model results come from re-scoring stored texts. The latency and rewrite figures with the check on still include rewrites triggered by the defect.
 - **The grounding check is value-level.** It does not verify that a number belongs to the component its sentence names, or that the reasoning is sound, and it can raise false alarms when a condition word is used as a verb.
 - **Dependence on a third-party provider.** The AI layer needs a reachable cloud provider, and the current readings are sent to it with each request, which some sites will not accept.
-- **Statistical caveats.** The paired t-test over overlapping folds is optimistic [57]. The planned user study has about 20 participants, which limits its power to detect small effects.
+- **Statistical caveats.** The paired t-test over overlapping folds is optimistic [57]. The planned user study has about 20 participants, which limits its power to detect small effects; the synthetic validation showed that differences at a single task level are unreliable at this size.
+- **RQ1 is unanswered.** The user study was not run with participants within the FYP2 timeline. Part C was validated only on synthetic data, which tests the analysis method and contains no evidence about users. The usability and workload instruments (SUS, NASA-TLX) have therefore not yet been applied.
 
 ## 5.3 RECOMMENDATIONS AND FUTURE WORK
 
-1. **Replace the deployed valve model with XGBoost** and select all component models under block-aware validation, because the Random Forest chosen under random folds generalised worst (0.625).
-2. **Re-run Part B with the corrected check** for gpt-oss-120b, to obtain the true rewrite rate and latency, and complete the small-versus-large comparison.
-3. **Extend the grounding check to version 2:** tie each number to the component its sentence names, treat condition words used as verbs correctly, and add a check that a stated change of condition has the right direction.
-4. **Test the check itself** on a labelled set of correct and incorrect insights, reporting its precision and recall as a detector, since Section 4.4.1 showed that a defective check can mislead as much as a hallucinating model.
-5. **Use a model cascade** [12]: a small model for routine insights, escalating to a larger one only when the check fails twice.
-6. **Connect live sensors** (for example, through MQTT or OPC UA) and evaluate on a second dataset, to test generalisation beyond one rig.
-7. **Offer a private model option** (a model hosted on site) for organisations that cannot send operational data to a cloud provider.
-8. **Add remaining-useful-life estimation** alongside condition classification, so that work orders can be scheduled by expected time to failure as well as by condition.
+1. **Run the Part C user study with participants**, after ethics approval, using the protocol, study mode and validated analysis pipeline already built (Sections 3.8.2 and 4.5). Report the overall paired test with its effect size as the primary result, and SUS and NASA-TLX per condition. A simulation with LLM agents operating the real interface (`eval/sim_users.py`) can complement it, but cannot replace it, because agents cannot report usability or workload.
+2. **Replace the deployed valve model with XGBoost** and select all component models under block-aware validation, because the Random Forest chosen under random folds generalised worst (0.625).
+3. **Re-run Part B with the corrected check** for gpt-oss-120b, to obtain the true rewrite rate and latency, and complete the small-versus-large comparison.
+4. **Extend the grounding check to version 2:** tie each number to the component its sentence names, treat condition words used as verbs correctly, and add a check that a stated change of condition has the right direction.
+5. **Test the check itself** on a labelled set of correct and incorrect insights, reporting its precision and recall as a detector, since Section 4.4.1 showed that a defective check can mislead as much as a hallucinating model.
+6. **Use a model cascade** [12]: a small model for routine insights, escalating to a larger one only when the check fails twice.
+7. **Connect live sensors** (for example, through MQTT or OPC UA) and evaluate on a second dataset, to test generalisation beyond one rig.
+8. **Offer a private model option** (a model hosted on site) for organisations that cannot send operational data to a cloud provider.
+9. **Add remaining-useful-life estimation** alongside condition classification, so that work orders can be scheduled by expected time to failure as well as by condition.
 
 \newpage
 
@@ -1050,6 +1080,7 @@ backend/.venv/bin/python eval/rate.py eval/results/rq2.csv --n 60        # blind
 backend/.venv/bin/python eval/analyse.py eval/results/*.csv --ratings eval/results/rq2-ratings.csv
 ./closed-loop.sh start   # in a second terminal, then:
 backend/.venv/bin/python eval/system_perf.py --yes --speed 0.2           # Part D
+backend/.venv/bin/python eval/synthetic_study.py   # Part C pipeline validation → eval/sim/runs/synthetic/report.md
 ```
 
 ## Appendix B. User Study Tasks
@@ -1065,7 +1096,9 @@ backend/.venv/bin/python eval/system_perf.py --yes --speed 0.2           # Part 
 | B3 | History | 1311 → 1324 | Which work order was closed in this period, for which component, and why was it closed? | WO-0001 for the Valve; closed automatically at cycle 1322 because the valve recovered to Optimal. |
 | B4 | Diagnosis | 1972 → 1984 | The pump's condition changed. Why, and what should the maintenance team check? | Critical → Degraded at cycle 1982; main driver is volume flow 1 (mean) ≈ 6.5 l/min, below normal. Check the pump for internal leakage / reduced delivery. |
 
-[TO FILL: attach the participant information sheet, consent form, SUS and NASA-TLX forms as used.]
+[TO FILL when the study is run: attach the participant information sheet, consent form, SUS and NASA-TLX forms as used.]
+
+The synthetic validation data set of Section 4.5 is stored in `docs/dissertation/data/`. `equipment_assessment_responses.csv` holds the 160 scored attempts, `response_review_sheet.csv` the shuffled blind sheet, `experiment_assignments.csv` the key from each item to its profile and condition, and `reviewer_alpha.csv` and `reviewer_beta.csv` the two synthetic scorer files. It contains no data from real people.
 
 ## Appendix C. Insight Prompt (insight-v1)
 
