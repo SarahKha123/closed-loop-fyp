@@ -21,7 +21,7 @@ jobs:
         db: [sqlite, postgres]
     services:
       postgres:
-        image: postgres:17 # RDS runs 17 (infra/main.tf); the tests drop and recreate its public schema
+        image: postgres:17 # Supabase runs Postgres 15–17; the tests drop and recreate its public schema
         env: { POSTGRES_USER: closedloop, POSTGRES_PASSWORD: closedloop, POSTGRES_DB: closed_loop_test }
         ports: ["5432:5432"]
         options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
@@ -36,7 +36,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      # The trained models aren't committed (only their manifest): train them, as the image build does,
+      # The trained models aren't committed (only their manifest): train them, as Render's build does,
       # so the predictor, monitor and study tests run instead of skipping.
       - run: python -m ml.train
       - run: python -m pytest -q

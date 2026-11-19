@@ -55,11 +55,3 @@ client_secret_*.json
 
 # Vercel CLI link (vercel pull / vercel link)
 .vercel/
-
-# Terraform (infra/): providers and plans are local; the lock file is committed
-.terraform/
-*.tfstate*
-tfplan
-
-# Diagram icons are fetched at build time (docs/diagram/architecture.html): AWS icons may not be redistributed
-docs/diagram/icons/

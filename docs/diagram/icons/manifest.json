@@ -1,0 +1,68 @@
+{
+  "react": {
+    "source": "svgl",
+    "url": "https://svgl.app/library/react_light.svg",
+    "file": "react.svg",
+    "bytes": 6534,
+    "dark_file": "react_dark.svg",
+    "dark_url": "https://svgl.app/library/react_dark.svg"
+  },
+  "vercel": {
+    "source": "svgl",
+    "url": "https://svgl.app/library/vercel.svg",
+    "file": "vercel.svg",
+    "bytes": 169,
+    "dark_file": "vercel_dark.svg",
+    "dark_url": "https://svgl.app/library/vercel_dark.svg"
+  },
+  "render": {
+    "source": "svgl",
+    "url": "https://svgl.app/library/render_black.svg",
+    "file": "render.svg",
+    "bytes": 1630,
+    "dark_file": "render_dark.svg",
+    "dark_url": "https://svgl.app/library/render_white.svg"
+  },
+  "fastapi": {
+    "source": "svgl",
+    "url": "https://svgl.app/library/fastapi.svg",
+    "file": "fastapi.svg",
+    "bytes": 280
+  },
+  "supabase": {
+    "source": "svgl",
+    "url": "https://svgl.app/library/supabase.svg",
+    "file": "supabase.svg",
+    "bytes": 1082
+  },
+  "google": {
+    "source": "svgl",
+    "url": "https://svgl.app/library/google.svg",
+    "file": "google.svg",
+    "bytes": 8169
+  },
+  "gha": {
+    "source": "devicon",
+    "url": "https://raw.githubusercontent.com/devicons/devicon/master/icons/githubactions/githubactions-original.svg",
+    "file": "gha.svg",
+    "bytes": 2854
+  },
+  "llm": {
+    "source": "lucide",
+    "url": "https://cdn.jsdelivr.net/npm/lucide-static/icons/sparkles.svg",
+    "file": "llm.svg",
+    "bytes": 643
+  },
+  "sklearn": {
+    "source": "explicit",
+    "url": "https://raw.githubusercontent.com/scikit-learn/scikit-learn/main/doc/logos/scikit-learn-logo-without-subtitle.svg",
+    "file": "sklearn.svg",
+    "bytes": 7126
+  },
+  "brevo": {
+    "source": "explicit",
+    "url": "https://corp-backend.brevo.com/wp-content/uploads/2025/07/Brevo_logo.svg",
+    "file": "brevo.svg",
+    "bytes": 882
+  }
+}

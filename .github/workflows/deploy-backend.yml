@@ -1,9 +1,16 @@
-# Deploys the backend container to AWS (ECS Express Mode) only when the repository owner starts it by hand:
-# Actions → "Deploy backend (AWS)" → Run workflow (branch: main). Independent of the frontend deploy.
-# "Closed Loop checks" must already have passed for the exact commit. Postgres migrations run as the new task
-# starts (backend/Dockerfile); a failing one fails the deploy and ECS keeps the old task.
-# AWS access is through OIDC (role closed-loop-github-deploy, only usable from the "production" environment): no stored keys.
-name: Deploy backend (AWS)
+# Deploys the backend (backend/) to Render, only when the repository owner starts it by hand:
+# Actions → "Deploy backend (Render)" → Run workflow (branch: main). Pushes never deploy (Render's
+# auto-deploy is off, render.yaml).
+#
+# Gates, in order:
+#   1. "Closed Loop checks" passed for this exact commit.
+#   2. Supabase is reachable and has no pending or edited migration (the server refuses to start on an
+#      out-of-date schema, so this catches it before Render does). Run "Database (Supabase)" → migrate first.
+#   3. The production environment's approval (if you set one), then Render's deploy hook for this commit.
+#
+# Why nobody else can deploy: the jobs run only if the owner both started the run and (for a re-run)
+# clicked re-run, and only on main; the secrets live in the "production" GitHub Environment.
+name: Deploy backend (Render)
 
 on:
   workflow_dispatch:
@@ -43,85 +50,52 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-  deploy:
-    name: Deploy to ECS
-    needs: [verify-checks]
+  verify-database:
+    name: Verify the database is up to date
     runs-on: ubuntu-latest
+    if: github.actor == github.repository_owner && github.triggering_actor == github.repository_owner && github.ref == 'refs/heads/main'
     environment: production
-    permissions:
-      contents: read
-      id-token: write # the OIDC token AWS trusts
     env:
-      SERVICE_ARN: ${{ vars.ECS_SERVICE_ARN }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v7
-      - uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/closed-loop-github-deploy
-          aws-region: ap-southeast-1
-      - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: Build and push the image (tagged with the commit)
-        id: image
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - run: pip install "psycopg[binary,pool]"
+      - id: check
+        run: python -m app.services.migrate --check # fails on an edited migration
+      - name: Require no pending migrations
         run: |
-          image="${{ steps.ecr.outputs.registry }}/closed-loop-api:$GITHUB_SHA"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          # Tags are immutable: a re-run for the same commit reuses the image it already pushed
-          if aws ecr describe-images --repository-name closed-loop-api --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
-            echo "Image for $GITHUB_SHA already in ECR."
-            exit 0
+          if [ "${{ steps.check.outputs.pending }}" != "0" ]; then
+            echo "${{ steps.check.outputs.pending }} migration(s) are pending: run Database (Supabase) with action=migrate first." >&2
+            exit 1
           fi
-          docker build -f backend/Dockerfile --build-arg GIT_SHA="$GITHUB_SHA" -t "$image" .
-          docker push "$image"
-      - name: Point the service at the new image
+
+  deploy:
+    name: Deploy to Render
+    needs: [verify-checks, verify-database]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Render deploy for this commit
         run: |
-          # Update only the image: read the running container config and send it back with the new image, so the
-          # environment and secrets Terraform set stay as they are
-          container=$(aws ecs describe-express-gateway-service --service-arn "$SERVICE_ARN" \
-            --query 'service.activeConfigurations[0].primaryContainer' --output json \
-            | jq -c --arg image "${{ steps.image.outputs.image }}" '.image = $image')
-          echo "DEPLOY_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          aws ecs update-express-gateway-service --service-arn "$SERVICE_ARN" --primary-container "$container" >/dev/null
-      - name: Wait until the new task is healthy
-        run: |
-          # Follows the ECS deployment instead of `aws ecs wait services-stable` (a fixed 10 minutes that says
-          # nothing about why). A failure prints the service events, stopped tasks and recent logs.
-          cluster=$(aws ecs describe-express-gateway-service --service-arn "$SERVICE_ARN" --query 'service.cluster' --output text)
-          diagnose() {
-            echo "::group::Service events"
-            aws ecs describe-services --cluster "$cluster" --services "$SERVICE_ARN" \
-              --query 'services[0].events[:15].[createdAt,message]' --output text || true
-            echo "::endgroup::"
-            echo "::group::Stopped tasks"
-            tasks=$(aws ecs list-tasks --cluster "$cluster" --service-name "${SERVICE_ARN##*/}" --desired-status STOPPED --query 'taskArns[:3]' --output text || true)
-            [ -n "$tasks" ] && [ "$tasks" != "None" ] && aws ecs describe-tasks --cluster "$cluster" --tasks $tasks \
-              --query 'tasks[].{stopped:stoppedReason,containers:containers[].[name,exitCode,reason]}' --output json || true
-            echo "::endgroup::"
-            echo "::group::Last 15 minutes of /ecs/closed-loop-api"
-            aws logs filter-log-events --log-group-name /ecs/closed-loop-api --start-time $(( ($(date +%s) - 900) * 1000 )) \
-              --query 'events[-60:].message' --output text || true
-            echo "::endgroup::"
-          }
-          # Done = the live API (through CloudFront) reports this commit (/api/health → version = GIT_SHA).
-          # A deployment's status alone can't be trusted right after the update: the new one may not be listed yet.
-          app_url=$(sed -n 's/^app_url *= *"\(.*\)"/\1/p' infra/app.auto.tfvars)
-          for _ in $(seq 1 90); do # 90 × 20 s = 30 minutes
-            live=$(curl -fsS -m 10 "$app_url/api/health" | jq -r '.version // empty' || true)
-            failed=$(aws ecs list-service-deployments --cluster "$cluster" --service "$SERVICE_ARN" \
-              --created-at "after=$DEPLOY_STARTED" --output json \
-              | jq -r '[.serviceDeployments[] | select(.status | test("^(STOPPED|ROLLBACK_)"))][0] | select(.) | "\(.status) \(.statusReason // "")"' || true)
-            echo "$(date +%T) live: ${live:-unreachable}"
-            if [ "$live" = "$GITHUB_SHA" ]; then
-              echo "Backend running ${{ steps.image.outputs.image }}" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            if [ -n "$failed" ]; then
-              echo "::error::Deployment $failed (ECS keeps the previous task running)"
-              diagnose
+          case "$RENDER_DEPLOY_HOOK_URL" in
+            https://api.render.com/deploy/*) ;;
+            *)
+              echo "RENDER_DEPLOY_HOOK_URL must be the Render deploy-hook URL from the service Settings page." >&2
+              echo "It should start with https://api.render.com/deploy/." >&2
               exit 1
-            fi
-            sleep 20
-          done
-          echo "::error::Deployment still not finished after 30 minutes"
-          diagnose
-          exit 1
+              ;;
+          esac
+          separator='?'
+          case "$RENDER_DEPLOY_HOOK_URL" in
+            *\?*) separator='&' ;;
+          esac
+          curl --fail-with-body --silent --show-error --request POST \
+            "${RENDER_DEPLOY_HOOK_URL}${separator}ref=${GITHUB_SHA}"
+          echo "Render is building commit $GITHUB_SHA: follow it in the Render dashboard → Events." >> "$GITHUB_STEP_SUMMARY"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}

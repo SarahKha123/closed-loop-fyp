@@ -1,9 +1,0 @@
-**
-!backend/requirements.txt
-!backend/data
-!backend/ml
-!backend/app
-!config/settings.json
-!config/study_scenarios.json
-**/__pycache__
-backend/ml/models/*.joblib

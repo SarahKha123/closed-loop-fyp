@@ -315,7 +315,7 @@ def _pool(url: str) -> Any:
         conn.row_factory = _row_factory
 
     # prepare_threshold=None: no server-side prepared statements, so Supabase's transaction pooler works too.
-    # ponytail: 5 connections and one writer at a time (the lock below), plenty for the one ECS task.
+    # ponytail: 5 connections and one writer at a time (the lock below), plenty for one Render instance.
     return ConnectionPool(url, min_size=1, max_size=5, open=True, configure=configure,
                           kwargs={"prepare_threshold": None, "connect_timeout": 10})
 
