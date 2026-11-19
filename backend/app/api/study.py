@@ -15,11 +15,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import Response
 
 from ..services import repo, settings, study
-from .replay import _replay
+from ..services.replay import Replay
+from .replay import _control
 
 router = APIRouter(prefix="/api/study", tags=["study"])
 
@@ -51,7 +52,7 @@ def condition(value: str = Body(..., embed=True, alias="condition")) -> dict[str
 
 @router.post("/tasks/start")
 async def start_task(
-    request: Request,
+    replay: Replay = Depends(_control),  # like Play: the researcher who starts the task drives the live insights
     participant: str = Body(...),
     condition: str = Body(...),
     task_set: str = Body(..., alias="taskSet"),
@@ -60,7 +61,7 @@ async def start_task(
     if not participant.strip():
         raise HTTPException(status_code=400, detail="participant is required")
     try:
-        return await study.start_task(_replay(request), participant.strip(), condition, task_set, task_id)
+        return await study.start_task(replay, participant.strip(), condition, task_set, task_id)
     except study.StudyError as exc:
         raise _bad(exc) from exc
 

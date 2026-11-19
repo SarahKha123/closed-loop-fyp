@@ -293,8 +293,7 @@ closed-loop-fyp/
 ├── docs/              Architecture, API reference, development guide, dataset, scope
 ├── scripts/common.sh  Shell helpers for closed-loop.sh
 ├── closed-loop.sh     The one entry point for running anything
-├── .env.example       Ports, cloud model, sign-in, email (copied to .env)
-└── Daedalus/          Reference project only, not part of this app, never modified
+└── .env.example       Ports, cloud model, sign-in, email (copied to .env)
 ```
 
 ---

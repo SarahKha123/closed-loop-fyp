@@ -11,8 +11,8 @@ The subjects are **simulated participants (LLM agents)**, not people.
 | Personas | `eval/sim/personas.json`: 24 = 4 types × 6, SHA-256 recorded in `runs/official/config.json` |
 | Assignment | persona `planIndex` n → `study.plan(n)`; each type meets each of the 4 orders 1–2 times |
 | Tasks and reference answers | `config/study_scenarios.json` (sets A, B; 4 tasks each), answers re-checked on ____ |
-| Agent (vision) model | ____ (provider/model) |
-| Advisor model | ____ (must differ from the agent model; the script checks this) |
+| Agent (vision) model | `groq/qwen/qwen3.8-27b`, run with `--no-reasoning` (`reasoning_effort: "none"`) |
+| Advisor model | `groq/openai/gpt-oss-120b` (differs from the agent model; the script checks this) |
 | Judge / second scorer | ____ (a person or a third model, blind to condition) |
 | Temperature, seed | 0.7; seed = 1000 + planIndex |
 | Limits per task | 15 steps, 6 Advisor messages; reaching the limit = gave up = incorrect |
@@ -42,4 +42,8 @@ Steps, not seconds, are the effort measure.
 
 | Date | Change | Reason |
 |---|---|---|
-| | | |
+| 2026-11-12 | Agent runs with Qwen reasoning off (`--no-reasoning`) | Dry run `dry-2`: with reasoning on, each step cost ~20k tokens and exhausted the free-tier daily cap (200k) in ~9 steps; off, ~3k per step |
+| 2026-11-12 | Study mode pins `monitor.autoCloseOnRecovery` on at every task start (`services/study.py`) | Dry run `dry-3`, task A3: the setting defaults to off, so WO-0001 never closed and the history tasks (A3, B3), whose reference answers say "closed automatically", were unanswerable. Affects real participants too |
+| 2026-11-12 | Starting a study task makes the researcher the insight driver, as Play does (`api/study.py`) | Dry run `dry-3`: no live insights were generated in the AI condition (0 insights in B1–B3) because nobody had pressed a replay control since the server started; whether participants saw insights would have depended on that |
+| 2026-11-12 | New agent action `click_text` (click a visible label) | Dry run `dry-3`, task A3: the agent's x/y clicks missed by 50–350 px (11 missed clicks on the History tab), so content behind tabs was unreachable; that measures the model's pointing, not the interface |
+| 2026-11-12 | `dry-2` and `dry-3` are discarded; the dry run is repeated as `dry-4` | They ran before the changes above |

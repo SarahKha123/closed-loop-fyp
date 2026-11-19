@@ -67,6 +67,7 @@ Stay in character as the person below for the whole task.
 
 You see one screenshot at a time ({w}x{h} pixels). Answer the task question using only what the
 screen shows. Reply with exactly ONE JSON object and nothing else, one of:
+  {{"action": "click_text", "text": "<the visible label of a link, tab or button>", "why": "<short>"}}
   {{"action": "click", "x": <int>, "y": <int>, "why": "<short>"}}
   {{"action": "scroll", "dy": <int, positive = down>, "x": <int>, "y": <int>, "why": "<short>"}}
   {{"action": "goto", "route": "/" | "/components/<cooler|valve|pump|accumulator>" | "/work-orders" | "/sensors", "why": "<short>"}}
@@ -122,6 +123,22 @@ def parse_action(text: str) -> dict:
         return {}
 
 
+def click_text(page, text: str) -> str:
+    """Click the visible element labelled `text` (exact match first): vision models' x/y clicks miss by
+    50–350 px (dry run, PROTOCOL.md change log). Returns a note for the agent, "" if clicked."""
+    if not text.strip():
+        return "no text given"
+    for exact in (True, False):
+        loc = page.get_by_text(text.strip(), exact=exact).locator("visible=true")
+        if loc.count():
+            try:
+                loc.first.click(timeout=3000)
+                return ""
+            except Exception:  # noqa: BLE001 — covered or detached: report, don't crash the task
+                return "that element could not be clicked"
+    return "no visible element with that text"
+
+
 def ask_advisor(page, text: str) -> None:
     page.fill("#advisor-input", text)
     page.press("#advisor-input", "Enter")
@@ -165,6 +182,8 @@ def run_task(api: httpx.Client, browser, cookie: dict, base: str, cfg: dict, per
             kind, note = act.get("action"), ""
             if kind == "answer":
                 answer = str(act.get("text", "")).strip()
+            elif kind == "click_text":
+                note = click_text(page, str(act.get("text", "")))
             elif kind == "click":
                 page.mouse.click(int(act["x"]), int(act["y"]))
             elif kind == "scroll":
@@ -182,7 +201,7 @@ def run_task(api: httpx.Client, browser, cookie: dict, base: str, cfg: dict, per
                 page.goto(base + "/")
                 page.wait_for_timeout(1500)
                 note = "blocked route, returned to /"
-            elif kind in ("click", "scroll") and page.screenshot() == png:  # replay is paused: same pixels = no effect
+            elif kind in ("click", "click_text", "scroll") and not note and page.screenshot() == png:  # replay is paused: same pixels = no effect
                 note = "nothing changed on screen"
             history.append(f"{steps}. {json.dumps(act)}" + (f"  [{note}]" if note else ""))
             log.write(json.dumps({"step": steps, "screenshot": shot.name, "url": urlparse(page.url).path,
