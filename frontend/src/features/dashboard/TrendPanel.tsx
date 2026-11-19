@@ -19,7 +19,7 @@ export function TrendPanel({ trend, className = "" }: { trend: Trend | null; cla
     <Card className={`flex min-h-0 flex-col ${className}`}>
       <CardHeader
         title="Failure probability"
-        subtitle={`Every component, last ${TREND_WINDOW} cycles`}
+        subtitle={`Predicted by the models, every component, last ${TREND_WINDOW} cycles`}
         actions={
           <div className="flex gap-3">
             {(["chart", "table"] as const).map((v) => (

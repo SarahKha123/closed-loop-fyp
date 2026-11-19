@@ -26,9 +26,7 @@ function ModelsView() {
             Your API keys
           </h2>
           <p className="max-w-[70ch] text-sm text-ink-muted">
-            Add a key for one provider, test it, then use it for your chat. Keys are linked to your account, stored
-            encrypted on the server, and never sent back to the browser; nobody else's chat can use them. Each answer
-            sends the current readings to the provider.
+            Pick a provider, paste your key, test it, then use it. Keys are encrypted on the server and only your chat uses them; each answer sends the current readings to the provider.
           </p>
         </div>
         <ProviderList />

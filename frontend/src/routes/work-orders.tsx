@@ -32,7 +32,7 @@ function WorkOrdersPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Work orders"
-        subtitle={`${openCount} open · raised automatically when a component turns Critical, or by hand · closed by a technician with what they found`}
+        subtitle={`${openCount} open · raised automatically when a component turns Critical, or by hand`}
         actions={
           !creating && (
             <Button variant="primary" onClick={() => setCreating(true)}>

@@ -40,6 +40,14 @@ def test_overview_before_and_after_replay(client):
     assert ov["kpis"]["critical"] + ov["kpis"]["degraded"] + ov["kpis"]["optimal"] == 4
     assert {c["component"] for c in ov["components"]} == {"Cooler", "Valve", "Pump", "Accumulator"}
     assert all(c["since"] is not None and len(c["shap"]) == 3 for c in ov["components"])
+    # Measured (raw sensor means) and recorded (the dataset's own label) sit beside each prediction.
+    cooler = next(c for c in ov["components"] if c["key"] == "cooler")
+    assert [m["sensor"] for m in cooler["measured"]] == ["CP", "CE", "TS1"] and ov["stable"] in (0, 1)
+    assert cooler["recorded"] == {"condition": "Optimal", "value": 100, "unit": "%"}  # cycle 1667: all Optimal
+    from app.services import settings
+    settings.update({"study": {"enabled": True}})  # the answer would give a study task away
+    assert all(c["recorded"] is None for c in client.get("/api/dashboard/overview").json()["components"])
+    settings.update({"study": {"enabled": False}})
 
     trend = client.get("/api/dashboard/trend?last=50").json()
     assert trend["cycles"] == [1665, 1666, 1667]

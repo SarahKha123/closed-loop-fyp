@@ -40,6 +40,10 @@ export interface ComponentState {
   changedFrom: Condition | null
   since: number | null
   openWorkOrder: string | null
+  /** Raw sensor means this cycle for the sensors tied to this component: measured, not predicted. */
+  measured: { sensor: string; name: string; unit: string; value: number }[]
+  /** The dataset's own recorded condition for this cycle (null in study mode). `value` is the graded value, e.g. 3 (%). */
+  recorded: { condition: Condition; value: number; unit: string } | null
 }
 
 export interface Overview {
@@ -48,6 +52,8 @@ export interface Overview {
   predictor: { trainedAt: string; models: Record<ComponentKey, string>; versionWarnings: string[] } | null
   predictorError: string | null
   cycle: number | null
+  /** The dataset's stable flag for this cycle: 0 = conditions stable, 1 = may not have settled yet. */
+  stable: number | null
   kpis: {
     critical: number
     degraded: number

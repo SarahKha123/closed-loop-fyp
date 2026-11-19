@@ -11,16 +11,47 @@ Asset Count" rule — never the history.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from ml import features as ml_features
+from ml import labels as ml_labels
 
-from ..services import db, repo
+from ..services import db, repo, settings
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 _COMPONENT_KEY = {v["ComponentType"]: k for k, v in db.EQUIPMENT.items()}  # 'Cooler' → 'cooler'
+_RECORDED_UNIT = {"cooler": "%", "valve": "%", "pump": "leakage", "accumulator": "bar"}
+
+
+@lru_cache(maxsize=1)
+def _recorded() -> tuple[Any, Any]:
+    """The dataset's own condition per cycle: graded values and their classes (what the models were trained on)."""
+    return ml_labels.load_profile(), ml_labels.load_labels()
+
+
+def _recorded_for(key: str, cycle: int) -> dict[str, Any] | None:
+    try:
+        profile, classes = _recorded()
+        return {
+            "condition": ml_labels.CLASSES[int(classes.at[cycle, key])],
+            "value": int(profile.at[cycle, key]),
+            "unit": _RECORDED_UNIT[key],
+        }
+    except (KeyError, OSError, ValueError):
+        return None
+
+
+def _measured(key: str, means: dict[str, float]) -> list[dict[str, Any]]:
+    """The first three sensors associated with this component, as measured this cycle (raw means, no model)."""
+    out = []
+    for s in ml_features.COMPONENT_SENSORS[key][:3]:
+        if s in means:
+            name, _, unit, _ = ml_features.SENSOR_INFO[s]
+            out.append({"sensor": s, "name": name, "unit": unit, "value": means[s]})
+    return out
 
 
 def _status(request: Request) -> dict[str, Any]:
@@ -38,12 +69,19 @@ def _status(request: Request) -> dict[str, Any]:
 def overview(request: Request) -> dict[str, Any]:
     latest = repo.latest_predictions()
     open_orders = repo.list_work_orders("Open")
+    reading = repo.reading(latest[0]["cycle"]) if latest else None
+    means = (reading or {}).get("sensorMeans") or {}
+    # The recorded answer would give the study task away, so participants never see it.
+    show_truth = not settings.get()["study"]["enabled"]
     components = []
     for p in latest:
         prev = repo.previous_prediction(p["equipmentId"], p["predictionId"])
+        key = _COMPONENT_KEY[p["component"]]
         components.append({
             **p,
-            "key": _COMPONENT_KEY[p["component"]],
+            "key": key,
+            "measured": _measured(key, means),
+            "recorded": _recorded_for(key, p["cycle"]) if show_truth else None,
             "changedFrom": prev["condition"] if prev and prev["condition"] != p["condition"] else None,
             "previousFailureProbability": prev["failureProbability"] if prev else None,
             "since": repo.condition_since(p["equipmentId"]),
@@ -53,6 +91,7 @@ def overview(request: Request) -> dict[str, Any]:
     return {
         **_status(request),
         "cycle": latest[0]["cycle"] if latest else None,
+        "stable": reading["stable"] if reading else None,
         "kpis": {
             "critical": count("Critical"),
             "degraded": count("Degraded"),

@@ -1,5 +1,7 @@
-// The right-hand Advisor: live insights it writes when the data changes, then a chat about the live readings,
-// both answered by the active cloud model and grounding-checked against the snapshot it was given.
+// The right-hand Advisor, in two tabs that each get the full height: Chat (questions about the live readings) and
+// Insights (the notes it writes when the data changes). Both come from the active cloud model and are
+// grounding-checked against the snapshot it was given. Unread insights show as a count on their tab and as a
+// one-line preview above the chat, so they're never missed but never crowd the conversation.
 
 import { Link } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
@@ -138,9 +140,9 @@ function InsightsFeed() {
   }
 
   return (
-    <section className="flex max-h-[45%] shrink-0 flex-col border-b border-line" aria-label="Live insights">
-      <div className="flex items-center gap-2 px-4 pt-2.5 pb-1.5">
-        <span className="text-sm font-semibold text-ink-muted">Live insights</span>
+    <section id="advisor-insights" role="tabpanel" className="flex min-h-0 grow flex-col" aria-label="Live insights">
+      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+        <span className="text-sm text-ink-muted">Written when a condition changes or a work order opens</span>
         <span className="grow" />
         <Button size="sm" variant="ghost" onClick={() => void summarise()} disabled={busy || !overview?.cycle} className="!h-7">
           {busy ? "Writing…" : "Summarise now"}
@@ -159,7 +161,7 @@ function InsightsFeed() {
           )}
         </div>
       )}
-      <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3">
+      <div className="flex min-h-0 grow flex-col gap-2 overflow-y-auto px-4 pb-3">
         {insights.length === 0 ? (
           <p className="text-sm text-ink-faint">
             The Advisor writes a short note here when a component changes condition, its failure probability crosses the
@@ -176,14 +178,23 @@ function InsightsFeed() {
 /** No `onClose`: the panel can't be hidden (study mode, AI condition). */
 export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
   const { messages, streaming, send, stop, clear } = useChat()
-  const { overview } = useLive()
+  const { overview, insights } = useLive()
   const { active } = useModels()
   const [input, setInput] = useState("")
+  const [tab, setTab] = useState<"chat" | "insights">("chat")
+  const latestId = insights[0]?.id ?? 0
+  const [seenId, setSeenId] = useState(0)
+  // While the Insights tab is open everything is read; switching tabs records how far you got.
+  const unread = tab === "insights" ? [] : insights.filter((i) => i.id > seenId)
+  const switchTab = (t: "chat" | "insights") => {
+    setSeenId(latestId)
+    setTab(t)
+  }
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
-  }, [messages])
+  }, [messages, tab])
 
   const flagged = overview?.components.filter((c) => c.condition !== "Optimal") ?? []
   const suggestions = [
@@ -223,7 +234,7 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
             )}
           </div>
         </div>
-        {messages.length > 0 && (
+        {tab === "chat" && messages.length > 0 && (
           <Button size="sm" variant="ghost" onClick={clear} disabled={streaming}>
             Clear
           </Button>
@@ -235,7 +246,43 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
         )}
       </header>
 
-      <InsightsFeed />
+      <div role="tablist" aria-label="Advisor" className="flex gap-1 border-b border-line px-3">
+        {(["chat", "insights"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={t === "chat" ? "advisor-chat" : "advisor-insights"}
+            onClick={() => switchTab(t)}
+            className={`-mb-px inline-flex items-center gap-1.5 border-b px-2 py-2.5 text-base font-medium transition-colors ${
+              tab === t ? "border-accent text-ink" : "border-transparent text-ink-muted hover:text-ink"
+            }`}
+          >
+            {t === "chat" ? "Chat" : "Insights"}
+            {t === "insights" && unread.length > 0 && (
+              <span className="tabular rounded-full bg-accent-bg px-1.5 text-xs font-semibold text-accent-text" aria-label={`${unread.length} unread`}>
+                {unread.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === "insights" ? (
+        <InsightsFeed />
+      ) : (
+      <div id="advisor-chat" role="tabpanel" className="flex min-h-0 grow flex-col">
+      {unread[0] && (
+        <button
+          type="button"
+          onClick={() => switchTab("insights")}
+          className="mx-4 mt-3 flex items-baseline gap-2 rounded-lg bg-surface px-3 py-2 text-left text-sm transition-colors hover:bg-surface-3"
+        >
+          <span className="shrink-0 font-semibold text-accent-text">New insight</span>
+          <span className="truncate text-ink-muted">{unread[0].text.replace(/[*`#]/g, "")}</span>
+        </button>
+      )}
 
       <div ref={scrollRef} className="flex min-h-0 grow flex-col gap-2.5 overflow-y-auto px-4 py-3">
         {messages.length === 0 ? (
@@ -325,6 +372,8 @@ export function AdvisorPanel({ onClose }: { onClose?: () => void }) {
           </Button>
         )}
       </form>
+      </div>
+      )}
     </aside>
   )
 }

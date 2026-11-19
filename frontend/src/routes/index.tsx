@@ -81,7 +81,7 @@ function OverviewPage() {
             <div className="grid grid-cols-2 gap-4 @4xl:col-span-2 @4xl:grid-cols-4">
               {COMPONENTS.map((c) => {
                 const state = overview!.components.find((s) => s.component === c.name)
-                return state ? <ComponentCard key={c.key} state={state} /> : null
+                return state ? <ComponentCard key={c.key} state={state} stable={overview!.stable} /> : null
               })}
             </div>
             <TrendPanel trend={trend} className="h-[320px] @4xl:col-span-2 @4xl:h-auto" />

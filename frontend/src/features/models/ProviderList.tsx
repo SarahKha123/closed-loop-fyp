@@ -3,66 +3,29 @@ import { Button } from "../../components/ui/Button"
 import { confirmAction } from "../../components/ui/ConfirmDialog"
 import { useModels } from "../../context/ModelsContext"
 import { request } from "../../lib/http"
-import { card, input } from "../../lib/ui"
+import { card, input, inputCompact } from "../../lib/ui"
 import type { CloudProvider } from "./types"
 
-/** Every provider as one row of a divided list; a row opens to its key, model and URL. */
+/** One provider at a time: a dropdown picks it (its saved base URL comes with it), and one form below edits it. */
 export function ProviderList() {
+  const { active, selectProvider, refresh } = useModels()
   const [providers, setProviders] = useState<CloudProvider[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+  const selectId = useId()
 
   useEffect(() => {
     request<{ providers: CloudProvider[] }>("/api/cloud")
-      // Set-up providers first, once on load; later changes don't reshuffle the rows under the pointer.
-      .then((r) => setProviders([...r.providers].sort((a, b) => rank(a) - rank(b))))
+      .then((r) => setProviders(r.providers))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "could not load providers"))
   }, [])
 
-  return (
-    <div data-tour="providers" className={`${card} divide-y divide-line`}>
-      {error && <p className="px-4 py-3 text-base text-critical-text">Couldn't load providers: {error}</p>}
-      {!providers && !error && <p className="px-4 py-3 text-base text-ink-faint">Loading providers…</p>}
-      {providers?.map((p) => (
-        <ProviderRow
-          key={p.id}
-          provider={p}
-          open={open === p.id}
-          onToggle={() => setOpen(open === p.id ? null : p.id)}
-          onChange={(next) => setProviders((cur) => cur?.map((c) => next.find((n) => n.id === c.id) ?? c) ?? next)}
-        />
-      ))}
-    </div>
-  )
-}
-
-const rank = (p: CloudProvider) => (p.ready ? 0 : p.has_key ? 1 : 2)
-
-/** A pill only where it says something: an untouched provider gets none, so eight rows don't shout "not set up". */
-function status(p: CloudProvider, inUse: boolean): { text: string; tone: string } | null {
-  if (inUse) return { text: "In use", tone: "bg-accent-bg text-accent-text" }
-  if (p.ready) return { text: "Ready", tone: "bg-good-bg text-good-text" }
-  if (p.has_key) return { text: "Needs a model", tone: "bg-warning-bg text-warning-text" }
-  return null
-}
-
-function ProviderRow({
-  provider: p,
-  open,
-  onToggle,
-  onChange,
-}: {
-  provider: CloudProvider
-  open: boolean
-  onToggle: () => void
-  onChange: (providers: CloudProvider[]) => void
-}) {
-  const { active, selectProvider, refresh } = useModels()
-  const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
-  const inUse = active?.provider === p.id
-  const s = status(p, inUse)
-  const formId = useId()
+  // Opens on the provider in use, else the first one that's ready, else the first in the list.
+  const p = providers?.find((c) => c.id === picked) ?? providers?.find((c) => c.id === active?.provider) ?? providers?.find((c) => c.ready) ?? providers?.[0]
+  const inUse = Boolean(p && active?.provider === p.id)
+  const s = p ? status(p, inUse) : null
 
   async function run(action: () => Promise<void>) {
     setBusy(true)
@@ -75,57 +38,63 @@ function ProviderRow({
     }
   }
 
+  if (error) return <p className={`${card} px-4 py-3 text-base text-critical-text`}>Couldn't load providers: {error}</p>
+  if (!providers || !p) return <p className={`${card} px-4 py-3 text-base text-ink-faint`}>Loading providers…</p>
+
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={formId}
-          className="flex min-w-0 grow items-center gap-3 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        >
-          <span className="min-w-0">
-            <span className="block text-base font-semibold text-ink">{p.label}</span>
-            {p.model ? (
-              <span className="block truncate font-mono text-sm text-ink-muted">{p.model}</span>
-            ) : (
-              <span className="block text-sm text-ink-faint">{p.has_key ? "Key saved, no model chosen" : "No key"}</span>
-            )}
-          </span>
-        </button>
-        {s && <span className={`rounded-full px-2 py-0.5 text-sm font-medium whitespace-nowrap ${s.tone}`}>{s.text}</span>}
+    <div data-tour="providers" className={card}>
+      <div className="flex flex-wrap items-end gap-3 px-4 py-4">
+        <label htmlFor={selectId} className="flex min-w-[16rem] grow flex-col gap-1.5 text-sm font-medium text-ink-muted @3xl:grow-0">
+          Provider
+          <select
+            id={selectId}
+            value={p.id}
+            onChange={(e) => {
+              setPicked(e.target.value)
+              setNote(null)
+            }}
+            className={`${inputCompact} pr-8`}
+          >
+            {providers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+                {c.id === active?.provider ? " · in use" : c.ready ? " · ready" : c.has_key ? " · key saved" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        {s && <span className={`mb-2 rounded-full px-2 py-0.5 text-sm font-medium whitespace-nowrap ${s.tone}`}>{s.text}</span>}
+        <div className="grow" />
         {p.ready && !inUse && (
-          <Button size="sm" disabled={busy} onClick={() => void run(async () => selectProvider(p.id))}>
-            Use
+          <Button variant="primary" disabled={busy} onClick={() => void run(async () => selectProvider(p.id))}>
+            Use for my chat
           </Button>
         )}
-        <Button size="sm" variant="ghost" aria-expanded={open} aria-controls={formId} onClick={onToggle}>
-          {open ? "Close" : p.has_key ? "Edit" : "Set up"}
-        </Button>
       </div>
-      {note && !open && (
-        <p role="status" className={`px-4 pb-3 text-sm ${note.ok ? "text-good-text" : "text-critical-text"}`}>
-          {note.text}
-        </p>
-      )}
-      {open && (
-        <ProviderForm
-          id={formId}
-          provider={p}
-          inUse={inUse}
-          busy={busy}
-          note={note}
-          setNote={setNote}
-          run={run}
-          onSaved={async (providers) => {
-            onChange(providers)
-            if (inUse) await refresh()
-          }}
-        />
-      )}
+      <ProviderForm
+        key={p.id}
+        id={`${selectId}-form`}
+        provider={p}
+        inUse={inUse}
+        busy={busy}
+        note={note}
+        setNote={setNote}
+        run={run}
+        onSaved={async (next) => {
+          setProviders(next)
+          if (inUse) await refresh()
+        }}
+      />
     </div>
   )
+}
+
+/** A pill only where it says something: an untouched provider gets none. */
+function status(p: CloudProvider, inUse: boolean): { text: string; tone: string } | null {
+  if (inUse) return { text: "In use", tone: "bg-accent-bg text-accent-text" }
+  if (p.ready) return { text: "Ready", tone: "bg-good-bg text-good-text" }
+  if (p.has_key) return { text: "Needs a model", tone: "bg-warning-bg text-warning-text" }
+  return null
 }
 
 function ProviderForm({
@@ -193,13 +162,13 @@ function ProviderForm({
   return (
     <form
       id={id}
-      className="animate-page-in grid gap-4 bg-surface-2 px-4 py-4 @3xl:grid-cols-2"
+      className="grid gap-4 border-t border-line px-4 py-4 @3xl:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault()
         if (dirty && !busy) void save()
       }}
     >
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted @3xl:col-span-2">
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
         API key
         <span className="flex gap-2">
           <input
@@ -233,16 +202,22 @@ function ProviderForm({
           ))}
         </datalist>
       </label>
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-muted">
-        Base URL
-        <input
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          spellCheck={false}
-          placeholder="https://…/v1"
-          className={`${input} font-mono text-sm`}
-        />
-      </label>
+      {/* The base URL comes with the provider; only Custom needs one typed, so it's tucked away for the rest. */}
+      <details open={!p.default_base_url || baseUrl !== p.default_base_url} className="text-sm @3xl:col-span-2">
+        <summary className="w-fit cursor-pointer text-ink-muted hover:text-ink">
+          Base URL <span className="ml-1 font-mono text-ink-faint">{baseUrl || "not set"}</span>
+        </summary>
+        <label className="mt-2 flex flex-col gap-1.5 font-medium text-ink-muted">
+          <span className="sr-only">Base URL</span>
+          <input
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            spellCheck={false}
+            placeholder="https://…/v1"
+            className={`${input} font-mono text-sm`}
+          />
+        </label>
+      </details>
 
       {note && (
         <p id={noteId} role="status" className={`text-sm @3xl:col-span-2 ${note.ok ? "text-good-text" : "text-critical-text"}`}>

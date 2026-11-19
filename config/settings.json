@@ -1,6 +1,6 @@
 {
   "study": {
-    "enabled": true,
+    "enabled": false,
     "condition": "dashboard_ai"
   },
   "insights": {

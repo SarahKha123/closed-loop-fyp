@@ -110,7 +110,8 @@ export function RigSchematic({ overview, className = "" }: { overview: Overview 
         ))}
         </div>
       </div>
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-line px-4 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-line px-4 py-3">
+        <span className="text-xs font-medium text-ink-faint" title="Every number on the drawing comes from the models">Predicted</span>
         <Count label="Critical" value={v(k?.critical)} tone={k?.critical ? "text-critical-text" : "text-ink"} />
         <Count label="Degraded" value={v(k?.degraded)} tone={k?.degraded ? "text-warning-text" : "text-ink"} />
         <Count label="Optimal" value={v(k?.optimal)} />
