@@ -10,15 +10,17 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import (
@@ -89,6 +91,26 @@ app = FastAPI(
     description="Local model picker + Advisor chat API for the Closed Loop dashboard.",
 )
 
+class OriginVerify:
+    """On AWS, refuse /api requests that didn't come through CloudFront (it adds X-Origin-Verify: infra/main.tf),
+    so the load balancer's public address can't be used to go around it. /api/health stays open for the
+    load balancer's health check. Off when ORIGIN_VERIFY isn't set (local runs, tests)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        secret = os.environ.get("ORIGIN_VERIFY", "")
+        path = scope.get("path", "")
+        if secret and scope["type"] == "http" and path.startswith("/api") and path != "/api/health":
+            got = dict(scope["headers"]).get(b"x-origin-verify", b"")
+            if not hmac.compare_digest(got, secret.encode()):
+                await JSONResponse({"detail": "Use the app's address."}, status_code=403)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(OriginVerify)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

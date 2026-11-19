@@ -1,9 +1,8 @@
 """Email: work orders that open, new sign-ups for the admins, and approval decisions for the applicant.
 
-Sent through Brevo's HTTPS API when BREVO_API_KEY is set (Render's free plan blocks outbound SMTP),
-otherwise through Gmail's SMTP server with an App Password (SMTP_APP_PASSWORD). The sender address
-is SMTP_USER either way (for Brevo, a sender verified in Brevo). Recipients are accounts, never a
-fixed list:
+Sent through Gmail's SMTP server (port 587, STARTTLS) as SMTP_USER, signed in with a Google App
+Password (SMTP_APP_PASSWORD). AWS only throttles port 25, so this works from ECS as it does locally.
+Recipients are accounts, never a fixed list:
 
     work order opened    every active user with "Email me when a work order opens" on (their own switch)
     someone signed up    every active admin
@@ -30,7 +29,6 @@ import threading
 from email.message import EmailMessage
 from typing import Any
 
-import httpx
 
 from . import events, repo, settings, work_orders
 
@@ -38,7 +36,6 @@ log = logging.getLogger(__name__)
 
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587  # STARTTLS
-BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 SUBJECT_PREFIX = "[Closed Loop]"
 
 
@@ -52,13 +49,9 @@ def _sender() -> tuple[str, str]:
     return user, password
 
 
-def _brevo_key() -> str:
-    return os.environ.get("BREVO_API_KEY", "").strip()
-
-
 def configured() -> bool:
     user, password = _sender()
-    return bool(user and (password or _brevo_key()))
+    return bool(user and password)
 
 
 def should_send(event: dict[str, Any]) -> bool:
@@ -97,12 +90,9 @@ def send(msg: EmailMessage, to: list[str]) -> None:
     """Send to `to`, each address in Bcc so recipients don't see each other. Blocking: call it off the event loop."""
     user, password = _sender()
     if not configured():
-        raise NotifyError("email isn't set up: add SMTP_USER and BREVO_API_KEY (or SMTP_APP_PASSWORD) to .env, then restart")
+        raise NotifyError("email isn't set up: add SMTP_USER and SMTP_APP_PASSWORD to .env, then restart")
     if not to:
         raise NotifyError("nobody to send to")
-    if _brevo_key():
-        _send_brevo(msg, user, to)
-        return
     msg["From"], msg["To"], msg["Bcc"] = f"Closed Loop <{user}>", f"Closed Loop <{user}>", ", ".join(to)
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
@@ -117,27 +107,6 @@ def send(msg: EmailMessage, to: list[str]) -> None:
             smtp.send_message(msg)
     except (smtplib.SMTPException, OSError) as exc:
         raise NotifyError(f"could not send: {exc}") from exc
-
-
-def _send_brevo(msg: EmailMessage, user: str, to: list[str]) -> None:
-    """The same email through Brevo's API: to the sender, everyone else in Bcc."""
-    body = {
-        "sender": {"name": "Closed Loop", "email": user},
-        "to": [{"email": user, "name": "Closed Loop"}],
-        "bcc": [{"email": a} for a in to],
-        "subject": msg["Subject"],
-        "textContent": msg.get_content(),
-    }
-    try:
-        res = httpx.post(BREVO_URL, json=body, headers={"api-key": _brevo_key()}, timeout=15)
-    except httpx.HTTPError as exc:
-        raise NotifyError(f"could not reach Brevo: {exc}") from exc
-    if res.status_code >= 400:
-        try:
-            why = res.json().get("message", res.text)
-        except ValueError:
-            why = res.text
-        raise NotifyError(f"Brevo refused the email ({res.status_code}): {why}")
 
 
 def _plain(subject: str, *lines: str) -> EmailMessage:

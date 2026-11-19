@@ -31,9 +31,8 @@
 </p>
 
 <p align="center">
-  <img alt="Vercel" src="https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white">
-  <img alt="Render" src="https://img.shields.io/badge/Render-46E3B7?style=flat&logo=render&logoColor=1D1E1D">
-  <img alt="Supabase" src="https://img.shields.io/badge/Supabase-3FCF8E?style=flat&logo=supabase&logoColor=white">
+  <img alt="AWS" src="https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazonwebservices&logoColor=white">
+  <img alt="Terraform" src="https://img.shields.io/badge/Terraform-7B42BC?style=flat&logo=terraform&logoColor=white">
   <img alt="GitHub Actions" src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat&logo=githubactions&logoColor=white">
 </p>
 
@@ -141,12 +140,13 @@ Ctrl-C stops everything the command started. Something not working? See
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/architecture-dark.png">
-  <img src="docs/img/architecture.png" alt="Architecture diagram: a user reaches the React dashboard on Vercel over HTTPS; Vercel forwards /api and the SSE stream to FastAPI on Render, which scores cycles with scikit-learn models and SHAP, asks a cloud LLM for chat and insights, emails work orders through Brevo and stores data in Supabase Postgres; the user signs in with Google; GitHub Actions deploys Vercel and Render and migrates Supabase" width="100%">
+  <img src="docs/img/architecture.png" alt="Architecture diagram: a user reaches Amazon CloudFront over HTTPS; CloudFront serves the dashboard from a private Amazon S3 bucket and sends /api and the SSE stream through an Express Mode load balancer to one AWS Fargate task running FastAPI and the ML models, inside the default VPC with a private Amazon RDS Postgres database; the task calls each user's cloud LLM and sends email through Gmail SMTP; images live in Amazon ECR, secrets in AWS Secrets Manager, logs in Amazon CloudWatch; GitHub Actions pushes images, uploads the dashboard and runs Terraform; users sign in with Google" width="100%">
 </picture>
 
-- **Frontend: Vercel.** The React/Vite dashboard. The browser uses the Vercel URL as its single origin; Vercel forwards `/api/*` to Render (`frontend/vercel.json`).
-- **Backend: Render.** One FastAPI process runs the replay, the four scoring models with SHAP, the monitor, work orders, the insight engine, the grounding check and the chat tools. The models are trained during the Render build.
-- **Database: Supabase.** Postgres in production; locally, without `DATABASE_URL`, the backend uses SQLite (`config/closed_loop.db`).
+- **Frontend: S3 behind CloudFront.** The React/Vite dashboard. The browser uses the CloudFront URL as its single origin; CloudFront forwards `/api/*` to the backend (`infra/main.tf`).
+- **Backend: ECS Express Mode (Fargate).** One FastAPI container runs the replay, the four scoring models with SHAP, the monitor, work orders, the insight engine, the grounding check and the chat tools. The models are trained when the image is built (`backend/Dockerfile`).
+- **Database: RDS Postgres.** Private, in the same region; locally, without `DATABASE_URL`, the backend uses SQLite (`config/closed_loop.db`).
+- **Email: Gmail SMTP.** Work orders, sign-ups and approvals go out through a Gmail account's App Password.
 - **AI: the user's own key.** Every key belongs to a user and is encrypted at rest; there is no server key.
 - **Delivery: GitHub Actions.** Runs the checks, applies migrations, and deploys each side by hand.
 
@@ -242,12 +242,12 @@ More detail (every module, the tables, model selection, secrets): **[docs/ARCHIT
 | Layer | Choice |
 |---|---|
 | Frontend | Vite, React 19, TypeScript, TanStack Router (file-based routes), Tailwind CSS v4, pnpm |
-| Backend | FastAPI, httpx, psutil; SQLite locally, Postgres (Supabase) in production |
+| Backend | FastAPI, httpx, psutil; SQLite locally, Postgres (RDS) in production |
 | ML | scikit-learn, imbalanced-learn, XGBoost, SHAP |
 | AI | Any OpenAI-compatible chat API, one key per user (Fernet-encrypted) |
 | Auth | Email + password (scrypt) and Google sign-in; server-side sessions |
-| Email | Brevo over HTTPS (Gmail SMTP locally) |
-| Hosting | Vercel (dashboard) · Render (API) · Supabase (Postgres) |
+| Email | Gmail SMTP (App Password) |
+| Hosting | AWS: CloudFront + S3 (dashboard) · ECS Express Mode (API) · RDS Postgres, all in Terraform (`infra/`) |
 | CI / CD | GitHub Actions: checks, database migrations, hand-started deploys |
 
 </div>
@@ -256,9 +256,10 @@ More detail (every module, the tables, model selection, secrets): **[docs/ARCHIT
 
 ## Deploying
 
-The frontend goes to **Vercel**, the backend to **Render** and the database to **Supabase**
-(Postgres), each deployed on its own by a GitHub Actions workflow you start by hand, after the
-checks pass. Database migrations apply themselves when a migration file changes. Step by step:
+Everything runs on **AWS** (Singapore), built by Terraform in [`infra/`](infra/): the dashboard on
+S3 behind CloudFront, the API on ECS Express Mode, the database on RDS Postgres. Each side is
+deployed on its own by a GitHub Actions workflow you start by hand, after the checks pass. GitHub
+reaches AWS through OIDC, so no AWS keys are stored anywhere. Step by step:
 **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 <div align="center">
@@ -266,13 +267,79 @@ checks pass. Database migrations apply themselves when a migration file changes.
 | Workflow | What it does |
 |---|---|
 | `checks.yml` | Backend tests (trains the models first), frontend type check and lint |
-| `database.yml` | Applies Supabase migrations when a migration file changes |
-| `deploy-frontend.yml` | Deploys the dashboard to Vercel |
-| `deploy-backend.yml` | Triggers the Render deploy hook (auto-deploy is off) |
+| `infra.yml` | Terraform plan on pull requests touching `infra/`; plan and apply when you run it |
+| `deploy-frontend.yml` | Builds the dashboard, uploads it to S3, refreshes CloudFront |
+| `deploy-backend.yml` | Builds the API image, pushes it to ECR, rolls ECS onto it (migrations run as it starts) |
 
 </div>
 
 Locally nothing changes: without `DATABASE_URL` the backend keeps using SQLite.
+
+### Cost
+
+What this setup costs to run for a month, on-demand, in `ap-southeast-1` (Singapore). Unit prices are
+from AWS's published price list for the region (November 2026); a month is 730 hours. Prices change, so
+check the [AWS Pricing Calculator](https://calculator.aws/) before relying on them.
+
+**Always on (billed every hour, whether anyone uses the app or not)**
+
+| # | Item | What's running | Unit price | Calculation | USD / month |
+|---|---|---|---|---|---:|
+| 1 | Fargate vCPU | 1 task × 0.5 vCPU (`infra/main.tf`: `cpu = "512"`) | $0.05056 per vCPU-hour | 0.5 × 0.05056 × 730 | 18.45 |
+| 2 | Fargate memory | 1 task × 1 GB (`memory = "1024"`) | $0.00553 per GB-hour | 1 × 0.00553 × 730 | 4.04 |
+| 3 | Load balancer (Express Mode's ALB) | 1 Application Load Balancer | $0.0252 per hour | 0.0252 × 730 | 18.40 |
+| 4 | Load balancer capacity | ~0.5 LCU on average (light traffic, a few open SSE streams) | $0.008 per LCU-hour | 0.5 × 0.008 × 730 | 2.92 |
+| 5 | Public IPv4 addresses | 3 for the load balancer (one per subnet of the default VPC) + 1 for the task | $0.005 per address-hour | 4 × 0.005 × 730 | 14.60 |
+| 6 | RDS instance | db.t4g.micro, PostgreSQL, Single-AZ | $0.025 per hour | 0.025 × 730 | 18.25 |
+| 7 | RDS storage | 20 GB gp3 (`allocated_storage = 20`) | $0.138 per GB-month | 20 × 0.138 | 2.76 |
+| 8 | Secrets Manager | 2 secrets (`closed-loop/api`, `closed-loop/db`) | $0.40 per secret-month | 2 × 0.40 | 0.80 |
+| | **Subtotal** | | | | **80.22** |
+
+**Usage-based (small at FYP traffic)**
+
+| # | Item | Assumption | Unit price | Calculation | USD / month |
+|---|---|---|---|---|---:|
+| 9 | ECR image storage | 10 images kept × ~0.8 GB (Python + scikit-learn, XGBoost, SHAP, trained models) | $0.10 per GB-month | 8 × 0.10 | 0.80 |
+| 10 | CloudWatch Logs | ~0.5 GB written, kept 14 days | $0.70 per GB ingested + $0.03 per GB-month stored | 0.5 × 0.70 + 0.25 × 0.03 | 0.36 |
+| 11 | CloudWatch alarm | 1 alarm (only with `ALERT_EMAIL` set) | $0.10 per alarm-month | 1 × 0.10 | 0.10 |
+| 12 | Secrets Manager API calls | a few reads per task start | $0.05 per 10,000 | — | 0.00 |
+| 13 | S3 (dashboard) | ~5 MB stored, requests come through CloudFront | $0.025 per GB-month | — | 0.00 |
+| 14 | CloudFront | well under 1 TB out and 10 M requests (always-free tier); the SPA function is under 2 M invocations | free tier | — | 0.00 |
+| 15 | Data transfer | load balancer → CloudFront is free; calls to the LLM and Gmail are tiny and inside the 100 GB/month free allowance | free tier | — | 0.00 |
+| 16 | SNS email, AWS Budgets, KMS | first 1,000 emails, first 2 budgets and AWS-managed keys are free | free | — | 0.00 |
+| 17 | Terraform state bucket | a few KB in S3 | — | — | 0.00 |
+| | **Subtotal** | | | | **1.26** |
+
+| | USD |
+|---|---:|
+| **Per month** | **≈ 81.48** |
+| Per day | ≈ 2.68 |
+| A 3-month FYP demo period | ≈ 244 |
+| A 6-month period | ≈ 489 |
+
+CloudWatch's free tier (5 GB of logs and 10 alarms a month) usually brings items 10 and 11 to $0. Outside
+AWS, nothing is billed: Gmail SMTP is free (about 500 emails a day), GitHub Actions is free for public
+repositories (2,000 minutes a month for private ones), and LLM calls are paid by each user on their own key.
+
+**Where the money goes:** the load balancer and its IPv4 addresses (items 3–5, ≈ $35.92) and the database
+(items 6–7, ≈ $21.01) cost more than the app itself (items 1–2, ≈ $22.49). The load balancer and addresses
+are the price of ECS Express Mode's managed HTTPS.
+
+**Ways to pay less**
+
+| Option | Saves per month | Trade-off |
+|---|---:|---|
+| New-account credits | up to $200 in total | New AWS accounts get Free Tier credits for their first months |
+| Scale the task to 0 between demos (`min_task_count = max_task_count = 0`, apply) | ≈ $26.14 (items 1, 2 and the task's IPv4) | The app is offline; load balancer and database still bill |
+| Stop the RDS instance between demos (RDS console → Stop) | ≈ $18.25 (storage still bills) | AWS starts it again by itself after 7 days |
+| RDS 1-year reserved instance, no upfront | ≈ 30% of item 6 | A one-year commitment |
+| Arm (Graviton) Fargate: `cpu_architecture = "ARM64"` and build on an Arm runner | ≈ 20% of items 1–2 | XGBoost and SHAP wheels must exist for Arm |
+| One small EC2 instance instead of Express Mode | ≈ $35 (items 3–5) | You manage HTTPS, restarts and deploys yourself |
+
+The budget alert is set to **$100 a month**: it emails at 80% of the forecast and again at 100% actual.
+Nothing in the setup scales by itself (one task, storage capped at 50 GB, logs kept 14 days, 10 images), so
+the only way the bill jumps is a bot flood through CloudFront; an AWS WAF rate rule would stop that for
+about $6 a month.
 
 ---
 
@@ -307,7 +374,7 @@ closed-loop-fyp/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the pieces fit, the closed loop, request flows, design decisions |
 | [docs/API.md](docs/API.md) | Every backend endpoint and live event, with request and response shapes |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, configuration, settings, study mode, evaluation, checks, troubleshooting, extending it |
-| [docs/DEPLOY.md](docs/DEPLOY.md) | Vercel, Render and Supabase, step by step |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | AWS with Terraform, step by step |
 | [docs/DATASET.md](docs/DATASET.md) | The hydraulic dataset: sensors, labels, structure, verification |
 | [docs/FYP_NEW_SCOPE.md](docs/FYP_NEW_SCOPE.md) | The revised FYP topic, chapter by chapter |
 | [backend/ml/README.md](backend/ml/README.md) | The ML pipeline and its results |
