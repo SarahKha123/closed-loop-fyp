@@ -9,7 +9,7 @@ services:
     region: singapore # next to Supabase (ap-southeast-1); can't be changed after creation
     plan: free # 512 MB; the scoring models fit, but watch Metrics → Memory after the first replay
     rootDir: backend
-    # The trained models aren't committed (only their manifest): train them here, on the installed
+    # The trained models aren't committed: train them here, on the installed
     # library versions (requirements are unpinned on purpose). About 1.5 minutes.
     buildCommand: pip install -r requirements.txt && python -m ml.train
     # --proxy-headers: the client's IP comes from X-Forwarded-For (Vercel → Render), for the sign-in audit log.

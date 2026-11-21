@@ -64,3 +64,26 @@ def test_score_pending_reports_condition_changes(fresh_db, model, data):
         "failureProbability": cooler_733["failureProbability"],
     }
     assert repo.condition_since("COOLER-1") == 733
+
+
+def test_stale_reasons(tmp_path):
+    import json
+    from importlib.metadata import version
+
+    stale = predictor_mod.stale_reasons
+    assert stale(tmp_path) == ["no trained models"]
+    manifest = {
+        "feature_names": list(features.FEATURE_NAMES),
+        "libraries": {"pandas": "0.0.0"},
+        "components": {c: {"file": f"{c}.joblib"} for c in labels.COMPONENTS},
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    for c in labels.COMPONENTS:
+        (tmp_path / f"{c}.joblib").touch()
+    assert stale(tmp_path) == [f"pandas 0.0.0 → {version('pandas')}"]
+    manifest["libraries"] = {}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    assert stale(tmp_path) == []
+    (tmp_path / "pump.joblib").unlink()
+    assert stale(tmp_path) == ["model files missing"]
+

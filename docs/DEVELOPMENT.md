@@ -17,12 +17,13 @@ This checks the tools, creates `.env` from `.env.example` (and later adds
 any new keys to an existing `.env`), creates `config/`, installs
 `frontend/node_modules`, creates `backend/.venv` and installs (and upgrades)
 `requirements.txt` and `requirements-dev.txt` into it, trains the four ML
-models if `backend/ml/models/*.joblib` is missing (~2 min, from the committed
+models if they are missing or stale (~2 min, from the committed
 dataset).
 
 Re-running `setup` is safe and is how you update: it upgrades the Python
-packages to their latest releases (the requirements are unpinned, and the
-committed `manifest.json` records the versions the models were trained with).
+packages to their latest releases (the requirements are unpinned). `setup`,
+`start` and `dev` retrain the models whenever the installed library versions
+differ from the ones in `backend/ml/models/manifest.json`.
 
 Then open the app, go to **AI model**, add a key for one provider, *Test
 connection*, pick a model and press *Use*.

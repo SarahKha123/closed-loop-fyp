@@ -33,7 +33,7 @@ cd backend
 | `evaluate.py` | Repeated stratified 5-fold × 3 (15 folds), macro-F1, macro PR-AUC, paired t-test, Cohen's d, held-out confusion matrices |
 | `train.py` | Picks the best model per component, refits on all data, saves it, computes SHAP |
 | `dataset_report.py` | The statistics and figures quoted in `docs/DATASET.md` |
-| `models/` | `<component>.joblib` (gitignored — rebuilt with `train`; `./closed-loop.sh setup` does it when missing) + `manifest.json` (committed; records the library versions used) |
+| `models/` | `<component>.joblib` + `manifest.json` (records the library versions used); gitignored — rebuilt with `train`, which `./closed-loop.sh setup`/`start`/`dev` run when they're missing or the installed versions differ |
 | `results/` | `metrics.md` (the Table 4.2/4.3 equivalents), `metrics.csv`, `cv_scores.csv` (every fold), `shap_<component>.png` |
 
 ## Dependencies are unpinned
@@ -41,8 +41,8 @@ cd backend
 `backend/requirements.txt` lists package names only, so the project keeps
 installing as libraries move on. The trained models are the part that's
 version-sensitive, so they're never committed: **after upgrading any ML
-library, run `python -m ml.train` again.** `models/manifest.json` records the
-versions the current models were built with.
+library, run `python -m ml.train` again** (`./closed-loop.sh` does it for you).
+`models/manifest.json` records the versions the current models were built with.
 
 `xgboost-cpu` is used instead of `xgboost`: the default wheel is CUDA-built and
 fails on older GPU drivers (e.g. under WSL). The dataset is small, so the CPU is plenty.

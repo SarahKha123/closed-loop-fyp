@@ -44,6 +44,34 @@ class PredictorUnavailable(RuntimeError):
     """The models are missing or don't match the code — the message says how to fix it."""
 
 
+def version_mismatches(manifest: dict) -> list[tuple[str, str, str | None]]:
+    """(package, trained, installed) for each library whose installed version differs from the manifest's."""
+    out = []
+    for package, trained in manifest.get("libraries", {}).items():
+        try:
+            installed = version(package)
+        except PackageNotFoundError:
+            installed = None
+        if installed != trained:
+            out.append((package, trained, installed))
+    return out
+
+
+def stale_reasons(models_dir=MODELS_DIR) -> list[str]:
+    """Why the saved models need retraining; empty when they're current. closed-loop.sh retrains on any."""
+    path = models_dir / "manifest.json"
+    if not path.exists():
+        return ["no trained models"]
+    manifest = json.loads(path.read_text())
+    reasons = [f"{p} {t} → {i}" for p, t, i in version_mismatches(manifest)]
+    if manifest.get("feature_names") != list(ml_features.FEATURE_NAMES):
+        reasons.append("feature list changed")
+    comps = manifest.get("components", {})
+    if any(c not in comps or not (models_dir / comps[c]["file"]).exists() for c in ml_labels.COMPONENTS):
+        reasons.append("model files missing")
+    return reasons
+
+
 @dataclass
 class _Model:
     component: str
@@ -61,7 +89,10 @@ class Predictor:
         if self.manifest.get("feature_names") != list(ml_features.FEATURE_NAMES):
             raise PredictorUnavailable("models were trained on different features — run `python -m ml.train` again")
         self.classes: list[str] = self.manifest["classes"]
-        self.version_warnings = self._check_versions()
+        self.version_warnings = [
+            f"models were trained with {p} {t}, installed is {i} — re-run `python -m ml.train` if predictions look wrong"
+            for p, t, i in version_mismatches(self.manifest)
+        ]
         for w in self.version_warnings:
             log.warning("predictor: %s", w)
 
@@ -74,18 +105,6 @@ class Predictor:
             pipe = joblib.load(path)
             self.models.append(_Model(comp, info["model"], pipe, shap.TreeExplainer(pipe.named_steps["clf"])))
         self.model_version = f"{self.manifest['trained_at']}"
-
-    def _check_versions(self) -> list[str]:
-        out = []
-        for package, trained in self.manifest.get("libraries", {}).items():
-            try:
-                installed = version(package)
-            except PackageNotFoundError:
-                installed = None
-            if installed != trained:
-                out.append(f"models were trained with {package} {trained}, installed is {installed} — "
-                           "re-run `python -m ml.train` if predictions look wrong")
-        return out
 
     def info(self) -> dict[str, Any]:
         return {

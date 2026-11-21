@@ -36,7 +36,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      # The trained models aren't committed (only their manifest): train them, as Render's build does,
+      # The trained models aren't committed: train them, as Render's build does,
       # so the predictor, monitor and study tests run instead of skipping.
       - run: python -m ml.train
       - run: python -m pytest -q

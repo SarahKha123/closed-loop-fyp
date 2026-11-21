@@ -46,8 +46,9 @@ config/.cloud-*.tmp
 # The app database. (backend/data/hydraulic_condition_monitoring_summary.csv IS committed: it is the dataset.)
 config/closed_loop.db*
 
-# Trained models: rebuilt by `python -m ml.train` (from backend/) (~1.5 min); the manifest and results are committed
-backend/ml/models/*.joblib
+# Trained models + their manifest: rebuilt by `python -m ml.train` (from backend/) (~1.5 min) on each
+# machine, since they depend on its library versions; the results are committed
+backend/ml/models/
 .taste-skill/
 
 # Google OAuth client downloads (hold the client secret)

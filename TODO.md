@@ -54,7 +54,7 @@ Status: **Built** · **Partial** · **—** not started.
 | Training: baseline, LR, RF, XGBoost with SMOTE in folds | Built | M1 |
 | Evaluation reproducing FYP1 Table 4.2 | Built (±0.005) | M1 |
 | SHAP for all four components | Built | M1 |
-| Saved models + manifest; trained by `setup` when missing | Built | M1, M12 |
+| Saved models + manifest; trained by `setup`/`start`/`dev` when missing or stale | Built | M1, M12 |
 
 **Live pipeline**
 

@@ -70,14 +70,7 @@ cmd_setup() {
   $PY -m pip install --quiet --upgrade -r backend/requirements.txt -r backend/requirements-dev.txt
   ok "python packages installed"
 
-  head_ "ML models"
-  # Trained models aren't committed; build them once from the committed dataset (~2 min).
-  if ls backend/ml/models/*.joblib >/dev/null 2>&1; then
-    ok "trained models present"
-  else
-    (cd backend && .venv/bin/python -m ml.train) || fail "model training failed — the output above says why"
-    ok "models trained"
-  fi
+  ensure_models
 
   head_ "Done"
   say "  ${DIM}Run it:${RESET}      ./closed-loop.sh start"
@@ -85,11 +78,26 @@ cmd_setup() {
   say ""
 }
 
+# Trained models aren't committed: (re)build them from the committed dataset (~2 min)
+# when missing or trained on other library versions than the installed ones.
+ensure_models() {
+  head_ "ML models"
+  local why
+  why=$(cd backend && .venv/bin/python -c \
+    "from app.services.predictor import stale_reasons; print(', '.join(stale_reasons()))") \
+    || fail "couldn't check the trained models — the output above says why"
+  if [ -z "$why" ]; then ok "trained models match the installed libraries"; return; fi
+  say "  $why: retraining models (~2 min)"
+  (cd backend && .venv/bin/python -m ml.train) || fail "model training failed — the output above says why"
+  ok "models trained"
+}
+
 need_setup() {
   $PY -c "import uvicorn" 2>/dev/null || fail "backend/.venv missing or broken — run './closed-loop.sh setup' first"
   [ -d frontend/node_modules ] || fail "frontend/node_modules missing — run './closed-loop.sh setup' first"
   ensure_env
   ensure_dirs
+  ensure_models
 }
 
 cmd_start() {
